@@ -79,7 +79,7 @@ export function PlacePicker({ value, onChange, onClose }: PlacePickerProps) {
   const tabs: { id: Tab; label: string }[] = [
     { id: 'nearby', label: 'Nearby' },
     { id: 'recent', label: 'Recent' },
-    { id: 'favorites', label: 'Favorites' },
+    { id: 'favorites', label: 'Saved' },
     { id: 'search', label: 'Search' },
     { id: 'new', label: 'Add New' },
   ]

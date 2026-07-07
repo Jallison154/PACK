@@ -104,14 +104,14 @@ export function PlaceDetailPage() {
           </Card>
           <Card className="!p-3">
             <p className="text-xl font-bold">{place.interactionCount}</p>
-            <p className="text-pack-text-muted text-xs">Interactions</p>
+            <p className="text-pack-text-muted text-xs">Trail entries</p>
           </Card>
         </div>
 
         {metHere.length > 0 && (
           <div>
             <h3 className="text-pack-text-secondary mb-3 flex items-center gap-2 text-sm font-semibold uppercase">
-              <Users className="h-4 w-4" /> People Met Here
+              <Users className="h-4 w-4" /> Pack Members Met Here
             </h3>
             <div className="space-y-2">
               {metHere.map((p) => (
@@ -136,10 +136,10 @@ export function PlaceDetailPage() {
 
         <Card>
           <h3 className="text-pack-text-secondary mb-3 text-sm font-semibold uppercase">
-            Interaction Timeline
+            Memory Trail
           </h3>
           {interactions.length === 0 ? (
-            <p className="text-pack-text-muted text-sm">No interactions at this place yet</p>
+            <p className="text-pack-text-muted text-sm">No trails at this place yet</p>
           ) : (
             <div className="space-y-3">
               {interactions.map((i) => (

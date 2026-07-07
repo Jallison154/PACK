@@ -25,7 +25,7 @@ export function PasscodeGate({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="bg-pack-bg flex min-h-dvh items-center justify-center p-6">
+    <div className="flex min-h-dvh items-center justify-center p-6">
       <motion.form
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

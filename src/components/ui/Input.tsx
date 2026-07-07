@@ -17,7 +17,7 @@ export function Input({ label, error, className = '', id, ...props }: InputProps
       )}
       <input
         id={inputId}
-        className={`bg-pack-card border-pack-border text-pack-text placeholder:text-pack-text-muted focus:border-pack-accent focus:ring-pack-accent/30 w-full rounded-xl border px-4 py-3.5 text-base outline-none transition-colors focus:ring-2 ${error ? 'border-pack-danger' : ''} ${className}`}
+        className={`pack-inset text-pack-text placeholder:text-pack-text-muted w-full px-4 py-3.5 text-base transition-colors ${error ? 'border-pack-danger' : ''} ${className}`}
         {...props}
       />
       {error && <p className="text-pack-danger text-sm">{error}</p>}
@@ -41,7 +41,7 @@ export function Textarea({ label, className = '', id, ...props }: TextareaProps)
       )}
       <textarea
         id={inputId}
-        className={`bg-pack-card border-pack-border text-pack-text placeholder:text-pack-text-muted focus:border-pack-accent focus:ring-pack-accent/30 w-full resize-none rounded-xl border px-4 py-3.5 text-base outline-none transition-colors focus:ring-2 ${className}`}
+        className={`pack-inset text-pack-text placeholder:text-pack-text-muted w-full resize-none px-4 py-3.5 text-base transition-colors ${className}`}
         rows={3}
         {...props}
       />
@@ -66,7 +66,7 @@ export function Select({ label, options, className = '', id, ...props }: SelectP
       )}
       <select
         id={inputId}
-        className={`bg-pack-card border-pack-border text-pack-text focus:border-pack-accent focus:ring-pack-accent/30 w-full appearance-none rounded-xl border px-4 py-3.5 text-base outline-none transition-colors focus:ring-2 ${className}`}
+        className={`pack-inset text-pack-text w-full appearance-none px-4 py-3.5 text-base transition-colors ${className}`}
         {...props}
       >
         <option value="">Select...</option>

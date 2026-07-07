@@ -1,4 +1,4 @@
-import { getInitials } from '../../utils/colors'
+import { getInitials, DEFAULT_PROFILE_COLOR } from '../../utils/colors'
 
 interface AvatarProps {
   name: string
@@ -12,7 +12,7 @@ const sizes = {
   lg: 'h-16 w-16 text-xl',
 }
 
-export function Avatar({ name, color = '#F7941D', size = 'md' }: AvatarProps) {
+export function Avatar({ name, color = DEFAULT_PROFILE_COLOR, size = 'md' }: AvatarProps) {
   return (
     <div
       className={`flex shrink-0 items-center justify-center rounded-full font-bold text-white ${sizes[size]}`}

@@ -15,9 +15,8 @@ export function Timeline({ interactions, meetingLabel }: TimelineProps) {
     ...interactions.map((i) => ({
       id: i.id,
       date: i.date,
-      label: i.notes || i.event || getInteractionTypeLabel(i.interactionType) || 'Interaction',
+      label: i.notes || i.event || getInteractionTypeLabel(i.interactionType) || 'Memory',
       location: i.location,
-      interactionType: i.interactionType,
       followUp: i.nextFollowUp,
       isMeeting: false,
     })),
@@ -25,39 +24,36 @@ export function Timeline({ interactions, meetingLabel }: TimelineProps) {
 
   if (items.length === 0) {
     return (
-      <p className="text-pack-text-muted py-4 text-center text-sm">No interactions yet</p>
+      <p className="text-pack-text-muted py-2 text-center text-sm">No memories yet</p>
     )
   }
 
   return (
     <div className="space-y-0">
       {items.map((item, index) => (
-        <div key={item.id} className="flex gap-4">
+        <div key={item.id} className="flex gap-3">
           <div className="flex flex-col items-center">
             <div
-              className={`h-3 w-3 shrink-0 rounded-full ${
+              className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
                 'isMeeting' in item && item.isMeeting ? 'bg-pack-accent' : 'bg-pack-border'
               }`}
             />
             {index < items.length - 1 && (
-              <div className="bg-pack-border my-1 w-0.5 flex-1 min-h-[24px]" />
+              <div className="bg-pack-border/60 my-1 w-px flex-1 min-h-[20px]" />
             )}
           </div>
-          <div className="pb-6">
-            <p className="text-pack-text font-medium">{item.label}</p>
+          <div className="pb-5">
+            <p className="text-pack-text text-[15px] leading-snug">{item.label}</p>
             {item.date && (
-              <p className="text-pack-text-muted text-sm">{formatDate(item.date)}</p>
-            )}
-            {'interactionType' in item && item.interactionType && (
-              <p className="text-pack-text-secondary text-xs">
-                {getInteractionTypeLabel(item.interactionType)}
-              </p>
+              <p className="text-pack-text-muted mt-0.5 text-xs">{formatDate(item.date)}</p>
             )}
             {'location' in item && item.location && (
-              <p className="text-pack-text-secondary text-sm">Last seen at: {item.location}</p>
+              <p className="text-pack-text-muted mt-0.5 text-xs">{item.location}</p>
             )}
             {'followUp' in item && item.followUp && (
-              <p className="text-pack-accent text-sm">Follow up: {formatDate(item.followUp)}</p>
+              <p className="text-pack-text-muted mt-0.5 text-xs">
+                Reconnect {formatDate(item.followUp)}
+              </p>
             )}
           </div>
         </div>

@@ -133,17 +133,27 @@ export async function getRecentLocations(workspace: Workspace): Promise<string[]
   return rows.map((r) => r.loc).filter(Boolean)
 }
 
-export async function getUpcomingFollowUps(workspace: Workspace): Promise<InteractionWithPerson[]> {
+export async function getUpcomingFollowUps(workspace?: Workspace): Promise<InteractionWithPerson[]> {
   const today = format(new Date(), 'yyyy-MM-dd')
-  const rows = await db.query(
-    `SELECT i.*, p.name as person_name, p.workspace
-     FROM interactions i
-     JOIN people p ON p.id = i.person_id
-     WHERE p.workspace = ? AND p.deleted_at IS NULL
-     AND i.next_follow_up IS NOT NULL AND i.next_follow_up >= ?
-     ORDER BY i.next_follow_up ASC LIMIT 10`,
-    [workspace, today],
-  )
+  const rows = workspace
+    ? await db.query(
+        `SELECT i.*, p.name as person_name, p.workspace
+         FROM interactions i
+         JOIN people p ON p.id = i.person_id
+         WHERE p.workspace = ? AND p.deleted_at IS NULL
+         AND i.next_follow_up IS NOT NULL AND i.next_follow_up >= ?
+         ORDER BY i.next_follow_up ASC LIMIT 10`,
+        [workspace, today],
+      )
+    : await db.query(
+        `SELECT i.*, p.name as person_name, p.workspace
+         FROM interactions i
+         JOIN people p ON p.id = i.person_id
+         WHERE p.deleted_at IS NULL
+         AND i.next_follow_up IS NOT NULL AND i.next_follow_up >= ?
+         ORDER BY i.next_follow_up ASC LIMIT 10`,
+        [today],
+      )
   return rows.map((row) => ({
     ...rowToInteraction(row),
     personName: row.person_name as string,
@@ -152,17 +162,26 @@ export async function getUpcomingFollowUps(workspace: Workspace): Promise<Intera
 }
 
 export async function getRecentInteractions(
-  workspace: Workspace,
+  workspace?: Workspace,
   limit = 10,
 ): Promise<InteractionWithPerson[]> {
-  const rows = await db.query(
-    `SELECT i.*, p.name as person_name, p.workspace
-     FROM interactions i
-     JOIN people p ON p.id = i.person_id
-     WHERE p.workspace = ? AND p.deleted_at IS NULL
-     ORDER BY i.date DESC LIMIT ?`,
-    [workspace, limit],
-  )
+  const rows = workspace
+    ? await db.query(
+        `SELECT i.*, p.name as person_name, p.workspace
+         FROM interactions i
+         JOIN people p ON p.id = i.person_id
+         WHERE p.workspace = ? AND p.deleted_at IS NULL
+         ORDER BY i.date DESC LIMIT ?`,
+        [workspace, limit],
+      )
+    : await db.query(
+        `SELECT i.*, p.name as person_name, p.workspace
+         FROM interactions i
+         JOIN people p ON p.id = i.person_id
+         WHERE p.deleted_at IS NULL
+         ORDER BY i.date DESC LIMIT ?`,
+        [limit],
+      )
   return rows.map((row) => ({
     ...rowToInteraction(row),
     personName: row.person_name as string,
@@ -179,13 +198,51 @@ export async function getFavoriteByWorkspace(workspace: Workspace): Promise<Pers
   return enrichPeople(rows)
 }
 
-export async function getRecentlyAdded(workspace: Workspace): Promise<PersonWithTags[]> {
-  const rows = await db.query(
-    `SELECT * FROM people WHERE workspace = ? AND deleted_at IS NULL
-     ORDER BY created_at DESC LIMIT 10`,
-    [workspace],
-  )
+export async function getRecentlyAdded(workspace?: Workspace): Promise<PersonWithTags[]> {
+  const rows = workspace
+    ? await db.query(
+        `SELECT * FROM people WHERE workspace = ? AND deleted_at IS NULL
+         ORDER BY created_at DESC LIMIT 10`,
+        [workspace],
+      )
+    : await db.query(
+        `SELECT * FROM people WHERE deleted_at IS NULL
+         ORDER BY created_at DESC LIMIT 10`,
+      )
   return enrichPeople(rows)
+}
+
+export async function getHomeStats(): Promise<{
+  people: number
+  companies: number
+  followUps: number
+  places: number
+}> {
+  const today = format(new Date(), 'yyyy-MM-dd')
+  const [people, companies, followUps, places] = await Promise.all([
+    db.query<{ count: number }>(
+      `SELECT COUNT(*) as count FROM people WHERE deleted_at IS NULL`,
+    ),
+    db.query<{ count: number }>(
+      `SELECT COUNT(DISTINCT company) as count FROM people
+       WHERE company IS NOT NULL AND company != '' AND deleted_at IS NULL`,
+    ),
+    db.query<{ count: number }>(
+      `SELECT COUNT(*) as count FROM interactions i
+       JOIN people p ON p.id = i.person_id
+       WHERE p.deleted_at IS NULL
+       AND i.next_follow_up IS NOT NULL AND i.next_follow_up >= ?`,
+      [today],
+    ),
+    db.query<{ count: number }>(`SELECT COUNT(*) as count FROM places`),
+  ])
+
+  return {
+    people: people[0]?.count ?? 0,
+    companies: companies[0]?.count ?? 0,
+    followUps: followUps[0]?.count ?? 0,
+    places: places[0]?.count ?? 0,
+  }
 }
 
 export async function getPeopleByRelationship(

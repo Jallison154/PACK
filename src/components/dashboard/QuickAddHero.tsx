@@ -13,7 +13,7 @@ export function QuickAddHero({ compact }: QuickAddHeroProps) {
     return (
       <Button className="pack-glow w-full" size="lg" onClick={() => navigate('/add')}>
         <Plus className="h-5 w-5" />
-        Quick Add Person
+        Add to Pack
       </Button>
     )
   }
@@ -22,11 +22,11 @@ export function QuickAddHero({ compact }: QuickAddHeroProps) {
     <div className="border-pack-accent/25 bg-pack-accent-muted/40 rounded-xl border p-5 text-center">
       <p className="text-pack-text mb-1 text-lg font-semibold">Meet someone new?</p>
       <p className="text-pack-text-secondary mb-4 text-sm">
-        Capture a person in under 10 seconds
+        Capture a new connection in seconds.
       </p>
       <Button className="pack-glow mx-auto w-full max-w-sm" size="lg" onClick={() => navigate('/add')}>
         <Plus className="h-5 w-5" />
-        Quick Add Person
+        Add to Pack
       </Button>
     </div>
   )

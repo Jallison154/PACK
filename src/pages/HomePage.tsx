@@ -1,149 +1,196 @@
-import { useState, useEffect, useCallback } from 'react'
-import { CalendarClock } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
-import { SearchBar } from '../components/ui/SearchBar'
-import { FAB } from '../components/ui/FAB'
-import { WorkspaceToggle } from '../components/ui/WorkspaceToggle'
-import { PackLogo } from '../components/brand/PackLogo'
-import { PersonCard } from '../components/person/PersonCard'
-import { QuickAddHero } from '../components/dashboard/QuickAddHero'
-import { WeekSummary } from '../components/dashboard/WeekSummary'
-import { SectionHeader } from '../components/ui/SectionHeader'
-import { EmptyState } from '../components/ui/EmptyState'
-import { Card } from '../components/ui/Card'
-import { getRecentPeople } from '../db/repositories/people'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  getWeeklySummary,
-  getFavoriteByWorkspace,
+  motion,
+  useMotionValueEvent,
+  useScroll,
+  useTransform,
+  type MotionValue,
+} from 'framer-motion'
+import { PackLogo } from '../components/brand/PackLogo'
+import { QuickCapture } from '../components/home/QuickCapture'
+import { HomeExploreIndicator } from '../components/home/HomeExploreIndicator'
+import { HomeScrollContent, type HomeScrollData } from '../components/home/HomeScrollContent'
+import {
+  getRecentlyAdded,
+  getRecentInteractions,
   getUpcomingFollowUps,
+  getHomeStats,
 } from '../db/repositories/dashboard'
-import { useWorkspace } from '../context/WorkspaceContext'
-import { WORKSPACES } from '../types'
-import { formatDate } from '../utils/format'
-import type { PersonWithTags, InteractionWithPerson } from '../types'
+import { getRecentPlaces } from '../db/repositories/places'
+import { listPackMembers } from '../db/repositories/people'
+import { getGreeting } from '../utils/greeting'
+import { buildMemoryFeed, filterTodayTrail } from '../utils/memoryFeed'
 
-export function HomePage() {
-  const navigate = useNavigate()
-  const { workspace, setWorkspace } = useWorkspace()
-  const [search, setSearch] = useState('')
-  const [people, setPeople] = useState<PersonWithTags[]>([])
-  const [favorites, setFavorites] = useState<PersonWithTags[]>([])
-  const [followUps, setFollowUps] = useState<InteractionWithPerson[]>([])
-  const [weekly, setWeekly] = useState<Awaited<ReturnType<typeof getWeeklySummary>> | null>(null)
-  const [loading, setLoading] = useState(true)
+const emptyScrollData: HomeScrollData = {
+  todayTrail: [],
+  followUps: [],
+  recentPlaces: [],
+  corePack: [],
+  insights: { people: 0, places: 0, companies: 0, followUps: 0 },
+}
 
-  const loadPeople = useCallback(async () => {
-    setLoading(true)
-    const [data, fav, fu, week] = await Promise.all([
-      getRecentPeople(workspace, 20),
-      getFavoriteByWorkspace(workspace),
-      getUpcomingFollowUps(workspace),
-      getWeeklySummary(workspace),
-    ])
-    setPeople(data)
-    setFavorites(fav.slice(0, 5))
-    setFollowUps(fu.slice(0, 4))
-    setWeekly(week)
-    setLoading(false)
-  }, [workspace])
-
+function useViewportHeight() {
+  const [height, setHeight] = useState(
+    () => (typeof window !== 'undefined' ? window.innerHeight : 800),
+  )
   useEffect(() => {
-    loadPeople()
-  }, [loadPeople])
+    const update = () => setHeight(window.innerHeight)
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [])
+  return height
+}
 
-  const wsLabel = WORKSPACES.find((w) => w.value === workspace)?.label ?? workspace
-  const recent = people.filter((p) => !p.isFavorite).slice(0, 8)
+interface MorphingChromeProps {
+  progress: MotionValue<number>
+  onCreated: () => void
+}
+
+function MorphingChrome({ progress, onCreated }: MorphingChromeProps) {
+  const greetingOpacity = useTransform(progress, [0, 0.3], [1, 0])
+  const greetingY = useTransform(progress, [0, 0.35], [0, -32])
+  const logoScale = useTransform(progress, [0, 0.55, 1], [1, 0.78, 0.65])
+  const logoY = useTransform(progress, [0, 0.55, 1], [0, -120, -200])
+  const logoX = useTransform(progress, [0, 0.55, 1], [0, -120, -140])
+
+  const searchY = useTransform(progress, [0, 0.55, 1], [0, -280, -320])
+  const searchScale = useTransform(progress, [0, 0.55, 1], [1, 0.96, 0.94])
+  const searchWidth = useTransform(progress, [0.5, 1], ['100%', 'calc(100% - 5.5rem)'])
+  const searchMarginLeft = useTransform(progress, [0.5, 1], ['0rem', '5.5rem'])
+
+  const headerBgOpacity = useTransform(progress, [0.45, 0.75], [0, 1])
+
+  const [compact, setCompact] = useState(false)
+  useMotionValueEvent(progress, 'change', (v) => setCompact(v > 0.4))
 
   return (
-    <div className="min-h-dvh">
-      <header className="border-pack-border/60 bg-pack-bg safe-top border-b px-4 pt-3 pb-4">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <PackLogo href="/" size="sm" />
-          <WorkspaceToggle value={workspace} onChange={setWorkspace} size="sm" />
-        </div>
-        <SearchBar
-          embedded
-          value={search}
-          onChange={setSearch}
-          onFocus={() => navigate('/search', { state: { q: search } })}
-          placeholder={`Search ${wsLabel.toLowerCase()} contacts...`}
-        />
-      </header>
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-50 safe-top">
+      <motion.div
+        className="pack-nav pointer-events-none absolute inset-x-0 top-0 border-b backdrop-blur-xl"
+        style={{ opacity: headerBgOpacity }}
+      />
 
-      <div className="space-y-5 px-4 py-4">
-        <QuickAddHero compact />
+      <div className="relative mx-auto h-dvh max-w-lg px-6">
+        {/* Logo */}
+        <motion.div
+          className="pointer-events-auto absolute left-1/2 top-[18%] -translate-x-1/2"
+          style={{ y: logoY, x: logoX, scale: logoScale }}
+        >
+          <PackLogo href="/" size="sm" align="center" />
+        </motion.div>
 
-        <section>
-          <SectionHeader>This Week</SectionHeader>
-          <WeekSummary
-            peopleAdded={weekly?.peopleAdded ?? 0}
-            newCompanies={weekly?.newCompanies ?? 0}
-            newLocations={weekly?.newLocations ?? 0}
-            newEvents={weekly?.newEvents ?? 0}
-            workspace={workspace}
-          />
-        </section>
+        {/* Greeting */}
+        <motion.div
+          className="pointer-events-none absolute top-[30%] left-0 right-0 text-center"
+          style={{ opacity: greetingOpacity, y: greetingY }}
+        >
+          <h1 className="text-pack-text text-[2rem] leading-tight font-semibold tracking-tight">
+            {getGreeting()}
+          </h1>
+        </motion.div>
 
-        <section>
-          <SectionHeader>Recent</SectionHeader>
-          {loading ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-pack-card h-14 animate-pulse rounded-xl" />
-              ))}
-            </div>
-          ) : recent.length === 0 && favorites.length === 0 ? (
-            <Card>
-              <EmptyState
-                message="Add your first person to start building your Pack"
-                hint="Tap Quick Add above"
-              />
-            </Card>
-          ) : (
-            <div className="space-y-2">
-              {recent.map((person, i) => (
-                <PersonCard key={person.id} person={person} index={i} compact />
-              ))}
-            </div>
-          )}
-        </section>
-
-        {favorites.length > 0 && (
-          <section>
-            <SectionHeader>Saved</SectionHeader>
-            <div className="space-y-2">
-              {favorites.map((person, i) => (
-                <PersonCard key={person.id} person={person} index={i} compact />
-              ))}
-            </div>
-          </section>
-        )}
-
-        <section>
-          <SectionHeader>Follow-ups</SectionHeader>
-          <Card padding="sm">
-            {followUps.length === 0 ? (
-              <EmptyState message="No follow-ups yet" icon={<CalendarClock className="h-5 w-5" />} />
-            ) : (
-              <div className="divide-pack-border/60 divide-y">
-                {followUps.map((f) => (
-                  <button
-                    key={f.id}
-                    type="button"
-                    onClick={() => navigate(`/person/${f.personId}`)}
-                    className="hover:bg-pack-card-hover flex w-full items-center justify-between gap-2 rounded-lg px-1 py-2.5 text-left transition-colors"
-                  >
-                    <span className="text-pack-text truncate text-sm font-medium">{f.personName}</span>
-                    <span className="text-pack-accent shrink-0 text-xs">{formatDate(f.nextFollowUp)}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </Card>
-        </section>
+        {/* Search — single instance, morphs into header */}
+        <motion.div
+          className="pointer-events-auto absolute top-[48%] left-6 right-6 mx-auto max-w-sm"
+          style={{
+            y: searchY,
+            scale: searchScale,
+            width: searchWidth,
+            marginLeft: searchMarginLeft,
+          }}
+        >
+          <QuickCapture onCreated={onCreated} size={compact ? 'default' : 'hero'} />
+        </motion.div>
       </div>
-
-      <FAB />
     </div>
+  )
+}
+
+export function HomePage() {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const viewportHeight = useViewportHeight()
+  const [scrollData, setScrollData] = useState<HomeScrollData>(emptyScrollData)
+
+  const { scrollY } = useScroll({ container: scrollRef })
+  const progress = useTransform(scrollY, [0, viewportHeight], [0, 1], { clamp: true })
+
+  const indicatorOpacity = useTransform(progress, [0, 0.2], [1, 0])
+  const panelRadius = useTransform(progress, [0, 0.65, 1], [28, 18, 12])
+  const panelShadow = useTransform(
+    progress,
+    [0, 0.25, 1],
+    [
+      '0 -4px 32px rgba(0,0,0,0.12)',
+      '0 -20px 64px rgba(0,0,0,0.4)',
+      '0 -8px 32px rgba(0,0,0,0.25)',
+    ],
+  )
+
+  const load = useCallback(async () => {
+    const [interactions, recent, followUps, places, corePack, stats] = await Promise.all([
+      getRecentInteractions(undefined, 20),
+      getRecentlyAdded(),
+      getUpcomingFollowUps(),
+      getRecentPlaces(5),
+      listPackMembers({ view: 'core', sort: 'name' }),
+      getHomeStats(),
+    ])
+
+    const feed = buildMemoryFeed(interactions, recent)
+
+    setScrollData({
+      todayTrail: filterTodayTrail(feed),
+      followUps: followUps.slice(0, 6),
+      recentPlaces: places,
+      corePack: corePack.slice(0, 6),
+      insights: {
+        people: stats.people,
+        places: stats.places,
+        companies: stats.companies,
+        followUps: stats.followUps,
+      },
+    })
+  }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  return (
+    <>
+      <MorphingChrome progress={progress} onCreated={load} />
+
+      <div
+        ref={scrollRef}
+        className="fixed inset-x-0 top-0 bottom-[4.5rem] z-0 mx-auto max-w-lg snap-y snap-proximity overflow-x-hidden overflow-y-auto overscroll-y-contain lg:static lg:bottom-auto lg:h-dvh"
+      >
+        <div className="relative" style={{ minHeight: `${viewportHeight * 2}px` }}>
+          {/* Screen 1 — Opening (scroll spacer + indicator only; chrome is fixed) */}
+          <section
+            className="relative z-0 flex h-dvh snap-start snap-always flex-col justify-end"
+            aria-label="Home"
+          >
+            <motion.div style={{ opacity: indicatorOpacity }}>
+              <HomeExploreIndicator />
+            </motion.div>
+          </section>
+
+          {/* Screen 2 — Explore layer slides up from below */}
+          <motion.section
+            className="relative z-10 -mt-[100dvh] min-h-dvh snap-start snap-always border-pack-border/25 border-t bg-[var(--bg-primary)]"
+            style={{
+              borderTopLeftRadius: panelRadius,
+              borderTopRightRadius: panelRadius,
+              boxShadow: panelShadow,
+            }}
+            aria-label="Explore Your Pack"
+          >
+            <div className="safe-top h-[5.5rem] shrink-0" />
+            <HomeScrollContent data={scrollData} />
+          </motion.section>
+        </div>
+      </div>
+    </>
   )
 }

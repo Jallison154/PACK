@@ -1,19 +1,67 @@
 @import "tailwindcss";
 
+/* Okami Designs Design System */
+:root {
+  --okami-orange: #ff6a2d;
+  --okami-orange-hover: #ff7a45;
+  --okami-orange-active: #e65a22;
+
+  /* Layer 1 — Base */
+  --bg-primary: #0a0a0a;
+
+  /* Layer 3 — Surfaces */
+  --bg-layer-surface: #161616;
+  --bg-layer-elevated: #1a1a1a;
+  --bg-layer-hover: #1e1e1e;
+  --border-layer: #262626;
+
+  /* Legacy aliases */
+  --bg-secondary: var(--bg-layer-surface);
+  --bg-tertiary: var(--bg-layer-hover);
+
+  --text-primary: #ffffff;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+
+  --border: var(--border-layer);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+
+  /* Layer 1 — texture */
+  --pack-bg-grain-opacity: 0.02;
+  --pack-bg-vignette: rgba(0, 0, 0, 0.4);
+
+  /* Layer 2 — ambient (upper left) */
+  --pack-ambient-glow: color-mix(in srgb, var(--okami-orange) 10%, transparent);
+  --pack-ambient-glow-soft: color-mix(in srgb, var(--okami-orange) 6%, transparent);
+}
+
 @theme {
-  --color-pack-bg: #0a0a0a;
-  --color-pack-surface: #141414;
-  --color-pack-card: #1a1a1a;
-  --color-pack-card-hover: #222222;
-  --color-pack-border: #232323;
-  --color-pack-accent: #f7941d;
-  --color-pack-accent-hover: #e8850f;
-  --color-pack-accent-muted: rgba(247, 148, 29, 0.12);
-  --color-pack-text: #f5f5f5;
-  --color-pack-text-secondary: #b0b0b0;
-  --color-pack-text-muted: #7a7a7a;
+  --color-pack-bg: var(--bg-primary);
+  --color-pack-surface: var(--bg-layer-surface);
+  --color-pack-card: var(--bg-layer-elevated);
+  --color-pack-card-hover: var(--bg-layer-hover);
+  --color-pack-border: var(--border-layer);
+  --color-pack-accent: var(--okami-orange);
+  --color-pack-accent-hover: var(--okami-orange-hover);
+  --color-pack-accent-pressed: var(--okami-orange-active);
+  --color-pack-accent-muted: color-mix(in srgb, var(--okami-orange) 12%, transparent);
+  --color-pack-text: var(--text-primary);
+  --color-pack-text-secondary: var(--text-secondary);
+  --color-pack-text-muted: var(--text-muted);
   --color-pack-danger: #ef4444;
   --color-pack-success: #22c55e;
+  --color-pack-warning: #facc15;
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-lg);
+  --radius-3xl: var(--radius-xl);
 
   --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -23,27 +71,128 @@
 }
 
 html {
-  background-color: var(--color-pack-bg);
-  color: var(--color-pack-text);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 body {
   margin: 0;
   min-height: 100dvh;
   font-family: var(--font-sans);
-  background-color: var(--color-pack-bg);
+  background-color: var(--bg-primary);
   overscroll-behavior: none;
+  position: relative;
+  isolation: isolate;
+}
+
+/* Layer 1 — Base: vignette */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse 115% 95% at 50% 50%,
+      transparent 50%,
+      var(--pack-bg-vignette) 100%
+    ),
+    var(--bg-primary);
+}
+
+/* Layer 1 — Base: paper grain */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  opacity: var(--pack-bg-grain-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.88' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+  background-repeat: repeat;
+  mix-blend-mode: soft-light;
+}
+
+/* Layer 2 — Ambient lighting (upper left) */
+#root::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse 75% 55% at -5% -8%,
+      var(--pack-ambient-glow) 0%,
+      transparent 62%
+    ),
+    radial-gradient(
+      ellipse 50% 40% at 25% 5%,
+      var(--pack-ambient-glow-soft) 0%,
+      transparent 55%
+    );
 }
 
 @import "leaflet/dist/leaflet.css";
 
 .leaflet-container {
-  background: #141414;
+  background: var(--bg-layer-surface);
   font-family: var(--font-sans);
 }
 
 #root {
   min-height: 100dvh;
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+}
+
+/* Layer 3 — Surface panels */
+.pack-surface {
+  background-color: var(--bg-layer-surface);
+  border: 1px solid var(--border-layer);
+  border-radius: var(--radius-xl);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 4px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* Layer 4 — Interactive / elevated */
+.pack-elevated {
+  background-color: var(--bg-layer-elevated);
+  border: 1px solid var(--border-layer);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 2px 6px rgba(0, 0, 0, 0.22),
+    0 10px 32px rgba(0, 0, 0, 0.28);
+}
+
+.pack-nav {
+  background-color: color-mix(in srgb, var(--bg-layer-elevated) 88%, transparent);
+  border: 1px solid var(--border-layer);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 -4px 24px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.pack-inset {
+  background-color: color-mix(in srgb, var(--bg-primary) 55%, var(--bg-layer-elevated));
+  border: 1px solid color-mix(in srgb, var(--border-layer) 90%, transparent);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.pack-inset:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--okami-orange) 40%, var(--border-layer));
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.25),
+    0 0 0 2px color-mix(in srgb, var(--okami-orange) 20%, transparent);
 }
 
 input,
@@ -55,7 +204,7 @@ button {
 
 input::placeholder,
 textarea::placeholder {
-  color: var(--color-pack-text-muted);
+  color: var(--text-muted);
 }
 
 ::-webkit-scrollbar {
@@ -63,8 +212,8 @@ textarea::placeholder {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-pack-border);
-  border-radius: 4px;
+  background: var(--border-layer);
+  border-radius: var(--radius-sm);
 }
 
 .safe-bottom {
@@ -76,5 +225,15 @@ textarea::placeholder {
 }
 
 .pack-glow {
-  box-shadow: 0 4px 24px rgba(247, 148, 29, 0.25);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 4px 20px color-mix(in srgb, var(--okami-orange) 18%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::before,
+  body::after,
+  #root::before {
+    position: fixed;
+  }
 }

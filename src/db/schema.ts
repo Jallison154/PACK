@@ -25,7 +25,7 @@ export const MIGRATIONS = [
     last_seen_at TEXT,
     last_seen_date TEXT,
     last_interaction_notes TEXT,
-    profile_color TEXT DEFAULT '#F7941D',
+    profile_color TEXT DEFAULT '#52525B',
     is_favorite INTEGER DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,

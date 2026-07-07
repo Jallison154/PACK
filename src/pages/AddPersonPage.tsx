@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Search } from 'lucide-react'
 import { Header } from '../components/layout/Header'
 import { Input, Textarea } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
@@ -125,16 +124,13 @@ export function AddPersonPage() {
       animate={{ opacity: 1, y: 0 }}
       className="min-h-dvh"
     >
-      <Header title="Quick Add" showBack />
+      <Header title="Add to Pack" showBack />
 
       <div className="space-y-5 px-4 py-6 pb-32">
-        <div className="flex items-start gap-3">
-          <Search className="text-pack-accent mt-0.5 h-5 w-5 shrink-0" />
-          <p className="text-pack-text-secondary text-sm">
-            Search-first capture — type a name, phone, or email to find someone you already know,
-            or save a new person.
-          </p>
-        </div>
+        <p className="text-pack-text-secondary text-sm leading-relaxed">
+          Capture a new connection in seconds. Search by name, phone, or email to find someone
+          already in your Pack, or add someone new.
+        </p>
 
         {hasSearchQuery && (
           <div className="min-h-[4rem]">
@@ -154,7 +150,7 @@ export function AddPersonPage() {
           <div className="border-pack-border flex items-center gap-3 border-t pt-2">
             <div className="bg-pack-border h-px flex-1" />
             <span className="text-pack-text-muted text-xs font-medium uppercase tracking-wide">
-              or create new
+              or add someone new
             </span>
             <div className="bg-pack-border h-px flex-1" />
           </div>
@@ -164,7 +160,13 @@ export function AddPersonPage() {
           <label className="text-pack-text-secondary mb-2 block text-sm font-medium">
             Workspace
           </label>
-          <WorkspaceToggle value={workspace} onChange={setWorkspace} />
+          <WorkspaceToggle
+            value={workspace}
+            onChange={(ws) => {
+              setWorkspace(ws)
+              setLastUsedWorkspace(ws)
+            }}
+          />
         </div>
 
         <Input
@@ -220,7 +222,7 @@ export function AddPersonPage() {
         />
       </div>
 
-      <div className="bg-pack-surface/90 border-pack-border fixed right-0 bottom-0 left-0 z-20 flex gap-3 border-t p-4 backdrop-blur-lg safe-bottom">
+      <div className="pack-nav fixed right-0 bottom-0 left-0 z-20 flex gap-3 p-4 safe-bottom">
         <Button variant="secondary" className="flex-1" onClick={() => navigate(-1)}>
           Cancel
         </Button>
@@ -230,7 +232,7 @@ export function AddPersonPage() {
           loading={saving}
           disabled={!name.trim()}
         >
-          Save
+          Save to Pack
         </Button>
       </div>
 

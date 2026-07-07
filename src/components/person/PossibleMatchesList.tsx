@@ -28,7 +28,7 @@ export function PossibleMatchesList({
       <div>
         <h2 className="text-pack-text text-sm font-semibold">Possible Matches</h2>
         <p className="text-pack-text-secondary mt-0.5 text-xs">
-          Already in your Pack? Add an interaction instead of creating a duplicate.
+          Already in your Pack? Add to their trail instead of creating a duplicate.
         </p>
       </div>
 
@@ -75,7 +75,7 @@ export function PossibleMatchesList({
                   onClick={() => onAddInteraction(match)}
                 >
                   <MessageSquarePlus className="h-3.5 w-3.5" />
-                  Add Interaction
+                  Add to Trail
                 </Button>
               </div>
             </li>

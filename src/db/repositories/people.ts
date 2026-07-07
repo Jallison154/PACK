@@ -470,3 +470,133 @@ export async function getHouseholdMembers(householdId: string): Promise<PersonWi
   }
   return people
 }
+
+async function getLastInteractionDatesByPersonIds(
+  personIds: string[],
+): Promise<Map<string, string>> {
+  const dates = new Map<string, string>()
+  if (personIds.length === 0) return dates
+
+  const placeholders = personIds.map(() => '?').join(',')
+  const rows = await db.query<{ person_id: string; last_date: string | null }>(
+    `SELECT person_id, MAX(date) as last_date
+     FROM interactions
+     WHERE person_id IN (${placeholders})
+     GROUP BY person_id`,
+    personIds,
+  )
+
+  for (const row of rows) {
+    if (row.last_date) dates.set(row.person_id, row.last_date)
+  }
+  return dates
+}
+
+export type PackMemberSort = 'name' | 'recently_added' | 'recently_seen' | 'last_interaction'
+export type PackMemberView = 'all' | 'recent' | 'core'
+
+export interface ListPackMembersOptions {
+  query?: string
+  workspace?: Workspace
+  view?: PackMemberView
+  sort?: PackMemberSort
+}
+
+export async function countPackMembers(workspace?: Workspace): Promise<number> {
+  const rows = workspace
+    ? await db.query<{ count: number }>(
+        'SELECT COUNT(*) as count FROM people WHERE deleted_at IS NULL AND workspace = ?',
+        [workspace],
+      )
+    : await db.query<{ count: number }>(
+        'SELECT COUNT(*) as count FROM people WHERE deleted_at IS NULL',
+      )
+  return rows[0]?.count ?? 0
+}
+
+export async function listPackMembers(
+  options: ListPackMembersOptions = {},
+): Promise<PersonWithTags[]> {
+  const { query, workspace, view = 'all', sort = 'name' } = options
+  const trimmed = query?.trim()
+
+  if (trimmed) {
+    const people = await searchPeople(trimmed, {
+      workspace,
+      favoritesOnly: view === 'core',
+    })
+    return await sortPackMembers(people, sort)
+  }
+
+  let sql = 'SELECT p.* FROM people p WHERE p.deleted_at IS NULL'
+  const params: unknown[] = []
+
+  if (workspace) {
+    sql += ' AND p.workspace = ?'
+    params.push(workspace)
+  }
+  if (view === 'core') {
+    sql += ' AND p.is_favorite = 1'
+  }
+  if (view === 'recent') {
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - 90)
+    sql += ' AND p.created_at >= ?'
+    params.push(cutoff.toISOString())
+  }
+
+  switch (sort) {
+    case 'recently_added':
+      sql += ' ORDER BY p.created_at DESC'
+      break
+    case 'recently_seen':
+      sql +=
+        " ORDER BY COALESCE(p.last_seen_date, p.date_met, '') DESC, p.updated_at DESC"
+      break
+    case 'last_interaction':
+      sql += ` ORDER BY (
+        SELECT MAX(i.date) FROM interactions i WHERE i.person_id = p.id
+      ) DESC, p.updated_at DESC`
+      break
+    case 'name':
+    default:
+      sql += ' ORDER BY p.name COLLATE NOCASE ASC'
+  }
+
+  const rows = await db.query(sql, params)
+  const people: PersonWithTags[] = []
+  for (const row of rows) {
+    people.push(await enrichPerson(row))
+  }
+  return people
+}
+
+export async function sortPackMembers(
+  people: PersonWithTags[],
+  sort: PackMemberSort,
+): Promise<PersonWithTags[]> {
+  const copy = [...people]
+  switch (sort) {
+    case 'recently_added':
+      return copy.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    case 'recently_seen':
+      return copy.sort((a, b) => {
+        const aDate = a.lastSeenDate || a.dateMet || ''
+        const bDate = b.lastSeenDate || b.dateMet || ''
+        return bDate.localeCompare(aDate) || b.updatedAt.localeCompare(a.updatedAt)
+      })
+    case 'last_interaction': {
+      const dates = await getLastInteractionDatesByPersonIds(copy.map((p) => p.id))
+      return copy.sort((a, b) => {
+        const aDate = dates.get(a.id) ?? ''
+        const bDate = dates.get(b.id) ?? ''
+        return bDate.localeCompare(aDate) || b.updatedAt.localeCompare(a.updatedAt)
+      })
+    }
+    case 'name':
+    default:
+      return copy.sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+      )
+  }
+}

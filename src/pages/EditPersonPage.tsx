@@ -127,7 +127,7 @@ export function EditPersonPage() {
 
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="min-h-dvh">
-      <Header title="Edit Person" showBack />
+      <Header title="Edit Pack Member" showBack />
 
       <div className="space-y-4 px-4 py-4 pb-32">
         <div>
@@ -138,7 +138,7 @@ export function EditPersonPage() {
         <Input label="Name *" value={form.name} onChange={(e) => update('name', e.target.value)} />
 
         <Select
-          label="Relationship Type"
+          label="Connection Type"
           value={form.relationshipType}
           onChange={(e) => update('relationshipType', e.target.value)}
           options={relTypes}
@@ -190,7 +190,7 @@ export function EditPersonPage() {
           <div className="space-y-3">
             <Input label="Last Seen At" value={form.lastSeenAt} onChange={(e) => update('lastSeenAt', e.target.value)} />
             <Input label="Last Seen Date" type="date" value={form.lastSeenDate} onChange={(e) => update('lastSeenDate', e.target.value)} />
-            <Textarea label="Last Interaction Notes" value={form.lastInteractionNotes} onChange={(e) => update('lastInteractionNotes', e.target.value)} rows={2} />
+            <Textarea label="Latest Trail Notes" value={form.lastInteractionNotes} onChange={(e) => update('lastInteractionNotes', e.target.value)} rows={2} />
           </div>
         </div>
 
@@ -220,7 +220,7 @@ export function EditPersonPage() {
         <Textarea label="Notes" value={form.notes} onChange={(e) => update('notes', e.target.value)} />
       </div>
 
-      <div className="bg-pack-surface/90 border-pack-border fixed right-0 bottom-0 left-0 z-20 flex gap-3 border-t p-4 backdrop-blur-lg safe-bottom">
+      <div className="pack-nav fixed right-0 bottom-0 left-0 z-20 flex gap-3 p-4 safe-bottom">
         <Button variant="secondary" className="flex-1" onClick={() => navigate(-1)}>Cancel</Button>
         <Button className="flex-1" onClick={handleSave} loading={saving} disabled={!form.name.trim()}>Save</Button>
       </div>

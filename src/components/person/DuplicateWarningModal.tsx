@@ -29,7 +29,7 @@ export function DuplicateWarningModal({
       >
         <h3 className="text-lg font-bold">This person may already be in your Pack</h3>
         <p className="text-pack-text-secondary mt-2 text-sm">
-          We found someone who looks similar. Add an interaction instead of creating a duplicate?
+          We found someone who looks similar. Add to their trail instead of creating a duplicate?
         </p>
 
         <div className="bg-pack-card border-pack-border mt-4 rounded-xl border p-4">
@@ -47,7 +47,7 @@ export function DuplicateWarningModal({
 
         <div className="mt-6 space-y-2">
           <Button className="w-full" onClick={onAddInteraction} disabled={loading}>
-            Add Interaction to Existing Person
+            Add to Existing Pack Member&apos;s Trail
           </Button>
           <Button
             variant="secondary"
@@ -55,7 +55,7 @@ export function DuplicateWarningModal({
             onClick={onCreateAnyway}
             loading={loading}
           >
-            Create New Person Anyway
+            Add to Pack Anyway
           </Button>
           <Button variant="ghost" className="w-full" onClick={onCancel}>
             Cancel

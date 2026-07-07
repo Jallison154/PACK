@@ -13,29 +13,35 @@ interface PackLogoProps {
   className?: string
   size?: PackLogoSize
   href?: string
+  align?: 'left' | 'center'
 }
 
-export function PackLogo({ className = '', size = 'md', href }: PackLogoProps) {
+export function PackLogo({ className = '', size = 'md', href, align = 'left' }: PackLogoProps) {
   const { height, maxWidth } = SIZES[size]
+  const centered = align === 'center'
 
   const image = (
     <img
       src={wordmarkSrc}
       alt="Pack"
       height={height}
-      className={`h-auto w-auto object-contain object-left ${maxWidth} ${className}`}
+      className={`h-auto w-auto object-contain ${centered ? 'object-center' : 'object-left'} ${maxWidth} ${className}`}
       style={{ height }}
       draggable={false}
     />
   )
 
+  const wrapperClass = centered
+    ? 'flex shrink-0 items-center justify-center'
+    : 'inline-flex shrink-0 items-center'
+
   if (href) {
     return (
-      <Link to={href} className="inline-flex shrink-0 items-center" aria-label="Pack home">
+      <Link to={href} className={wrapperClass} aria-label="Pack home">
         {image}
       </Link>
     )
   }
 
-  return image
+  return <div className={wrapperClass}>{image}</div>
 }

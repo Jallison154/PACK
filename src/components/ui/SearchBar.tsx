@@ -12,7 +12,7 @@ interface SearchBarProps {
 export function SearchBar({
   value,
   onChange,
-  placeholder = 'Search everyone...',
+  placeholder = 'Search your Pack...',
   onFocus,
   autoFocus,
   embedded,
@@ -27,7 +27,7 @@ export function SearchBar({
         onFocus={onFocus}
         autoFocus={autoFocus}
         placeholder={placeholder}
-        className="bg-pack-card border-pack-border/80 text-pack-text placeholder:text-pack-text-muted focus:border-pack-accent/60 focus:ring-pack-accent/15 w-full rounded-xl border py-3 pr-10 pl-10 text-sm outline-none focus:ring-2"
+        className="pack-inset text-pack-text placeholder:text-pack-text-muted w-full py-3 pr-10 pl-10 text-sm"
       />
       {value && (
         <button
@@ -47,7 +47,7 @@ export function SearchBar({
   }
 
   return (
-    <div className="bg-pack-surface/80 border-pack-border/60 sticky top-0 z-30 border-b px-4 py-3 backdrop-blur-lg safe-top">
+    <div className="pack-elevated sticky top-0 z-30 px-4 py-3 safe-top">
       {input}
     </div>
   )

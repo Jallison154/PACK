@@ -199,7 +199,7 @@ function rowToPerson(row: Record<string, unknown>) {
     lastSeenAt: (row.last_seen_at as string) || null,
     lastSeenDate: (row.last_seen_date as string) || null,
     lastInteractionNotes: (row.last_interaction_notes as string) || null,
-    profileColor: (row.profile_color as string) || '#F7941D',
+    profileColor: (row.profile_color as string) || '#52525B',
     isFavorite: Boolean(row.is_favorite),
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,

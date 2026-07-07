@@ -1,19 +1,13 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { AnimatePresence } from 'framer-motion'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { DatabaseProvider } from './context/DatabaseContext'
 import { WorkspaceProvider } from './context/WorkspaceContext'
 import { PasscodeGate } from './components/auth/PasscodeGate'
 import { AppLayout } from './components/layout/AppLayout'
-import { RootPage } from './pages/RootPage'
+import { TabShell } from './components/layout/TabShell'
 import { AddPersonPage } from './pages/AddPersonPage'
 import { PersonDetailPage } from './pages/PersonDetailPage'
 import { EditPersonPage } from './pages/EditPersonPage'
-import { SearchPage } from './pages/SearchPage'
-import { FavoritesPage } from './pages/FavoritesPage'
-import { PlacesPage } from './pages/PlacesPage'
 import { PlaceDetailPage } from './pages/PlaceDetailPage'
-import { DashboardPage } from './pages/DashboardPage'
-import { SettingsPage } from './pages/SettingsPage'
 
 export default function App() {
   return (
@@ -21,24 +15,23 @@ export default function App() {
       <WorkspaceProvider>
         <PasscodeGate>
           <BrowserRouter>
-            <AnimatePresence mode="wait">
-              <Routes>
-                <Route element={<AppLayout />}>
-                  <Route path="/" element={<RootPage />} />
-                  <Route path="/favorites" element={<FavoritesPage />} />
-                  <Route path="/places" element={<PlacesPage />} />
-                  <Route path="/places/:id" element={<PlaceDetailPage />} />
-                  <Route path="/locations" element={<PlacesPage />} />
-                  <Route path="/locations/:id" element={<PlaceDetailPage />} />
-                  <Route path="/dashboard" element={<DashboardPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
-                </Route>
-                <Route path="/add" element={<AddPersonPage />} />
-                <Route path="/person/:id" element={<PersonDetailPage />} />
-                <Route path="/edit/:id" element={<EditPersonPage />} />
-                <Route path="/search" element={<SearchPage />} />
-              </Routes>
-            </AnimatePresence>
+            <Routes>
+              <Route element={<AppLayout />}>
+                <Route path="/" element={<TabShell />} />
+                <Route path="/search" element={<TabShell />} />
+                <Route path="/pack" element={<TabShell />} />
+                <Route path="/favorites" element={<Navigate to="/pack" replace />} />
+                <Route path="/places" element={<TabShell />} />
+                <Route path="/settings" element={<TabShell />} />
+                <Route path="/places/:id" element={<PlaceDetailPage />} />
+                <Route path="/locations" element={<Navigate to="/places" replace />} />
+                <Route path="/locations/:id" element={<PlaceDetailPage />} />
+                <Route path="/dashboard" element={<Navigate to="/" replace />} />
+              </Route>
+              <Route path="/add" element={<AddPersonPage />} />
+              <Route path="/person/:id" element={<PersonDetailPage />} />
+              <Route path="/edit/:id" element={<EditPersonPage />} />
+            </Routes>
           </BrowserRouter>
         </PasscodeGate>
       </WorkspaceProvider>

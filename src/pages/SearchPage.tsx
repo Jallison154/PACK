@@ -1,32 +1,53 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { Filter, MapPin } from 'lucide-react'
-import { SearchBar } from '../components/ui/SearchBar'
-import { PersonCard } from '../components/person/PersonCard'
+import { Search, MapPin, Building2, Calendar, X, SlidersHorizontal } from 'lucide-react'
+import { MemoryPersonCard } from '../components/home/MemoryPersonCard'
+import { EmptyState } from '../components/ui/EmptyState'
+import { Select, Input } from '../components/ui/Input'
 import { TagChip } from '../components/ui/TagChip'
-import { Select } from '../components/ui/Input'
 import {
   searchPeople,
-  getAllTags,
   getAllCompanies,
+  getAllTags,
 } from '../db/repositories/people'
-import { Card } from '../components/ui/Card'
 import { searchPlaces, getAllPlaceNames } from '../db/repositories/places'
-import { getRelationshipTypes, WORKSPACES } from '../types'
-import type { PersonWithTags, SearchFilters, Place, Workspace } from '../types'
+import {
+  getRelationshipTypes,
+  WORKSPACES,
+  WORK_RELATIONSHIP_TYPES,
+  PERSONAL_RELATIONSHIP_TYPES,
+} from '../types'
+import {
+  getRecentSearches,
+  addRecentSearch,
+} from '../hooks/useRecentSearches'
+import type { PersonWithTags, SearchFilters, Place, Workspace, RelationshipType } from '../types'
 
 export function SearchPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<PersonWithTags[]>([])
-  const [showFilters, setShowFilters] = useState(false)
-  const [filters, setFilters] = useState<SearchFilters>({})
-  const [tags, setTags] = useState<string[]>([])
-  const [companies, setCompanies] = useState<string[]>([])
   const [placeResults, setPlaceResults] = useState<Place[]>([])
+  const [companyResults, setCompanyResults] = useState<string[]>([])
+  const [eventResults, setEventResults] = useState<string[]>([])
+  const [noteResults, setNoteResults] = useState<
+    { personId: string; personName: string; note: string }[]
+  >([])
+  const [filters, setFilters] = useState<SearchFilters>({})
+  const [showFilters, setShowFilters] = useState(false)
+  const [companies, setCompanies] = useState<string[]>([])
+  const [tags, setTags] = useState<string[]>([])
   const [placeNames, setPlaceNames] = useState<string[]>([])
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => getRecentSearches())
+
+  const relationshipOptions = useMemo(() => {
+    if (filters.workspace) return getRelationshipTypes(filters.workspace)
+    return [...WORK_RELATIONSHIP_TYPES, ...PERSONAL_RELATIONSHIP_TYPES]
+  }, [filters.workspace])
+
+  const hasSecondaryResults =
+    placeResults.length > 0 || companyResults.length > 0 || eventResults.length > 0
 
   useEffect(() => {
     const initial = (location.state as { q?: string } | null)?.q
@@ -34,178 +55,252 @@ export function SearchPage() {
   }, [location.state])
 
   useEffect(() => {
-    Promise.all([getAllTags(), getAllCompanies(), getAllPlaceNames()]).then(
-      ([t, c, places]) => {
-        setTags(t)
+    Promise.all([getAllCompanies(), getAllTags(), getAllPlaceNames()]).then(
+      ([c, t, p]) => {
         setCompanies(c)
-        setPlaceNames(places)
+        setTags(t)
+        setPlaceNames(p)
       },
     )
   }, [])
 
   const doSearch = useCallback(async () => {
+    const trimmed = query.trim()
     const [people, places] = await Promise.all([
       searchPeople(query, filters),
-      query.trim() ? searchPlaces(query) : Promise.resolve([]),
+      trimmed ? searchPlaces(query) : Promise.resolve([]),
     ])
     setResults(people)
     setPlaceResults(places)
-  }, [query, filters])
+
+    if (trimmed) {
+      const q = trimmed.toLowerCase()
+      setCompanyResults(companies.filter((c) => c.toLowerCase().includes(q)).slice(0, 8))
+      const events = new Set<string>()
+      const notes: { personId: string; personName: string; note: string }[] = []
+      for (const p of people) {
+        if (p.event?.toLowerCase().includes(q)) events.add(p.event)
+        if (p.notes?.toLowerCase().includes(q)) {
+          notes.push({ personId: p.id, personName: p.name, note: p.notes })
+        }
+      }
+      setEventResults([...events].slice(0, 6))
+      setNoteResults(notes.slice(0, 6))
+      setRecentSearches(addRecentSearch(trimmed))
+    } else {
+      setCompanyResults([])
+      setEventResults([])
+      setNoteResults([])
+    }
+  }, [query, filters, companies])
 
   useEffect(() => {
-    const timer = setTimeout(doSearch, 200)
+    const timer = setTimeout(doSearch, 150)
     return () => clearTimeout(timer)
   }, [doSearch])
 
-  const hasActiveFilters = Object.values(filters).some((v) => v !== undefined && v !== '')
-  const totalResults = results.length + placeResults.length
-
   return (
-    <div className="flex min-h-dvh flex-col">
-      <div className="safe-top flex items-center gap-2">
-        <div className="flex-1">
-          <SearchBar
-            value={query}
-            onChange={setQuery}
-            placeholder="Search everything..."
-            autoFocus
-          />
-        </div>
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className={`mr-3 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-colors ${
-            showFilters ? 'bg-pack-accent text-black' : 'bg-pack-card text-pack-text-secondary'
-          }`}
-          aria-label="Toggle filters"
-        >
-          <Filter className="h-5 w-5" />
-        </button>
-      </div>
-
-      {showFilters && (
-        <motion.div
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: 'auto', opacity: 1 }}
-          className="border-pack-border space-y-3 overflow-hidden border-b px-4 py-3"
-        >
-          <Select
-            label="Workspace"
-            value={filters.workspace ?? ''}
-            onChange={(e) =>
-              setFilters((f) => ({
-                ...f,
-                workspace: (e.target.value || undefined) as Workspace | undefined,
-              }))
-            }
-            options={[
-              { value: '', label: 'All workspaces' },
-              ...WORKSPACES.map((w) => ({ value: w.value, label: w.label })),
-            ]}
-          />
-          <Select
-            label="Company"
-            value={filters.company ?? ''}
-            onChange={(e) => setFilters((f) => ({ ...f, company: e.target.value || undefined }))}
-            options={companies.map((c) => ({ value: c, label: c }))}
-          />
-          <Select
-            label="Location"
-            value={filters.location ?? ''}
-            onChange={(e) => setFilters((f) => ({ ...f, location: e.target.value || undefined }))}
-            options={placeNames.map((l) => ({ value: l, label: l }))}
-          />
-          <Select
-            label="Tag"
-            value={filters.tag ?? ''}
-            onChange={(e) => setFilters((f) => ({ ...f, tag: e.target.value || undefined }))}
-            options={tags.map((t) => ({ value: t, label: t }))}
-          />
-          <Select
-            label="Relationship"
-            value={filters.relationshipType ?? ''}
-            onChange={(e) =>
-              setFilters((f) => ({
-                ...f,
-                relationshipType: (e.target.value || undefined) as never,
-              }))
-            }
-            options={[
-              ...getRelationshipTypes('work'),
-              ...getRelationshipTypes('personal'),
-            ]}
-          />
-          <div className="grid grid-cols-2 gap-3">
+    <div className="min-h-dvh">
+      <div className="safe-top mx-auto max-w-lg px-6 pt-8 pb-4">
+        <div className="pack-elevated flex gap-2 p-2">
+          <div className="relative flex-1">
+            <Search className="text-pack-text-muted absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2" />
             <input
-              type="date"
-              value={filters.dateFrom ?? ''}
-              onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value || undefined }))}
-              className="bg-pack-card border-pack-border rounded-xl border px-3 py-2.5 text-sm"
-              aria-label="Date from"
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Who are you trying to remember?"
+              autoFocus
+              className="pack-inset text-pack-text placeholder:text-pack-text-muted w-full py-4 pr-12 pl-12 text-lg"
             />
-            <input
-              type="date"
-              value={filters.dateTo ?? ''}
-              onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value || undefined }))}
-              className="bg-pack-card border-pack-border rounded-xl border px-3 py-2.5 text-sm"
-              aria-label="Date to"
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                className="text-pack-text-muted hover:text-pack-text absolute top-1/2 right-3 -translate-y-1/2"
+                aria-label="Clear"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowFilters(!showFilters)}
+            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-colors ${
+              showFilters ? 'bg-pack-accent text-black' : 'pack-inset text-pack-text-muted'
+            }`}
+            aria-label="Filters"
+          >
+            <SlidersHorizontal className="h-5 w-5" />
+          </button>
+        </div>
+
+        {showFilters && (
+          <div className="pack-surface mt-3 space-y-3 p-4">
+            <Select
+              label="Workspace"
+              value={filters.workspace ?? ''}
+              onChange={(e) =>
+                setFilters((f) => ({
+                  ...f,
+                  workspace: (e.target.value || undefined) as Workspace | undefined,
+                }))
+              }
+              options={[
+                { value: '', label: 'All workspaces' },
+                ...WORKSPACES.map((w) => ({ value: w.value, label: w.label })),
+              ]}
+            />
+            <Select
+              label="Company"
+              value={filters.company ?? ''}
+              onChange={(e) => setFilters((f) => ({ ...f, company: e.target.value || undefined }))}
+              options={companies.map((c) => ({ value: c, label: c }))}
+            />
+            <Select
+              label="Location"
+              value={filters.location ?? ''}
+              onChange={(e) => setFilters((f) => ({ ...f, location: e.target.value || undefined }))}
+              options={placeNames.map((l) => ({ value: l, label: l }))}
+            />
+            <Select
+              label="Tag"
+              value={filters.tag ?? ''}
+              onChange={(e) => setFilters((f) => ({ ...f, tag: e.target.value || undefined }))}
+              options={tags.map((t) => ({ value: t, label: t }))}
+            />
+            <Select
+              label="Connection"
+              value={filters.relationshipType ?? ''}
+              onChange={(e) =>
+                setFilters((f) => ({
+                  ...f,
+                  relationshipType: (e.target.value || undefined) as RelationshipType | undefined,
+                }))
+              }
+              options={[
+                { value: '', label: 'Any connection' },
+                ...relationshipOptions.map((r) => ({
+                  value: r.value,
+                  label: r.label,
+                })),
+              ]}
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="From"
+                type="date"
+                value={filters.dateFrom ?? ''}
+                onChange={(e) =>
+                  setFilters((f) => ({ ...f, dateFrom: e.target.value || undefined }))
+                }
+              />
+              <Input
+                label="To"
+                type="date"
+                value={filters.dateTo ?? ''}
+                onChange={(e) =>
+                  setFilters((f) => ({ ...f, dateTo: e.target.value || undefined }))
+                }
+              />
+            </div>
+            <TagChip
+              label="Core Pack only"
+              active={filters.favoritesOnly}
+              onClick={() =>
+                setFilters((f) => ({ ...f, favoritesOnly: !f.favoritesOnly }))
+              }
             />
           </div>
-          <TagChip
-            label="Favorites only"
-            active={filters.favoritesOnly}
-            onClick={() =>
-              setFilters((f) => ({ ...f, favoritesOnly: !f.favoritesOnly }))
-            }
-          />
-        </motion.div>
-      )}
+        )}
+      </div>
 
-      <div className="flex-1 px-4 py-4 pb-28">
-        <p className="text-pack-text-muted mb-3 text-sm">
-          {totalResults} {totalResults === 1 ? 'result' : 'results'}
-          {totalResults > 0 && ` · ${results.length} people · ${placeResults.length} places`}
-        </p>
-
-        {placeResults.length > 0 && (
-          <div className="mb-6">
-            <h3 className="text-pack-text-secondary mb-2 text-sm font-semibold uppercase">Places</h3>
-            <div className="space-y-2">
-              {placeResults.map((place) => (
-                <Card key={place.id} onClick={() => navigate(`/places/${place.id}`)}>
-                  <div className="flex items-center gap-3">
-                    <MapPin className="text-pack-accent h-5 w-5 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">{place.name}</p>
-                      {place.city && (
-                        <p className="text-pack-text-muted truncate text-sm">{place.city}</p>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
+      <div className="mx-auto max-w-lg space-y-6 px-6 pb-8">
+        {!query && recentSearches.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {recentSearches.map((term) => (
+              <button
+                key={term}
+                type="button"
+                onClick={() => setQuery(term)}
+                className="text-pack-text-muted hover:text-pack-text-secondary text-sm transition-colors"
+              >
+                {term}
+              </button>
+            ))}
           </div>
         )}
 
-        <div className="space-y-3">
-          {results.map((person, i) => (
-            <PersonCard key={person.id} person={person} index={i} />
-          ))}
-        </div>
+        {query && results.length > 0 && (
+          <div>
+            {results.map((person, i) => (
+              <MemoryPersonCard key={person.id} person={person} index={i} />
+            ))}
+          </div>
+        )}
 
-        {results.length === 0 && placeResults.length === 0 && (query || hasActiveFilters) && (
-          <p className="text-pack-text-muted py-12 text-center">
-            No matches{query ? ` for "${query}"` : ''}
+        {query && noteResults.length > 0 && (
+          <div className="space-y-1">
+            {noteResults.map((n) => (
+              <button
+                key={n.personId}
+                type="button"
+                onClick={() => navigate(`/person/${n.personId}`)}
+                className="hover:bg-pack-card-hover/50 w-full rounded-xl px-1 py-2.5 text-left transition-colors"
+              >
+                <p className="text-pack-text text-[15px] leading-snug">
+                  <span className="font-medium">{n.personName}</span>
+                  <span className="text-pack-text-muted"> · {n.note}</span>
+                </p>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {query && hasSecondaryResults && (
+          <div className="text-pack-text-muted space-y-2 text-sm">
+            {placeResults.map((place) => (
+              <button
+                key={place.id}
+                type="button"
+                onClick={() => navigate(`/places/${place.id}`)}
+                className="hover:text-pack-text-secondary flex w-full items-center gap-2 py-1 text-left transition-colors"
+              >
+                <MapPin className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                <span className="truncate">{place.name}</span>
+              </button>
+            ))}
+            {companyResults.map((c) => (
+              <div key={c} className="flex items-center gap-2 py-1">
+                <Building2 className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                {c}
+              </div>
+            ))}
+            {eventResults.map((e) => (
+              <div key={e} className="flex items-center gap-2 py-1">
+                <Calendar className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                {e}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {query &&
+          results.length === 0 &&
+          placeResults.length === 0 &&
+          companyResults.length === 0 &&
+          eventResults.length === 0 &&
+          noteResults.length === 0 && (
+            <EmptyState message={`Nothing found for "${query}"`} />
+          )}
+
+        {!query && recentSearches.length === 0 && (
+          <p className="text-pack-text-muted pt-4 text-center text-sm">
+            Names, places, notes — whatever you remember.
           </p>
         )}
       </div>
-
-      <button
-        onClick={() => navigate(-1)}
-        className="text-pack-text-secondary safe-bottom fixed bottom-6 left-1/2 z-10 -translate-x-1/2 rounded-full bg-pack-surface/90 px-4 py-2 text-sm backdrop-blur"
-      >
-        Back
-      </button>
     </div>
   )
 }

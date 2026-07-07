@@ -13,9 +13,10 @@ interface ButtonProps {
 }
 
 const variants = {
-  primary: 'bg-pack-accent text-black hover:bg-pack-accent-hover active:scale-[0.98]',
-  secondary: 'bg-pack-card text-pack-text border border-pack-border hover:bg-pack-card-hover',
-  ghost: 'text-pack-text-secondary hover:text-pack-text hover:bg-pack-card',
+  primary:
+    'bg-pack-accent text-black hover:bg-pack-accent-hover active:bg-pack-accent-pressed active:scale-[0.98]',
+  secondary: 'pack-elevated text-pack-text hover:bg-pack-card-hover',
+  ghost: 'text-pack-text-secondary hover:text-pack-text hover:bg-pack-card-hover rounded-lg',
   danger: 'bg-pack-danger/10 text-pack-danger hover:bg-pack-danger/20',
 }
 
@@ -40,7 +41,7 @@ export function Button({
       type={type}
       onClick={onClick}
       whileTap={{ scale: disabled || loading ? 1 : 0.97 }}
-      className={`inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-colors disabled:opacity-50 ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-colors disabled:opacity-50 ${variants[variant]} ${sizes[size]} ${className}`}
       disabled={disabled || loading}
     >
       {loading ? (

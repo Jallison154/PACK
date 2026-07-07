@@ -1,15 +1,18 @@
+/** Neutral avatar palette — no secondary accent colors */
 export const PROFILE_COLORS = [
-  '#F7941D',
-  '#3B82F6',
-  '#22C55E',
-  '#A855F7',
-  '#EC4899',
-  '#14B8A6',
-  '#F59E0B',
-  '#6366F1',
-  '#EF4444',
-  '#06B6D4',
+  '#52525b',
+  '#71717a',
+  '#3f3f46',
+  '#78716c',
+  '#57534e',
+  '#636366',
+  '#48484a',
+  '#6b6b70',
+  '#404040',
+  '#5c5c62',
 ]
+
+export const DEFAULT_PROFILE_COLOR = '#52525b'
 
 export function getInitials(name: string): string {
   return name

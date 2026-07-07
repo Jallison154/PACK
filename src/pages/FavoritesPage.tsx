@@ -1,39 +1,37 @@
 import { useState, useEffect } from 'react'
-import { Star } from 'lucide-react'
-import { Header } from '../components/layout/Header'
-import { WorkspaceToggle } from '../components/ui/WorkspaceToggle'
-import { PersonCard } from '../components/person/PersonCard'
+import { Users } from 'lucide-react'
+import { MemoryPersonCard } from '../components/home/MemoryPersonCard'
+import { EmptyState } from '../components/ui/EmptyState'
 import { getFavoritePeople } from '../db/repositories/people'
-import { useWorkspace } from '../context/WorkspaceContext'
-import type { PersonWithTags } from '../types'
 
 export function FavoritesPage() {
-  const { workspace, setWorkspace } = useWorkspace()
-  const [people, setPeople] = useState<PersonWithTags[]>([])
+  const [people, setPeople] = useState<Awaited<ReturnType<typeof getFavoritePeople>>>([])
 
   useEffect(() => {
-    getFavoritePeople(workspace).then(setPeople)
-  }, [workspace])
+    getFavoritePeople().then(setPeople)
+  }, [])
 
   return (
     <div className="min-h-dvh">
-      <Header title="Saved" />
-      <div className="border-pack-border border-b px-4 pb-3">
-        <WorkspaceToggle value={workspace} onChange={setWorkspace} size="sm" />
-      </div>
-      <div className="px-4 py-4">
+      <div className="safe-top mx-auto max-w-lg px-5 pt-6 pb-8">
+        <header className="mb-8">
+          <h1 className="text-pack-text text-2xl font-semibold tracking-tight">Core Pack</h1>
+          <p className="text-pack-text-muted mt-2 text-sm leading-relaxed">
+            The people who matter most — family, close friends, VIP clients, and pinned
+            connections.
+          </p>
+        </header>
+
         {people.length === 0 ? (
-          <div className="py-16 text-center">
-            <Star className="text-pack-text-muted mx-auto h-12 w-12" />
-            <p className="text-pack-text-secondary mt-4">No favorites yet</p>
-            <p className="text-pack-text-muted mt-1 text-sm">
-              Star people from their detail page
-            </p>
-          </div>
+          <EmptyState
+            message="Your Core Pack is empty."
+            hint="Star a Pack member from their profile to add them here."
+            icon={<Users className="h-7 w-7" />}
+          />
         ) : (
-          <div className="space-y-3">
+          <div className="divide-pack-border/40 divide-y">
             {people.map((person, i) => (
-              <PersonCard key={person.id} person={person} index={i} />
+              <MemoryPersonCard key={person.id} person={person} index={i} />
             ))}
           </div>
         )}

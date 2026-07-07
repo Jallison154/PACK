@@ -1,9 +1,8 @@
-import { Star, MapPin } from 'lucide-react'
+import { Star } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { Avatar } from '../ui/Avatar'
-import { formatDate } from '../../utils/format'
-import { WORKSPACES, type PersonWithTags } from '../../types'
+import type { PersonWithTags } from '../../types'
 
 interface PersonCardProps {
   person: PersonWithTags
@@ -13,8 +12,8 @@ interface PersonCardProps {
 
 export function PersonCard({ person, index = 0, compact }: PersonCardProps) {
   const navigate = useNavigate()
-  const ws = WORKSPACES.find((w) => w.value === person.workspace)
-  const placeLine =
+  const context =
+    person.company ||
     person.lastSeenPlaceName ||
     person.lastSeenAt ||
     person.whereMetPlaceName ||
@@ -23,36 +22,26 @@ export function PersonCard({ person, index = 0, compact }: PersonCardProps) {
 
   return (
     <motion.button
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.03 }}
+      transition={{ delay: index * 0.02 }}
       whileTap={{ scale: 0.99 }}
       onClick={() => navigate(`/person/${person.id}`)}
-      className={`bg-pack-card border-pack-border/80 hover:bg-pack-card-hover flex w-full items-center gap-3 rounded-xl border text-left transition-colors ${
-        compact ? 'p-2.5' : 'p-3'
+      className={`hover:bg-pack-card-hover/50 flex w-full items-center gap-3 rounded-xl text-left transition-colors ${
+        compact ? 'px-1 py-2' : 'px-1 py-3'
       }`}
     >
       <Avatar name={person.name} color={person.profileColor} size={compact ? 'sm' : 'md'} />
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <h3 className="text-pack-text truncate text-sm font-semibold">{person.name}</h3>
+        <div className="flex items-center gap-1.5">
+          <h3 className="text-pack-text truncate text-base font-medium">{person.name}</h3>
           {person.isFavorite && (
-            <Star className="text-pack-accent h-3.5 w-3.5 shrink-0 fill-current" />
-          )}
-          <span className="bg-pack-surface text-pack-text-muted border-pack-border/60 ml-auto shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-medium">
-            {ws?.label}
-          </span>
-        </div>
-        <div className="text-pack-text-muted mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
-          {person.dateMet && <span>Met {formatDate(person.dateMet)}</span>}
-          {placeLine && (
-            <span className="flex min-w-0 items-center gap-1 truncate">
-              {person.dateMet && <span className="text-pack-border">·</span>}
-              <MapPin className="h-3 w-3 shrink-0" />
-              <span className="truncate">{placeLine}</span>
-            </span>
+            <Star className="text-pack-accent h-3 w-3 shrink-0 fill-current" />
           )}
         </div>
+        {context && (
+          <p className="text-pack-text-muted mt-0.5 truncate text-sm">{context}</p>
+        )}
       </div>
     </motion.button>
   )

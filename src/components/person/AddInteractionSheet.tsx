@@ -84,7 +84,7 @@ export function AddInteractionSheet({
         >
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
-              <h3 className="text-lg font-bold">Add Interaction</h3>
+              <h3 className="text-lg font-bold">Add to Trail</h3>
               <p className="text-pack-text-secondary text-sm">{personName}</p>
             </div>
             <button
@@ -192,7 +192,7 @@ export function AddInteractionSheet({
             </div>
 
             <Input
-              label="Follow-up needed"
+              label="Reconnect Soon"
               type="date"
               value={form.nextFollowUp}
               onChange={(e) => setForm((f) => ({ ...f, nextFollowUp: e.target.value }))}
@@ -204,7 +204,7 @@ export function AddInteractionSheet({
               Cancel
             </Button>
             <Button className="flex-1" onClick={handleSave} loading={saving}>
-              Save Interaction
+              Save to Trail
             </Button>
           </div>
         </motion.div>

@@ -8,10 +8,10 @@ interface EmptyStateProps {
 
 export function EmptyState({ message, hint, icon }: EmptyStateProps) {
   return (
-    <div className="text-pack-text-muted py-4 text-center">
-      {icon && <div className="mb-2 flex justify-center opacity-60">{icon}</div>}
-      <p className="text-sm">{message}</p>
-      {hint && <p className="text-pack-text-muted/80 mt-1 text-xs">{hint}</p>}
+    <div className="py-8 text-center">
+      {icon && <div className="text-pack-text-muted/40 mx-auto mb-3">{icon}</div>}
+      <p className="text-pack-text-muted text-sm">{message}</p>
+      {hint && <p className="text-pack-text-muted/70 mt-1.5 text-xs leading-relaxed">{hint}</p>}
     </div>
   )
 }

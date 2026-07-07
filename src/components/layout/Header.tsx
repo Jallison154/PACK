@@ -12,7 +12,7 @@ export function Header({ title, showBack, right }: HeaderProps) {
   const navigate = useNavigate()
 
   return (
-    <header className="bg-pack-surface/80 border-pack-border sticky top-0 z-20 flex items-center gap-3 border-b px-4 py-3 backdrop-blur-lg safe-top">
+    <header className="pack-nav sticky top-0 z-20 flex items-center gap-3 px-4 py-3 safe-top">
       {showBack && (
         <button
           onClick={() => navigate(-1)}
