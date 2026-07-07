@@ -1,0 +1,274 @@
+import { v4 as uuid } from 'uuid'
+import { db, rowToPerson, rowToInteraction } from '../database'
+import { distanceKm } from '../../utils/geo'
+import type {
+  Place,
+  PlaceInput,
+  PlaceWithStats,
+  PlaceSearchResult,
+  PersonWithTags,
+  InteractionWithPerson,
+  PlaceCategory,
+} from '../../types'
+
+async function enrichPersonRow(row: Record<string, unknown>): Promise<PersonWithTags> {
+  const person = rowToPerson(row)
+  const tagRows = await db.query<{ name: string }>(
+    `SELECT t.name FROM tags t JOIN person_tags pt ON t.id = pt.tag_id WHERE pt.person_id = ?`,
+    [person.id],
+  )
+  return { ...person, tags: tagRows.map((t) => t.name) }
+}
+
+export function rowToPlace(row: Record<string, unknown>): Place {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    address: (row.address as string) || null,
+    city: (row.city as string) || null,
+    state: (row.state as string) || null,
+    latitude: row.latitude != null ? Number(row.latitude) : null,
+    longitude: row.longitude != null ? Number(row.longitude) : null,
+    category: (row.category as PlaceCategory) || null,
+    notes: (row.notes as string) || null,
+    isFavorite: Boolean(row.is_favorite),
+    createdAt: row.created_at as string,
+    syncVersion: (row.sync_version as number) || 1,
+  }
+}
+
+export async function createPlace(input: PlaceInput): Promise<Place> {
+  const id = uuid()
+  const now = new Date().toISOString()
+  await db.run(
+    `INSERT INTO places (id, name, address, city, state, latitude, longitude, category, notes, is_favorite, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      input.name,
+      input.address ?? null,
+      input.city ?? null,
+      input.state ?? null,
+      input.latitude ?? null,
+      input.longitude ?? null,
+      input.category ?? null,
+      input.notes ?? null,
+      input.isFavorite ? 1 : 0,
+      now,
+    ],
+  )
+  const rows = await db.query('SELECT * FROM places WHERE id = ?', [id])
+  return rowToPlace(rows[0])
+}
+
+export async function updatePlace(id: string, input: PlaceInput): Promise<Place> {
+  await db.run(
+    `UPDATE places SET name = ?, address = ?, city = ?, state = ?, latitude = ?, longitude = ?,
+     category = ?, notes = ?, is_favorite = ? WHERE id = ?`,
+    [
+      input.name,
+      input.address ?? null,
+      input.city ?? null,
+      input.state ?? null,
+      input.latitude ?? null,
+      input.longitude ?? null,
+      input.category ?? null,
+      input.notes ?? null,
+      input.isFavorite ? 1 : 0,
+      id,
+    ],
+  )
+  const rows = await db.query('SELECT * FROM places WHERE id = ?', [id])
+  return rowToPlace(rows[0])
+}
+
+export async function getPlaceById(id: string): Promise<Place | null> {
+  const rows = await db.query('SELECT * FROM places WHERE id = ?', [id])
+  if (rows.length === 0) return null
+  return rowToPlace(rows[0])
+}
+
+export async function upsertPlaceByName(
+  name: string,
+  city?: string,
+  state?: string,
+  category?: PlaceCategory,
+): Promise<string> {
+  const existing = await db.query<{ id: string }>(
+    'SELECT id FROM places WHERE LOWER(name) = LOWER(?)',
+    [name],
+  )
+  if (existing.length > 0) return existing[0].id
+
+  const place = await createPlace({ name, city, state, category })
+  return place.id
+}
+
+export async function togglePlaceFavorite(id: string): Promise<boolean> {
+  const rows = await db.query<{ is_favorite: number }>(
+    'SELECT is_favorite FROM places WHERE id = ?',
+    [id],
+  )
+  if (rows.length === 0) return false
+  const newVal = rows[0].is_favorite ? 0 : 1
+  await db.run('UPDATE places SET is_favorite = ? WHERE id = ?', [newVal, id])
+  return Boolean(newVal)
+}
+
+export async function getAllPlaces(): Promise<PlaceWithStats[]> {
+  const rows = await db.query('SELECT * FROM places ORDER BY name ASC')
+  const places: PlaceWithStats[] = []
+  for (const row of rows) {
+    places.push({ ...(await getPlaceStats(rowToPlace(row).id))! })
+  }
+  return places.filter(Boolean)
+}
+
+export async function getPlaceStats(id: string): Promise<PlaceWithStats | null> {
+  const place = await getPlaceById(id)
+  if (!place) return null
+
+  const [met, lastSeen, interactions] = await Promise.all([
+    db.query<{ count: number }>(
+      `SELECT COUNT(DISTINCT id) as count FROM people
+       WHERE deleted_at IS NULL AND (where_met_place_id = ? OR location_id = ?)`,
+      [id, id],
+    ),
+    db.query<{ count: number }>(
+      `SELECT COUNT(DISTINCT id) as count FROM people
+       WHERE deleted_at IS NULL AND last_seen_place_id = ?`,
+      [id],
+    ),
+    db.query<{ count: number; last_date: string | null }>(
+      `SELECT COUNT(*) as count, MAX(date) as last_date FROM interactions WHERE place_id = ?`,
+      [id],
+    ),
+  ])
+
+  return {
+    ...place,
+    metCount: met[0]?.count ?? 0,
+    lastSeenCount: lastSeen[0]?.count ?? 0,
+    interactionCount: interactions[0]?.count ?? 0,
+    lastInteractionDate: interactions[0]?.last_date ?? null,
+  }
+}
+
+export async function getPlacesWithCoordinates(): Promise<PlaceWithStats[]> {
+  const rows = await db.query(
+    'SELECT * FROM places WHERE latitude IS NOT NULL AND longitude IS NOT NULL',
+  )
+  const places: PlaceWithStats[] = []
+  for (const row of rows) {
+    const stats = await getPlaceStats(rowToPlace(row).id)
+    if (stats) places.push(stats)
+  }
+  return places
+}
+
+export async function getFavoritePlaces(): Promise<Place[]> {
+  const rows = await db.query('SELECT * FROM places WHERE is_favorite = 1 ORDER BY name')
+  return rows.map(rowToPlace)
+}
+
+export async function getRecentPlaces(limit = 10): Promise<Place[]> {
+  const rows = await db.query(
+    `SELECT DISTINCT p.* FROM places p
+     LEFT JOIN interactions i ON i.place_id = p.id
+     LEFT JOIN people pe ON pe.last_seen_place_id = p.id
+     ORDER BY COALESCE(i.created_at, pe.updated_at, p.created_at) DESC
+     LIMIT ?`,
+    [limit],
+  )
+  return rows.map(rowToPlace)
+}
+
+export async function searchPlaces(query: string): Promise<PlaceSearchResult[]> {
+  const like = `%${query.trim()}%`
+  if (!query.trim()) {
+    const rows = await db.query('SELECT * FROM places ORDER BY name LIMIT 20')
+    return rows.map(rowToPlace)
+  }
+  const rows = await db.query(
+    `SELECT * FROM places WHERE
+     name LIKE ? OR address LIKE ? OR city LIKE ? OR state LIKE ? OR
+     category LIKE ? OR notes LIKE ?
+     ORDER BY name LIMIT 30`,
+    [like, like, like, like, like, like],
+  )
+  return rows.map(rowToPlace)
+}
+
+export async function getNearbyPlaces(
+  lat: number,
+  lng: number,
+  limit = 10,
+): Promise<PlaceSearchResult[]> {
+  const rows = await db.query(
+    'SELECT * FROM places WHERE latitude IS NOT NULL AND longitude IS NOT NULL',
+  )
+  const withDistance = rows
+    .map((row) => {
+      const place = rowToPlace(row)
+      return {
+        ...place,
+        distanceKm: distanceKm(lat, lng, place.latitude!, place.longitude!),
+      }
+    })
+    .sort((a, b) => (a.distanceKm ?? 0) - (b.distanceKm ?? 0))
+    .slice(0, limit)
+
+  return withDistance
+}
+
+export async function getPeopleMetAtPlace(placeId: string): Promise<PersonWithTags[]> {
+  const rows = await db.query(
+    `SELECT * FROM people WHERE deleted_at IS NULL
+     AND (where_met_place_id = ? OR location_id = ?)
+     ORDER BY name ASC`,
+    [placeId, placeId],
+  )
+  const people: PersonWithTags[] = []
+  for (const row of rows) {
+    people.push(await enrichPersonRow(row))
+  }
+  return people
+}
+
+export async function getPeopleLastSeenAtPlace(placeId: string): Promise<PersonWithTags[]> {
+  const rows = await db.query(
+    `SELECT DISTINCT p.* FROM people p
+     LEFT JOIN interactions i ON i.person_id = p.id AND i.place_id = ?
+     WHERE p.deleted_at IS NULL AND (p.last_seen_place_id = ? OR i.place_id = ?)
+     ORDER BY p.name ASC`,
+    [placeId, placeId, placeId],
+  )
+  const people: PersonWithTags[] = []
+  for (const row of rows) {
+    people.push(await enrichPersonRow(row))
+  }
+  return people
+}
+
+export async function getInteractionsAtPlace(placeId: string): Promise<InteractionWithPerson[]> {
+  const rows = await db.query(
+    `SELECT i.*, pe.name as person_name, pe.workspace, pl.name as place_name
+     FROM interactions i
+     JOIN people pe ON pe.id = i.person_id
+     LEFT JOIN places pl ON pl.id = i.place_id
+     WHERE i.place_id = ? AND pe.deleted_at IS NULL
+     ORDER BY i.date DESC`,
+    [placeId],
+  )
+  return rows.map((row) => ({
+    ...rowToInteraction(row),
+    personName: row.person_name as string,
+    workspace: row.workspace as never,
+    placeName: (row.place_name as string) || null,
+  }))
+}
+
+export async function getAllPlaceNames(): Promise<string[]> {
+  const rows = await db.query<{ name: string }>('SELECT name FROM places ORDER BY name')
+  return rows.map((r) => r.name)
+}
