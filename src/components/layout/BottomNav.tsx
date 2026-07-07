@@ -18,7 +18,7 @@ export function BottomNav() {
   if (isDesktop) return null
 
   return (
-    <nav className="bg-pack-surface/90 border-pack-border fixed right-0 bottom-0 left-0 z-30 border-t backdrop-blur-lg safe-bottom">
+    <nav className="bg-pack-surface/95 border-pack-border/60 fixed right-0 bottom-0 left-0 z-30 border-t backdrop-blur-lg safe-bottom">
       <div className="mx-auto flex max-w-lg items-center justify-around px-1 py-1.5">
         {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink key={to} to={to} end={to === '/'}>

@@ -17,7 +17,7 @@ export function FavoritesPage() {
 
   return (
     <div className="min-h-dvh">
-      <Header title="Favorites" />
+      <Header title="Saved" />
       <div className="border-pack-border border-b px-4 pb-3">
         <WorkspaceToggle value={workspace} onChange={setWorkspace} size="sm" />
       </div>

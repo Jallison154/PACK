@@ -9,12 +9,12 @@ export function FAB() {
     <motion.button
       initial={{ scale: 0 }}
       animate={{ scale: 1 }}
-      whileTap={{ scale: 0.9 }}
+      whileTap={{ scale: 0.92 }}
       onClick={() => navigate('/add')}
-      className="bg-pack-accent text-black shadow-pack-accent/30 fixed right-5 bottom-24 z-40 flex h-14 w-14 items-center justify-center rounded-full shadow-lg md:bottom-8 md:right-8 md:h-16 md:w-16"
+      className="bg-pack-accent text-black pack-glow fixed right-4 bottom-[4.75rem] z-40 flex h-12 w-12 items-center justify-center rounded-full lg:hidden"
       aria-label="Add person"
     >
-      <Plus className="h-7 w-7" strokeWidth={2.5} />
+      <Plus className="h-6 w-6" strokeWidth={2.5} />
     </motion.button>
   )
 }

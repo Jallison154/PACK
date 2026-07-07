@@ -6,7 +6,7 @@ export function AppLayout() {
   return (
     <div className="bg-pack-bg min-h-dvh">
       <DesktopNav />
-      <main className="mx-auto w-full max-w-lg pb-24 lg:max-w-6xl lg:pb-8">
+      <main className="mx-auto w-full max-w-lg pb-28 lg:max-w-5xl lg:pb-10">
         <Outlet />
       </main>
       <BottomNav />
