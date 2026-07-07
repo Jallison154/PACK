@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Deployment (server-side persistent paths)
+.env
+data/
+backups/
+uploads/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -32,6 +32,17 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173)
 
+### Linux server (Debian / Ubuntu LXC)
+
+```bash
+git clone https://github.com/Jallison154/PACK.git
+cd PACK
+chmod +x install.sh update.sh uninstall.sh
+sudo ./install.sh
+```
+
+See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for details.
+
 ## Build
 
 ```bash

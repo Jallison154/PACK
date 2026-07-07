@@ -4,7 +4,48 @@ Deploy Pack as a **static production web app** on Ubuntu/Debian (Proxmox LXC). N
 
 **Production URL (example):** `https://pack.okamidesigns.com`
 
-Pack is a client-side PWA. Nginx serves the built files only. **All Pack Member data stays in each user's browser** (IndexedDB + localStorage), not on the server.
+Pack is a client-side PWA. Nginx serves the built files only. **Pack Member data in the browser stays on each user's device** (IndexedDB). Server-side paths under `/opt/pack/data`, `/opt/pack/backups`, and `/opt/pack/uploads` are reserved for future use and are never overwritten by updates.
+
+---
+
+## One-command install
+
+On a fresh Debian 12 or Ubuntu 22.04+ LXC:
+
+```bash
+git clone https://github.com/Jallison154/PACK.git
+cd PACK
+chmod +x install.sh update.sh uninstall.sh
+sudo ./install.sh
+```
+
+Updates:
+
+```bash
+sudo /opt/pack/update.sh
+```
+
+Uninstall:
+
+```bash
+sudo /opt/pack/uninstall.sh
+```
+
+| Script | Purpose |
+|--------|---------|
+| `install.sh` | Install dependencies, clone to `/opt/pack`, build, deploy to `/var/www/pack`, configure Nginx |
+| `update.sh` | `git pull`, rebuild, redeploy (preserves data/uploads/databases) |
+| `uninstall.sh` | Remove Nginx site and app; optionally remove all data |
+
+Persistent paths (created on install, never deleted by `update.sh`):
+
+| Path | Purpose |
+|------|---------|
+| `/opt/pack` | Git repository and build tree |
+| `/opt/pack/data` | Future server-side SQLite / data |
+| `/opt/pack/backups` | Server-side backup storage |
+| `/opt/pack/uploads` | Future file uploads (symlinked at `/var/www/pack/uploads`) |
+| `/opt/pack/.env` | Deployment config (never overwritten) |
 
 ---
 
