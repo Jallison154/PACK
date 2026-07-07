@@ -291,6 +291,14 @@ deploy_web_root() {
   log "Deployed to $WEB_ROOT"
 }
 
+ensure_wasm_mime_type() {
+  local mime_file="/etc/nginx/mime.types"
+  if [[ -f "$mime_file" ]] && ! grep -q 'application/wasm' "$mime_file"; then
+    log "Adding application/wasm to $mime_file..."
+    sed -i '/application\/octet-stream/a\\    application/wasm wasm;' "$mime_file"
+  fi
+}
+
 write_nginx_config() {
   load_env
   local server_name="${PACK_DOMAIN:-pack.okamidesigns.com}"
@@ -315,9 +323,9 @@ server {
     root ${WEB_ROOT};
     index index.html;
 
-    types {
-        application/wasm wasm;
-    }
+    # Do NOT add a server-level types { } block — it overrides mime.types and
+    # causes index.html to download instead of render (application/octet-stream).
+    include /etc/nginx/mime.types;
 
     add_header X-Frame-Options "DENY" always;
     add_header X-Content-Type-Options "nosniff" always;
@@ -336,6 +344,12 @@ server {
 
     location /assets/ {
         add_header Cache-Control \$pack_cache_control;
+        try_files \$uri =404;
+    }
+
+    location ~* \\.wasm\$ {
+        default_type application/wasm;
+        add_header Cache-Control "public, max-age=31536000, immutable";
         try_files \$uri =404;
     }
 
@@ -358,6 +372,7 @@ EOF
 }
 
 enable_nginx_site() {
+  ensure_wasm_mime_type
   write_nginx_config
   ln -sfn "$NGINX_SITE" "$NGINX_ENABLED"
 
