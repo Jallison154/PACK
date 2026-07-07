@@ -16,13 +16,53 @@ On a fresh Debian 12 or Ubuntu 22.04+ LXC:
 git clone https://github.com/Jallison154/PACK.git
 cd PACK
 chmod +x install.sh update.sh uninstall.sh
-sudo ./install.sh
+./install.sh
+```
+
+If you are **not** root, use `sudo ./install.sh` instead. Minimal LXC images often have no `sudo` package when you are already logged in as `root`.
+
+### Private GitHub repository?
+
+GitHub **does not accept your account password** for `git clone`. If clone fails with *Password authentication is not supported*:
+
+**Easiest (recommended for self-hosting):** make the repository **public**  
+GitHub → **PACK** → Settings → Danger zone → Change visibility → Public
+
+**Or use a Personal Access Token:**
+
+1. GitHub → Settings → Developer settings → Personal access tokens → **classic**
+2. Generate token with **repo** scope
+3. Clone again:
+
+```bash
+git clone https://github.com/Jallison154/PACK.git
+# Username: Jallison154
+# Password: paste the token (not your GitHub password)
+```
+
+**Or use SSH:**
+
+```bash
+ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519
+cat ~/.ssh/id_ed25519.pub
+# Add the key at GitHub → Settings → SSH and GPG keys
+
+git clone git@github.com:Jallison154/PACK.git
+cd PACK
+chmod +x install.sh update.sh uninstall.sh
+./install.sh
+```
+
+**Or pass a token to the installer:**
+
+```bash
+PACK_GITHUB_TOKEN=ghp_your_token_here ./install.sh
 ```
 
 Updates:
 
 ```bash
-sudo /opt/pack/update.sh
+/opt/pack/update.sh
 ```
 
 Uninstall:

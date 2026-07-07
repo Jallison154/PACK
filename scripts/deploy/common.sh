@@ -66,6 +66,8 @@ load_env() {
   DATA_DIR="${PACK_DATA_DIR:-$DATA_DIR}"
   BACKUPS_DIR="${PACK_BACKUPS_DIR:-$BACKUPS_DIR}"
   UPLOADS_DIR="${PACK_UPLOADS_DIR:-$UPLOADS_DIR}"
+  REPO_URL="${PACK_REPO_URL:-$REPO_URL}"
+  GIT_BRANCH="${PACK_GIT_BRANCH:-$GIT_BRANCH}"
 }
 
 get_server_ip() {
@@ -117,6 +119,47 @@ install_nodejs() {
   log "Node.js $(node -v) and npm $(npm -v) ready."
 }
 
+get_git_clone_url() {
+  local url="$REPO_URL"
+  if [[ -n "${PACK_GITHUB_TOKEN:-}" ]]; then
+    url="${url/https:\/\//https://x-access-token:${PACK_GITHUB_TOKEN}@}"
+  fi
+  printf '%s' "$url"
+}
+
+git_clone_repo() {
+  local clone_url
+  clone_url="$(get_git_clone_url)"
+  log "Cloning Pack repository..."
+
+  if ! git clone "$clone_url" "$APP_DIR"; then
+    error "$(cat <<EOF
+Git clone failed.
+
+If the repository is private, GitHub does not accept account passwords.
+Use one of these options:
+
+  1. Make the repository public (GitHub → Settings → Danger zone → Change visibility)
+
+  2. Clone with a Personal Access Token (classic, repo scope):
+       git clone https://github.com/Jallison154/PACK.git
+       Username: Jallison154
+       Password: <paste token, not your GitHub password>
+
+  3. Clone with SSH (recommended for private repos):
+       ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519
+       cat ~/.ssh/id_ed25519.pub   # add to GitHub → SSH keys
+       git clone git@github.com:Jallison154/PACK.git
+
+  4. Pass a token to install.sh:
+       PACK_GITHUB_TOKEN=ghp_xxxx ./install.sh
+
+Then run ./install.sh again (install will use /opt/pack if already cloned).
+EOF
+)"
+  fi
+}
+
 ensure_app_directory() {
   if [[ -d "$APP_DIR/.git" ]]; then
     log "Using existing application at $APP_DIR"
@@ -124,8 +167,7 @@ ensure_app_directory() {
   fi
 
   mkdir -p "$(dirname "$APP_DIR")"
-  log "Cloning Pack repository..."
-  git clone "$REPO_URL" "$APP_DIR"
+  git_clone_repo
   [[ -d "$APP_DIR/.git" ]] || error "Failed to clone repository to $APP_DIR"
 }
 
@@ -154,6 +196,9 @@ PACK_UPLOADS_DIR=/opt/pack/uploads
 PACK_BACKUPS_DIR=/opt/pack/backups
 PACK_GIT_BRANCH=main
 PACK_REPO_URL=https://github.com/Jallison154/PACK.git
+
+# If the GitHub repository is private, uncomment and set a classic PAT (repo scope):
+# PACK_GITHUB_TOKEN=ghp_your_token_here
 
 NODE_ENV=production
 EOF
@@ -312,4 +357,18 @@ reload_nginx() {
   systemctl restart nginx
   systemctl is-active --quiet nginx || error "Nginx failed to start."
   log "Nginx is running."
+}
+
+git_pull_latest() {
+  local branch="${1:-$GIT_BRANCH}"
+  cd "$APP_DIR"
+  log "Fetching from origin/${branch}..."
+
+  if [[ -n "${PACK_GITHUB_TOKEN:-}" ]]; then
+    GIT_TERMINAL_PROMPT=0 git -c "http.extraHeader=AUTHORIZATION: bearer ${PACK_GITHUB_TOKEN}" fetch origin
+    GIT_TERMINAL_PROMPT=0 git -c "http.extraHeader=AUTHORIZATION: bearer ${PACK_GITHUB_TOKEN}" pull --ff-only origin "$branch"
+  else
+    GIT_TERMINAL_PROMPT=0 git fetch origin
+    GIT_TERMINAL_PROMPT=0 git pull --ff-only origin "$branch"
+  fi
 }

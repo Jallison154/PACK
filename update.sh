@@ -20,8 +20,7 @@ main() {
   cd "$APP_DIR"
 
   log "Step 2/6: Pulling latest changes from origin/${branch}..."
-  git fetch origin
-  git pull --ff-only origin "$branch"
+  git_pull_latest "$branch"
 
   log "Step 3/6: Installing npm dependencies..."
   if [[ -f package-lock.json ]]; then

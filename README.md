@@ -38,8 +38,10 @@ Open [http://localhost:5173](http://localhost:5173)
 git clone https://github.com/Jallison154/PACK.git
 cd PACK
 chmod +x install.sh update.sh uninstall.sh
-sudo ./install.sh
+./install.sh    # use sudo ./install.sh if not root
 ```
+
+If clone asks for a password, the repo is private — use a [GitHub token or SSH key](DEPLOYMENT.md#private-github-repository), or make the repo public.
 
 See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for details.
 
