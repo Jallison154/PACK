@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { Search, MapPin, Building2, Calendar, X, SlidersHorizontal } from 'lucide-react'
 import { MemoryPersonCard } from '../components/home/MemoryPersonCard'
 import { EmptyState } from '../components/ui/EmptyState'
+import { Button } from '../components/ui/Button'
 import { Select, Input } from '../components/ui/Input'
 import { TagChip } from '../components/ui/TagChip'
 import {
@@ -101,7 +102,7 @@ export function SearchPage() {
 
   return (
     <div className="min-h-dvh">
-      <div className="safe-top mx-auto max-w-lg px-6 pt-8 pb-4">
+      <div className="page-top page-px mx-auto max-w-lg pb-4">
         <div className="pack-elevated flex gap-2 p-2">
           <div className="relative flex-1">
             <Search className="text-pack-text-muted absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2" />
@@ -216,7 +217,7 @@ export function SearchPage() {
         )}
       </div>
 
-      <div className="mx-auto max-w-lg space-y-6 px-6 pb-8">
+      <div className="page-px page-sections mx-auto max-w-lg pb-8">
         {!query && recentSearches.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {recentSearches.map((term) => (
@@ -292,7 +293,14 @@ export function SearchPage() {
           companyResults.length === 0 &&
           eventResults.length === 0 &&
           noteResults.length === 0 && (
-            <EmptyState message={`Nothing found for "${query}"`} />
+            <EmptyState
+              message={`Nothing found for "${query}"`}
+              action={
+                <Button onClick={() => navigate('/add', { state: { name: query.trim() } })}>
+                  Add to Pack
+                </Button>
+              }
+            />
           )}
 
         {!query && recentSearches.length === 0 && (

@@ -12,7 +12,7 @@ const items = [
 ]
 
 export function DesktopNav() {
-  const isDesktop = useIsDesktop()
+  const isDesktop = useIsDesktop(768)
   if (!isDesktop) return null
 
   return (
@@ -21,7 +21,7 @@ export function DesktopNav() {
         <PackLogo href="/" size="sm" className="mr-8" />
         <div className="flex flex-1 items-center gap-0.5">
         {items.map(({ to, icon: Icon, label }) => (
-          <NavLink key={to} to={to} end={to === '/'} replace>
+          <NavLink key={to} to={to} end={to === '/' || to !== '/settings'} replace>
             {({ isActive }) => (
               <span
                 className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${

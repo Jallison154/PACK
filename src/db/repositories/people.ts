@@ -521,10 +521,19 @@ export async function listPackMembers(
   const trimmed = query?.trim()
 
   if (trimmed) {
-    const people = await searchPeople(trimmed, {
+    let people = await searchPeople(trimmed, {
       workspace,
       favoritesOnly: view === 'core',
     })
+    if (view === 'recent') {
+      const cutoff = new Date()
+      cutoff.setDate(cutoff.getDate() - 90)
+      const cutoffIso = cutoff.toISOString().split('T')[0]
+      people = people.filter((p) => {
+        const recentDate = p.lastSeenDate || p.dateMet || p.createdAt.split('T')[0]
+        return recentDate >= cutoffIso
+      })
+    }
     return await sortPackMembers(people, sort)
   }
 
@@ -541,8 +550,9 @@ export async function listPackMembers(
   if (view === 'recent') {
     const cutoff = new Date()
     cutoff.setDate(cutoff.getDate() - 90)
-    sql += ' AND p.created_at >= ?'
-    params.push(cutoff.toISOString())
+    const cutoffIso = cutoff.toISOString().split('T')[0]
+    sql += ` AND COALESCE(p.last_seen_date, p.date_met, substr(p.created_at, 1, 10)) >= ?`
+    params.push(cutoffIso)
   }
 
   switch (sort) {

@@ -14,7 +14,12 @@ import { useWorkspace } from '../../context/WorkspaceContext'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { todayISO } from '../../utils/format'
 import { getRecognizedLabels, parseMemoryNotes } from '../../utils/parseMemoryNotes'
+import { findPossibleDuplicates } from '../../db/repositories/duplicates'
 import type { PersonWithTags } from '../../types'
+
+function dismissMatchesSoon(setFocused: (v: boolean) => void) {
+  window.setTimeout(() => setFocused(false), 150)
+}
 
 interface QuickCaptureProps {
   onCreated?: () => void
@@ -83,6 +88,25 @@ export function QuickCapture({ onCreated, size = 'default' }: QuickCaptureProps)
     if (!trimmedName) return
     setSaving(true)
     try {
+      const duplicates = await findPossibleDuplicates({
+        name: trimmedName,
+        phone: parsedMemory.phone,
+        email: parsedMemory.email,
+        company: parsedMemory.company,
+        whereMet: parsedMemory.whereMet,
+        notes: memory,
+      })
+      const strong = duplicates.find((d) => d.strength === 'strong')
+      if (strong) {
+        const viewExisting = window.confirm(
+          `${strong.person.name} may already be in your Pack. View their profile instead of creating a duplicate?`,
+        )
+        if (viewExisting) {
+          navigate(`/person/${strong.person.id}`)
+          return
+        }
+      }
+
       const person = await createPerson({
         name: trimmedName,
         workspace: lastUsedWorkspace,
@@ -136,6 +160,7 @@ export function QuickCapture({ onCreated, size = 'default' }: QuickCaptureProps)
                     openExpanded(e.target.value)
                   }}
                   onFocus={() => setFocused(true)}
+                  onBlur={() => dismissMatchesSoon(setFocused)}
                   placeholder="Who comes to mind?"
                   className={inputClass}
                 />
@@ -157,6 +182,7 @@ export function QuickCapture({ onCreated, size = 'default' }: QuickCaptureProps)
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     onFocus={() => setFocused(true)}
+                    onBlur={() => dismissMatchesSoon(setFocused)}
                     autoFocus
                     placeholder="Their name"
                     className="pack-inset text-pack-text placeholder:text-pack-text-muted w-full px-4 py-3.5 text-lg"

@@ -39,6 +39,8 @@ npm run build
 npm run preview
 ```
 
+Production output is written to **`dist/`**. For self-hosted deployment (Nginx, Proxmox LXC, Cloudflare Tunnel), see **[DEPLOYMENT.md](./DEPLOYMENT.md)**.
+
 ## Native Apps
 
 ```bash

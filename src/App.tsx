@@ -8,6 +8,8 @@ import { AddPersonPage } from './pages/AddPersonPage'
 import { PersonDetailPage } from './pages/PersonDetailPage'
 import { EditPersonPage } from './pages/EditPersonPage'
 import { PlaceDetailPage } from './pages/PlaceDetailPage'
+import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage'
+import { TermsOfServicePage } from './pages/TermsOfServicePage'
 
 export default function App() {
   return (
@@ -22,11 +24,13 @@ export default function App() {
                 <Route path="/pack" element={<TabShell />} />
                 <Route path="/favorites" element={<Navigate to="/pack" replace />} />
                 <Route path="/places" element={<TabShell />} />
-                <Route path="/settings" element={<TabShell />} />
+                <Route path="/settings/*" element={<TabShell />} />
                 <Route path="/places/:id" element={<PlaceDetailPage />} />
                 <Route path="/locations" element={<Navigate to="/places" replace />} />
                 <Route path="/locations/:id" element={<PlaceDetailPage />} />
                 <Route path="/dashboard" element={<Navigate to="/" replace />} />
+                <Route path="/privacy" element={<PrivacyPolicyPage />} />
+                <Route path="/terms" element={<TermsOfServicePage />} />
               </Route>
               <Route path="/add" element={<AddPersonPage />} />
               <Route path="/person/:id" element={<PersonDetailPage />} />

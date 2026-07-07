@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom'
-import { TabPanel, isMainTabPath } from './TabPanel'
+import { TabPanel, getActiveMainTab } from './TabPanel'
 import { HomePage } from '../../pages/HomePage'
 import { SearchPage } from '../../pages/SearchPage'
 import { MyPackPage } from '../../pages/MyPackPage'
@@ -8,7 +8,7 @@ import { SettingsPage } from '../../pages/SettingsPage'
 
 export function TabShell() {
   const { pathname } = useLocation()
-  const activeTab = isMainTabPath(pathname) ? pathname : '/'
+  const activeTab = getActiveMainTab(pathname)
 
   return (
     <>

@@ -5,17 +5,23 @@ import type { ReactNode } from 'react'
 interface HeaderProps {
   title: string
   showBack?: boolean
+  backTo?: string
   right?: ReactNode
 }
 
-export function Header({ title, showBack, right }: HeaderProps) {
+export function Header({ title, showBack, backTo, right }: HeaderProps) {
   const navigate = useNavigate()
 
+  const goBack = () => {
+    if (backTo) navigate(backTo)
+    else navigate(-1)
+  }
+
   return (
-    <header className="pack-nav sticky top-0 z-20 flex items-center gap-3 px-4 py-3 safe-top">
+    <header className="pack-nav page-nav-top page-px sticky top-0 z-20 flex items-center gap-3">
       {showBack && (
         <button
-          onClick={() => navigate(-1)}
+          onClick={goBack}
           className="text-pack-text-secondary hover:text-pack-text -ml-1 flex h-10 w-10 items-center justify-center rounded-xl transition-colors"
         >
           <ArrowLeft className="h-6 w-6" />

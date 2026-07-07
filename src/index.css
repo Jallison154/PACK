@@ -37,6 +37,22 @@
   /* Layer 2 — ambient (upper left) */
   --pack-ambient-glow: color-mix(in srgb, var(--okami-orange) 10%, transparent);
   --pack-ambient-glow-soft: color-mix(in srgb, var(--okami-orange) 6%, transparent);
+
+  /* Spacing system — native app breathing room (mobile defaults) */
+  --page-top-spacing: 3.25rem; /* ~52px below the safe area before the header/logo */
+  --header-gap: 1.5rem; /* space between header/logo and the primary content */
+  --section-spacing: 2.25rem; /* space between content sections */
+  --content-padding: 1.5rem; /* horizontal page padding */
+}
+
+/* Desktop / web — tighter, more information-dense spacing */
+@media (min-width: 768px) {
+  :root {
+    --page-top-spacing: 2rem;
+    --header-gap: 1rem;
+    --section-spacing: 1.75rem;
+    --content-padding: 1.5rem;
+  }
 }
 
 @theme {
@@ -224,10 +240,90 @@ textarea::placeholder {
   padding-top: env(safe-area-inset-top, 0px);
 }
 
+/* Page spacing system — inherit these instead of ad-hoc padding.
+   Combines the device safe area with the generous native top spacing. */
+.page-top {
+  padding-top: calc(env(safe-area-inset-top, 0px) + var(--page-top-spacing));
+}
+
+.page-px {
+  padding-left: var(--content-padding);
+  padding-right: var(--content-padding);
+}
+
+.page-header-gap {
+  margin-bottom: var(--header-gap);
+}
+
+.page-sections > * + * {
+  margin-top: var(--section-spacing);
+}
+
+/* Sticky headers (nav-style) — safe area plus a comfortable, consistent height */
+.page-nav-top {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 1rem);
+  padding-bottom: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .page-nav-top {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+  }
+}
+
 .pack-glow {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 4px 20px color-mix(in srgb, var(--okami-orange) 18%, transparent);
+}
+
+/* Home — scroll crossfade between hero and feed */
+.home-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.home-viewport-height {
+  height: calc(100dvh - 4.5rem);
+  min-height: calc(100dvh - 4.5rem);
+}
+
+.home-fade-spacer {
+  height: 12vh;
+}
+
+.home-hero-section,
+.home-feed-section {
+  will-change: opacity, transform;
+}
+
+@media (min-width: 1024px) {
+  .home-viewport-height {
+    height: 100dvh;
+    min-height: 100dvh;
+  }
+}
+
+@keyframes home-explore-pulse {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(6px);
+  }
+}
+
+.home-explore-indicator {
+  animation: home-explore-pulse 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-explore-indicator {
+    animation: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

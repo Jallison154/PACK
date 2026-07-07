@@ -129,7 +129,7 @@ export function EditPersonPage() {
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="min-h-dvh">
       <Header title="Edit Pack Member" showBack />
 
-      <div className="space-y-4 px-4 py-4 pb-32">
+      <div className="page-px mx-auto max-w-lg space-y-4 pt-6 pb-32">
         <div>
           <label className="text-pack-text-secondary mb-2 block text-sm font-medium">Workspace</label>
           <WorkspaceToggle value={workspace} onChange={setWorkspace} size="sm" />

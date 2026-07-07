@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header } from '../components/layout/Header'
 import { Input, Textarea } from '../components/ui/Input'
@@ -21,10 +21,14 @@ import type { Workspace } from '../types'
 
 export function AddPersonPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { lastUsedWorkspace, setLastUsedWorkspace } = useWorkspace()
   const [saving, setSaving] = useState(false)
   const [workspace, setWorkspace] = useState<Workspace>(lastUsedWorkspace)
-  const [name, setName] = useState('')
+  const [name, setName] = useState(() => {
+    const initial = (location.state as { name?: string } | null)?.name?.trim()
+    return initial ?? ''
+  })
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [company, setCompany] = useState('')
@@ -126,7 +130,7 @@ export function AddPersonPage() {
     >
       <Header title="Add to Pack" showBack />
 
-      <div className="space-y-5 px-4 py-6 pb-32">
+      <div className="page-px mx-auto max-w-lg space-y-5 pt-6 pb-32">
         <p className="text-pack-text-secondary text-sm leading-relaxed">
           Capture a new connection in seconds. Search by name, phone, or email to find someone
           already in your Pack, or add someone new.

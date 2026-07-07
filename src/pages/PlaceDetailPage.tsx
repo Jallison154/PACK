@@ -53,7 +53,7 @@ export function PlaceDetailPage() {
     return (
       <div className="min-h-dvh">
         <Header title="Place" showBack />
-        <div className="bg-pack-card mx-4 mt-8 h-48 animate-pulse rounded-2xl" />
+        <div className="page-px mt-6"><div className="bg-pack-card h-48 animate-pulse rounded-2xl" /></div>
       </div>
     )
   }
@@ -72,7 +72,7 @@ export function PlaceDetailPage() {
         }
       />
 
-      <div className="space-y-4 px-4 py-4">
+      <div className="page-px mx-auto max-w-lg space-y-4 pt-6">
         <PlaceMapPreview place={place} height="200px" />
 
         <Card>

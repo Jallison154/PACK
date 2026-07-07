@@ -50,3 +50,8 @@ export function useIsDesktop(breakpoint = 1024) {
 
   return isDesktop
 }
+
+/** True below the given min-width breakpoint (default 768px — tablet/desktop). */
+export function useIsMobile(breakpoint = 768) {
+  return !useIsDesktop(breakpoint)
+}

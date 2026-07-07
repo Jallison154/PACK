@@ -12,7 +12,7 @@ const navItems = [
 ]
 
 export function BottomNav() {
-  const isDesktop = useIsDesktop()
+  const isDesktop = useIsDesktop(768)
 
   if (isDesktop) return null
 
@@ -20,7 +20,7 @@ export function BottomNav() {
     <nav className="pack-nav fixed right-0 bottom-0 left-0 z-30 rounded-t-[1.25rem] safe-bottom">
       <div className="mx-auto flex max-w-lg items-center justify-around px-1 py-2">
         {navItems.map(({ to, icon: Icon, label }) => (
-          <NavLink key={to} to={to} end={to === '/'} replace>
+          <NavLink key={to} to={to} end={to === '/' || to !== '/settings'} replace>
             {({ isActive }) => (
               <motion.div
                 whileTap={{ scale: 0.9 }}

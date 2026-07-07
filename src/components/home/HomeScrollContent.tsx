@@ -12,6 +12,7 @@ export interface HomeScrollData {
   followUps: InteractionWithPerson[]
   recentPlaces: Place[]
   corePack: PersonWithTags[]
+  recentPackMembers: PersonWithTags[]
   insights: { people: number; places: number; companies: number; followUps: number }
 }
 
@@ -28,7 +29,7 @@ export function HomeScrollContent({ data }: HomeScrollContentProps) {
   const { todayTrail, followUps, recentPlaces, corePack, insights } = data
 
   return (
-    <div className="mx-auto w-full max-w-sm space-y-16 px-6 pb-32">
+    <div className="page-px mx-auto w-full max-w-sm space-y-16 pt-4 pb-32">
       <HomeRevealSection title="Today's Trail">
         {todayTrail.length > 0 ? (
           <MemoryFeed items={todayTrail} flat />

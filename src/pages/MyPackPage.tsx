@@ -82,7 +82,7 @@ export function MyPackPage() {
 
   return (
     <div className="min-h-dvh">
-      <div className="safe-top sticky top-0 z-10 px-6 pt-8 pb-3">
+      <div className="page-top page-px sticky top-0 z-10 pb-3">
         <div className="relative">
           <Search className="text-pack-text-muted absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2" />
           <input
@@ -171,7 +171,7 @@ export function MyPackPage() {
         )}
       </div>
 
-      <div className="relative mx-auto max-w-lg px-6 pb-28">
+      <div className="page-px relative mx-auto max-w-lg pb-4">
         {loading ? (
           <div className="space-y-1">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (

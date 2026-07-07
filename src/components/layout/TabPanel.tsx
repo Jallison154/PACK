@@ -4,7 +4,14 @@ export const MAIN_TAB_PATHS = ['/', '/search', '/pack', '/places', '/settings'] 
 export type MainTabPath = (typeof MAIN_TAB_PATHS)[number]
 
 export function isMainTabPath(path: string): path is MainTabPath {
-  return (MAIN_TAB_PATHS as readonly string[]).includes(path)
+  if ((MAIN_TAB_PATHS as readonly string[]).includes(path)) return true
+  return path.startsWith('/settings/')
+}
+
+export function getActiveMainTab(pathname: string): MainTabPath {
+  if (pathname === '/settings' || pathname.startsWith('/settings/')) return '/settings'
+  if (isMainTabPath(pathname)) return pathname
+  return '/'
 }
 
 interface TabPanelProps {

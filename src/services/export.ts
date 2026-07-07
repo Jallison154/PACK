@@ -2,9 +2,10 @@ import { db } from '../db/database'
 import type { PersonWithTags } from '../types'
 
 export async function exportToJSON(): Promise<string> {
-  const [people, interactions, locations, companies, tags, personTags] = await Promise.all([
+  const [people, interactions, places, locations, companies, tags, personTags] = await Promise.all([
     db.query('SELECT * FROM people'),
     db.query('SELECT * FROM interactions'),
+    db.query('SELECT * FROM places'),
     db.query('SELECT * FROM locations'),
     db.query('SELECT * FROM companies'),
     db.query('SELECT * FROM tags'),
@@ -13,9 +14,9 @@ export async function exportToJSON(): Promise<string> {
 
   return JSON.stringify(
     {
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
-      data: { people, interactions, locations, companies, tags, personTags },
+      data: { people, interactions, places, locations, companies, tags, personTags },
     },
     null,
     2,
@@ -28,6 +29,7 @@ export async function exportToCSV(): Promise<string> {
 
   const headers = [
     'name',
+    'workspace',
     'phone',
     'email',
     'company',
@@ -37,6 +39,8 @@ export async function exportToCSV(): Promise<string> {
     'city',
     'state',
     'date_met',
+    'last_seen_at',
+    'last_seen_date',
     'notes',
     'relationship_type',
     'is_favorite',
@@ -73,10 +77,40 @@ export async function importFromJSON(jsonStr: string): Promise<void> {
 
   if (!data) throw new Error('Invalid backup format')
 
-  const tables = ['person_tags', 'interactions', 'people', 'tags', 'companies', 'locations']
+  const tables = [
+    'person_tags',
+    'interactions',
+    'people',
+    'places',
+    'tags',
+    'companies',
+    'locations',
+  ]
 
   for (const table of tables) {
     await db.run(`DELETE FROM ${table}`)
+  }
+
+  for (const place of data.places ?? []) {
+    await db.run(
+      `INSERT INTO places (
+        id, name, address, city, state, latitude, longitude, category, notes, is_favorite, created_at, sync_version
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        place.id,
+        place.name,
+        place.address ?? null,
+        place.city ?? null,
+        place.state ?? null,
+        place.latitude ?? null,
+        place.longitude ?? null,
+        place.category ?? null,
+        place.notes ?? null,
+        place.is_favorite ?? 0,
+        place.created_at,
+        place.sync_version ?? 1,
+      ],
+    )
   }
 
   for (const loc of data.locations ?? []) {
@@ -102,15 +136,44 @@ export async function importFromJSON(jsonStr: string): Promise<void> {
 
   for (const person of data.people ?? []) {
     await db.run(
-      `INSERT INTO people (id, name, phone, email, company, company_id, job_title, where_met, event, city, state, location_id, date_met, notes, relationship_type, profile_color, is_favorite, created_at, updated_at, sync_version, deleted_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO people (
+        id, name, workspace, phone, email, company, company_id, job_title,
+        where_met, event, city, state, location_id, where_met_place_id,
+        date_met, notes, relationship_type, household_id, home_address, work_location,
+        last_seen_at, last_seen_place_id, last_seen_date, last_interaction_notes,
+        profile_color, is_favorite, created_at, updated_at, sync_version, deleted_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        person.id, person.name, person.phone, person.email, person.company,
-        person.company_id, person.job_title, person.where_met, person.event,
-        person.city, person.state, person.location_id, person.date_met,
-        person.notes, person.relationship_type, person.profile_color,
-        person.is_favorite, person.created_at, person.updated_at,
-        person.sync_version ?? 1, person.deleted_at,
+        person.id,
+        person.name,
+        person.workspace ?? 'work',
+        person.phone ?? null,
+        person.email ?? null,
+        person.company ?? null,
+        person.company_id ?? null,
+        person.job_title ?? null,
+        person.where_met ?? null,
+        person.event ?? null,
+        person.city ?? null,
+        person.state ?? null,
+        person.location_id ?? null,
+        person.where_met_place_id ?? person.location_id ?? null,
+        person.date_met ?? null,
+        person.notes ?? null,
+        person.relationship_type ?? null,
+        person.household_id ?? null,
+        person.home_address ?? null,
+        person.work_location ?? null,
+        person.last_seen_at ?? null,
+        person.last_seen_place_id ?? null,
+        person.last_seen_date ?? null,
+        person.last_interaction_notes ?? null,
+        person.profile_color ?? '#52525B',
+        person.is_favorite ?? 0,
+        person.created_at,
+        person.updated_at ?? person.created_at,
+        person.sync_version ?? 1,
+        person.deleted_at ?? null,
       ],
     )
   }
@@ -124,12 +187,21 @@ export async function importFromJSON(jsonStr: string): Promise<void> {
 
   for (const interaction of data.interactions ?? []) {
     await db.run(
-      `INSERT INTO interactions (id, person_id, date, location, notes, next_follow_up, created_at, updated_at, sync_version)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO interactions (
+        id, person_id, date, location, interaction_type, notes, next_follow_up, place_id, created_at, updated_at, sync_version
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        interaction.id, interaction.person_id, interaction.date,
-        interaction.location, interaction.notes, interaction.next_follow_up,
-        interaction.created_at, interaction.updated_at, interaction.sync_version ?? 1,
+        interaction.id,
+        interaction.person_id,
+        interaction.date,
+        interaction.location ?? null,
+        interaction.interaction_type ?? null,
+        interaction.notes ?? null,
+        interaction.next_follow_up ?? null,
+        interaction.place_id ?? null,
+        interaction.created_at,
+        interaction.updated_at ?? interaction.created_at,
+        interaction.sync_version ?? 1,
       ],
     )
   }

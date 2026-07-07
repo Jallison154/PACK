@@ -22,9 +22,9 @@ export function PlacesPage() {
 
   return (
     <div className="min-h-dvh">
-      <div className="safe-top mx-auto max-w-lg px-6 pt-8 pb-4">
+      <div className="page-top page-px page-header-gap mx-auto max-w-lg">
         <div className="flex items-center justify-between">
-          <h1 className="text-pack-text text-xl font-semibold tracking-tight">Places</h1>
+          <h1 className="text-pack-text text-2xl font-semibold tracking-tight">Places</h1>
           <div className="text-pack-text-muted flex gap-3 text-sm">
             <button
               type="button"
@@ -44,7 +44,7 @@ export function PlacesPage() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-lg px-6 pb-8">
+      <div className="page-px mx-auto max-w-lg pb-8">
         {view === 'map' ? (
           <div className="space-y-4">
             <div className="pack-surface overflow-hidden">
@@ -70,11 +70,18 @@ export function PlacesPage() {
                 </Button>
               </div>
             ) : mapPlaces.length === 0 ? (
-              <EmptyState
-                message="No places yet."
-                hint="Places appear as you build memories."
-                icon={<MapPin className="h-7 w-7" />}
-              />
+              places.length === 0 ? (
+                <EmptyState
+                  message="No places yet."
+                  hint="Places appear as you build memories."
+                  icon={<MapPin className="h-7 w-7" />}
+                />
+              ) : (
+                <p className="text-pack-text-muted px-1 text-center text-sm leading-relaxed">
+                  {places.length} {places.length === 1 ? 'place' : 'places'} in your Pack.
+                  Add a location when logging a memory to see pins on the map.
+                </p>
+              )
             ) : (
               <p className="text-pack-text-muted text-center text-sm">Tap a pin</p>
             )}

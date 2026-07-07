@@ -69,8 +69,20 @@ export function PersonDetailPage() {
 
   if (!person) {
     return (
-      <div className="min-h-dvh px-6 pt-6">
-        <div className="pack-elevated h-64 animate-pulse" />
+      <div className="min-h-dvh pb-12">
+        <div className="page-nav-top page-px flex items-center">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="text-pack-text-muted hover:text-pack-text flex h-10 w-10 items-center justify-center"
+            aria-label="Back"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="page-px mx-auto max-w-lg pt-4">
+          <div className="pack-elevated h-64 animate-pulse" />
+        </div>
       </div>
     )
   }
@@ -84,7 +96,7 @@ export function PersonDetailPage() {
 
   return (
     <div className="min-h-dvh pb-12">
-      <div className="safe-top flex items-center justify-between px-4 py-3">
+      <div className="page-nav-top page-px flex items-center justify-between">
         <button
           type="button"
           onClick={() => navigate(-1)}
@@ -108,7 +120,7 @@ export function PersonDetailPage() {
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mx-auto max-w-lg px-6"
+        className="page-px mx-auto max-w-lg pt-4"
       >
         <div className="mb-8 text-center">
           <Avatar name={person.name} color={person.profileColor} size="lg" />
