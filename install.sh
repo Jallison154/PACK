@@ -9,7 +9,7 @@ main() {
   require_root
   detect_os
   install_apt_packages
-  install_nodejs
+  ensure_node_version
   ensure_app_directory
   ensure_persistent_directories
   ensure_env_file

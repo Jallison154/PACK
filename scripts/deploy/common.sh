@@ -101,22 +101,42 @@ install_nodejs() {
   if command -v node >/dev/null 2>&1; then
     local major
     major="$(node -v | sed 's/^v//' | cut -d. -f1)"
-    if [[ "$major" -ge 20 ]]; then
+    if [[ "$major" -ge 22 ]]; then
       log "Node.js $(node -v) already installed."
       return 0
     fi
-    log "Node.js $(node -v) is too old. Installing Node.js 20 LTS..."
+    log "Node.js $(node -v) is too old. Installing Node.js 22 LTS..."
   else
-    log "Installing Node.js 20 LTS..."
+    log "Installing Node.js 22 LTS..."
   fi
 
-  curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
   DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
 
   command -v node >/dev/null 2>&1 || error "Node.js installation failed."
   command -v npm >/dev/null 2>&1 || error "npm installation failed."
 
+  local major
+  major="$(node -v | sed 's/^v//' | cut -d. -f1)"
+  if [[ "$major" -lt 22 ]]; then
+    error "Node.js 22+ is required (Capacitor 8 / Vite 8). Installed: $(node -v)"
+  fi
+
   log "Node.js $(node -v) and npm $(npm -v) ready."
+}
+
+ensure_node_version() {
+  if ! command -v node >/dev/null 2>&1; then
+    install_nodejs
+    return 0
+  fi
+
+  local major
+  major="$(node -v | sed 's/^v//' | cut -d. -f1)"
+  if [[ "$major" -lt 22 ]]; then
+    log "Node.js $(node -v) is too old for Pack. Upgrading to Node.js 22 LTS..."
+    install_nodejs
+  fi
 }
 
 get_git_clone_url() {
@@ -208,11 +228,15 @@ EOF
 install_npm_dependencies() {
   log "Installing npm dependencies..."
   cd "$APP_DIR"
+
   if [[ -f package-lock.json ]]; then
-    npm ci
-  else
-    npm install
+    if npm ci; then
+      return 0
+    fi
+    log "npm ci failed (lock file out of sync). Falling back to npm install..."
   fi
+
+  npm install
 }
 
 build_application() {

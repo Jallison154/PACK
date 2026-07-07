@@ -13,6 +13,8 @@ main() {
   load_env
   local branch="${PACK_GIT_BRANCH:-$GIT_BRANCH}"
 
+  ensure_node_version
+
   log "Updating Pack..."
   log ""
 
@@ -23,11 +25,7 @@ main() {
   git_pull_latest "$branch"
 
   log "Step 3/6: Installing npm dependencies..."
-  if [[ -f package-lock.json ]]; then
-    npm ci
-  else
-    npm install
-  fi
+  install_npm_dependencies
 
   log "Step 4/6: Building Pack..."
   export NODE_ENV=production
