@@ -1,7 +1,7 @@
 import { Home, MapPin, Settings, Users, Search } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { useIsDesktop } from '../ui/WorkspaceToggle'
+import { DESKTOP_BREAKPOINT, useIsDesktop } from '../ui/WorkspaceToggle'
 
 const navItems = [
   { to: '/', icon: Home, label: 'Home' },
@@ -11,8 +11,13 @@ const navItems = [
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]
 
+/** Only Home uses exact matching; Settings must stay active on /settings/* subroutes. */
+function navLinkEnd(path: string) {
+  return path === '/'
+}
+
 export function BottomNav() {
-  const isDesktop = useIsDesktop(768)
+  const isDesktop = useIsDesktop(DESKTOP_BREAKPOINT)
 
   if (isDesktop) return null
 
@@ -20,7 +25,7 @@ export function BottomNav() {
     <nav className="pack-nav fixed right-0 bottom-0 left-0 z-30 rounded-t-[1.25rem] safe-bottom">
       <div className="mx-auto flex max-w-lg items-center justify-around px-1 py-2">
         {navItems.map(({ to, icon: Icon, label }) => (
-          <NavLink key={to} to={to} end={to === '/' || to !== '/settings'} replace>
+          <NavLink key={to} to={to} end={navLinkEnd(to)} replace>
             {({ isActive }) => (
               <motion.div
                 whileTap={{ scale: 0.9 }}

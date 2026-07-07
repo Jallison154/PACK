@@ -17,6 +17,7 @@ main() {
   install_npm_dependencies
   build_application
   deploy_web_root
+  verify_deployment
   enable_nginx_site
   reload_nginx
 

@@ -28,11 +28,11 @@ main() {
   install_npm_dependencies
 
   log "Step 4/6: Building Pack..."
-  export NODE_ENV=production
   npm run build
 
   log "Step 5/6: Deploying web files (preserving data, uploads, and databases)..."
   deploy_web_root
+  verify_deployment
 
   log "Step 6/6: Reloading Nginx..."
   if [[ -f "$NGINX_SITE" ]]; then

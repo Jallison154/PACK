@@ -123,11 +123,7 @@ npm -v
 |----------|----------|-------|
 | *(none)* | — | Build and serve work out of the box |
 
-Optional conventions:
-
-```bash
-export NODE_ENV=production   # set automatically by `npm run build`
-```
+Do not put `NODE_ENV` in `/opt/pack/.env` — Vite warns and ignores it. `npm run build` already produces a production bundle.
 
 If you ever serve Pack from a subpath (e.g. `/pack/`), you would need to set Vite `base` in `vite.config.ts` and rebuild — the default expects the site root `/`.
 

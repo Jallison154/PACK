@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useIsMobile } from '../components/ui/WorkspaceToggle'
+import { useIsMobile, DESKTOP_BREAKPOINT } from '../components/ui/WorkspaceToggle'
 import { HomeMobile } from '../components/home/HomeMobile'
 import { HomeDesktop } from '../components/home/HomeDesktop'
 import { type HomeScrollData } from '../components/home/HomeScrollContent'
@@ -23,7 +23,7 @@ const emptyScrollData: HomeScrollData = {
 }
 
 export function HomePage() {
-  const isMobile = useIsMobile(768)
+  const isMobile = useIsMobile(DESKTOP_BREAKPOINT)
   const [scrollData, setScrollData] = useState<HomeScrollData>(emptyScrollData)
 
   const load = useCallback(async () => {

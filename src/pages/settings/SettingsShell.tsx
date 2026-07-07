@@ -2,7 +2,7 @@ import { useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Header } from '../../components/layout/Header'
 import { SettingsSubpageHeader } from '../../components/settings/SettingsPrimitives'
-import { useIsMobile } from '../../components/ui/WorkspaceToggle'
+import { useIsMobile, DESKTOP_BREAKPOINT } from '../../components/ui/WorkspaceToggle'
 import { getSettingsSection } from '../../settings/sections'
 import { SettingsMain } from './SettingsMain'
 import { SettingsSectionContent } from './SettingsSectionContent'
@@ -18,7 +18,7 @@ function SettingsPlaceholder() {
 export function SettingsShell() {
   const navigate = useNavigate()
   const location = useLocation()
-  const isMobile = useIsMobile(768)
+  const isMobile = useIsMobile(DESKTOP_BREAKPOINT)
 
   const sectionId = location.pathname.startsWith('/settings/')
     ? location.pathname.slice('/settings/'.length)

@@ -219,8 +219,6 @@ PACK_REPO_URL=https://github.com/Jallison154/PACK.git
 
 # If the GitHub repository is private, uncomment and set a classic PAT (repo scope):
 # PACK_GITHUB_TOKEN=ghp_your_token_here
-
-NODE_ENV=production
 EOF
   chmod 640 "$ENV_FILE"
 }
@@ -238,7 +236,6 @@ install_npm_dependencies() {
 build_application() {
   log "Building Pack..."
   cd "$APP_DIR"
-  export NODE_ENV=production
   npm run build
   [[ -d "$APP_DIR/dist" ]] || error "Build failed: dist/ directory was not created."
 }
@@ -296,7 +293,7 @@ deploy_web_root() {
 
 write_nginx_config() {
   load_env
-  local server_name="${PACK_DOMAIN:-_}"
+  local server_name="${PACK_DOMAIN:-pack.okamidesigns.com}"
 
   log "Configuring Nginx..."
 
@@ -311,9 +308,9 @@ map \$sent_http_content_type \$pack_cache_control {
 }
 
 server {
-    listen 80;
-    listen [::]:80;
-    server_name ${server_name};
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name ${server_name} _;
 
     root ${WEB_ROOT};
     index index.html;
@@ -364,11 +361,20 @@ enable_nginx_site() {
   write_nginx_config
   ln -sfn "$NGINX_SITE" "$NGINX_ENABLED"
 
-  if [[ -f /etc/nginx/sites-enabled/default ]]; then
-    rm -f /etc/nginx/sites-enabled/default
+  # Remove stock nginx welcome site so IP / unmatched host requests serve Pack.
+  rm -f /etc/nginx/sites-enabled/default
+  if [[ -f /etc/nginx/conf.d/default.conf ]]; then
+    mv /etc/nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf.pack-disabled 2>/dev/null || true
   fi
 
   nginx -t || error "Nginx configuration test failed."
+}
+
+verify_deployment() {
+  if [[ ! -f "${WEB_ROOT}/index.html" ]]; then
+    error "Pack was not deployed to ${WEB_ROOT}/index.html. Re-run install.sh or update.sh."
+  fi
+  log "Verified Pack web root at ${WEB_ROOT}"
 }
 
 reload_nginx() {

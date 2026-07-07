@@ -11,7 +11,7 @@ export function FAB() {
       animate={{ scale: 1 }}
       whileTap={{ scale: 0.92 }}
       onClick={() => navigate('/add')}
-      className="bg-pack-accent text-black pack-glow fixed right-4 bottom-[4.75rem] z-40 flex h-12 w-12 items-center justify-center rounded-full lg:hidden"
+      className="bg-pack-accent text-black pack-glow fixed right-4 bottom-[4.75rem] z-40 flex h-12 w-12 items-center justify-center rounded-full md:hidden"
       aria-label="Add person"
     >
       <Plus className="h-6 w-6" strokeWidth={2.5} />

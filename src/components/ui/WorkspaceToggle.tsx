@@ -35,7 +35,9 @@ export function WorkspaceToggle({ value, onChange, size = 'md' }: WorkspaceToggl
   )
 }
 
-export function useIsDesktop(breakpoint = 1024) {
+export const DESKTOP_BREAKPOINT = 768
+
+export function useIsDesktop(breakpoint = DESKTOP_BREAKPOINT) {
   const [isDesktop, setIsDesktop] = useState(
     () => typeof window !== 'undefined' && window.innerWidth >= breakpoint,
   )
@@ -51,7 +53,7 @@ export function useIsDesktop(breakpoint = 1024) {
   return isDesktop
 }
 
-/** True below the given min-width breakpoint (default 768px — tablet/desktop). */
-export function useIsMobile(breakpoint = 768) {
+/** True below the given min-width breakpoint (default 768px — mobile). */
+export function useIsMobile(breakpoint = DESKTOP_BREAKPOINT) {
   return !useIsDesktop(breakpoint)
 }
