@@ -147,7 +147,7 @@ cd /opt/pack
 ### 2. Install dependencies and build
 
 ```bash
-npm ci          # or: npm install
+npm install
 npm run build
 ```
 
@@ -340,7 +340,7 @@ git fetch origin
 git checkout main          # or a release tag: git checkout v1.0.0
 git pull --ff-only origin main
 
-npm ci
+npm install
 npm run build
 
 sudo rsync -a --delete dist/ /var/www/pack/
@@ -357,7 +357,7 @@ The PWA is configured with `registerType: 'autoUpdate'`. Users receive the new s
 ```bash
 git fetch --tags
 git checkout v1.2.0
-npm ci && npm run build
+npm install && npm run build
 sudo rsync -a --delete dist/ /var/www/pack/
 ```
 
@@ -443,7 +443,7 @@ Pack is designed **offline-first**: names, phones, emails, and notes stay on the
 
 ```bash
 # Build
-cd /opt/pack && npm ci && npm run build
+cd /opt/pack && npm install && npm run build
 
 # Publish
 sudo rsync -a --delete dist/ /var/www/pack/

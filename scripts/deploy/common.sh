@@ -229,14 +229,10 @@ install_npm_dependencies() {
   log "Installing npm dependencies..."
   cd "$APP_DIR"
 
-  if [[ -f package-lock.json ]]; then
-    if npm ci; then
-      return 0
-    fi
-    log "npm ci failed (lock file out of sync). Falling back to npm install..."
-  fi
-
-  npm install
+  # Use npm install for server deploys. npm ci fails when optional native
+  # dependencies in package-lock.json were resolved on a different OS (e.g.
+  # Windows dev machine vs Linux server).
+  npm install --no-audit --no-fund
 }
 
 build_application() {
