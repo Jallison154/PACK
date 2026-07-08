@@ -414,6 +414,14 @@ git_pull_latest() {
   cd "$APP_DIR"
   log "Fetching from origin/${branch}..."
 
+  # Server-side npm install can modify package-lock.json; discard before pull.
+  for f in package-lock.json package.json; do
+    if [[ -f "$f" ]] && ! git diff --quiet "$f" 2>/dev/null; then
+      log "Discarding local changes to $f (from server npm install)..."
+      git checkout -- "$f"
+    fi
+  done
+
   if [[ -n "${PACK_GITHUB_TOKEN:-}" ]]; then
     GIT_TERMINAL_PROMPT=0 git -c "http.extraHeader=AUTHORIZATION: bearer ${PACK_GITHUB_TOKEN}" fetch origin
     GIT_TERMINAL_PROMPT=0 git -c "http.extraHeader=AUTHORIZATION: bearer ${PACK_GITHUB_TOKEN}" pull --ff-only origin "$branch"

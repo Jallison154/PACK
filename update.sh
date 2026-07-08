@@ -28,7 +28,7 @@ main() {
   install_npm_dependencies
 
   log "Step 4/6: Building Pack..."
-  npm run build
+  build_application
 
   log "Step 5/6: Deploying web files (preserving data, uploads, and databases)..."
   deploy_web_root
