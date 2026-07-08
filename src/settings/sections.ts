@@ -9,9 +9,11 @@ import {
   Palette,
   Wrench,
   Info,
+  UserCircle,
 } from 'lucide-react'
 
 export type SettingsSectionId =
+  | 'account'
   | 'memory'
   | 'quick-capture'
   | 'location'
@@ -31,6 +33,12 @@ export interface SettingsSectionMeta {
 }
 
 export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
+  {
+    id: 'account',
+    title: 'Account',
+    subtitle: 'Sign in, sync, and manage your Pack',
+    icon: UserCircle,
+  },
   {
     id: 'memory',
     title: 'Memory',

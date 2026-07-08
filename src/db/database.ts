@@ -16,6 +16,7 @@ class DatabaseService {
   private webDb: SqlJsDatabase | null = null
   private initialized = false
   private readonly isNative = Capacitor.isNativePlatform()
+  private syncNotifyDisabled = false
 
   async init(): Promise<void> {
     if (this.initialized) return
@@ -103,12 +104,41 @@ class DatabaseService {
 
     if (this.isNative && this.nativeDb) {
       await this.nativeDb.run(sql, params)
+      await this.notifySyncChange(sql, params)
       return
     }
 
     if (this.webDb) {
       this.webDb.run(sql, params)
       await this.persistWeb()
+      await this.notifySyncChange(sql, params)
+    }
+  }
+
+  private async notifySyncChange(sql: string, params: unknown[]): Promise<void> {
+    if (this.syncNotifyDisabled) return
+    const normalized = sql.trim().toUpperCase()
+    if (normalized.startsWith('SELECT') || normalized.includes('sync_queue')) return
+
+    this.syncNotifyDisabled = true
+    try {
+      const { isCloudSyncEnabled } = await import('../services/sync/types')
+      if (!isCloudSyncEnabled()) return
+
+      const { parseWriteForSync, enqueueSyncChange, loadRowPayload } = await import(
+        '../services/sync/queue'
+      )
+      const parsed = parseWriteForSync(sql, params)
+      if (!parsed) return
+
+      const row = await loadRowPayload(parsed.table, parsed.recordId)
+      if (row) {
+        await enqueueSyncChange(parsed.table, parsed.recordId, parsed.operation, row)
+      }
+    } catch {
+      // Sync enqueue is best-effort; never block local writes.
+    } finally {
+      this.syncNotifyDisabled = false
     }
   }
 

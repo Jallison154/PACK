@@ -43,7 +43,7 @@ chmod +x install.sh update.sh uninstall.sh
 
 If clone asks for a password, the repo is private — use a [GitHub token or SSH key](DEPLOYMENT.md#private-github-repository), or make the repo public.
 
-See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for details.
+See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for server install and **[SUPABASE.md](./SUPABASE.md)** for cloud accounts & sync.
 
 ## Build
 

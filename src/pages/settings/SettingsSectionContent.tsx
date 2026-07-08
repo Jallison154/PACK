@@ -25,6 +25,7 @@ import {
 import { openPackFeedbackEmail } from '../../utils/feedback'
 import { createAutomaticBackup } from '../../services/export'
 import type { SettingsSectionId } from '../../settings/sections'
+import { AccountSettings } from './AccountSettings'
 
 const APP_VERSION = '1.0.0'
 
@@ -34,6 +35,8 @@ interface SettingsSectionContentProps {
 
 export function SettingsSectionContent({ sectionId }: SettingsSectionContentProps) {
   switch (sectionId) {
+    case 'account':
+      return <AccountSettings />
     case 'memory':
       return <MemorySettings />
     case 'quick-capture':

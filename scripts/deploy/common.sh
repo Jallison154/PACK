@@ -236,6 +236,15 @@ install_npm_dependencies() {
 build_application() {
   log "Building Pack..."
   cd "$APP_DIR"
+
+  if [[ -f "$APP_DIR/.env.local" ]]; then
+    log "Loading build environment from .env.local..."
+    set -a
+    # shellcheck source=/dev/null
+    source "$APP_DIR/.env.local"
+    set +a
+  fi
+
   npm run build
   [[ -d "$APP_DIR/dist" ]] || error "Build failed: dist/ directory was not created."
 }

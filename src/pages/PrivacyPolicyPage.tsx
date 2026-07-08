@@ -74,11 +74,27 @@ export function PrivacyPolicyPage() {
         </Section>
 
         <Section title="Local Storage">
-          <p>By default, Pack stores your information locally on your device.</p>
+          <p>Pack stores your information locally on your device for speed and offline use.</p>
           <p>
-            Your information is{' '}
-            <strong className="text-pack-text font-medium">not uploaded to Okami Designs</strong>{' '}
-            unless you explicitly enable future cloud synchronization features.
+            If you do not create an account, your Pack data stays on your device only and is not
+            uploaded to Okami Designs servers.
+          </p>
+        </Section>
+
+        <Section title="Accounts and Cloud Sync">
+          <p>
+            If you choose to create a Pack account, your Pack data may be stored on secure cloud
+            infrastructure (Supabase PostgreSQL) so you can access the same Pack on multiple devices.
+          </p>
+          <ul className="list-disc space-y-1.5 pl-5">
+            <li>Account sign-up uses your email address</li>
+            <li>Passwords are managed by our authentication provider and are never stored in plain text by Pack</li>
+            <li>Each account can only access its own Pack data</li>
+            <li>You can export your data or delete your account from Settings → Account</li>
+          </ul>
+          <p>
+            Creating an account is <strong className="text-pack-text font-medium">optional</strong>.
+            You may continue using Pack locally without an account.
           </p>
         </Section>
 

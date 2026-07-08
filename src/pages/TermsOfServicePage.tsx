@@ -50,6 +50,18 @@ export function TermsOfServicePage() {
           </ul>
         </Section>
 
+        <Section title="Accounts and Sync">
+          <p>
+            Creating a Pack account is optional. If you enable cloud sync, your Pack data is stored
+            on secure infrastructure so you can access it from multiple devices signed into the same
+            account.
+          </p>
+          <p>
+            You are responsible for keeping your login credentials secure. You may export your data
+            or delete your account from Settings → Account.
+          </p>
+        </Section>
+
         <Section title="Acceptable Use">
           <p>You agree not to use Pack to:</p>
           <ul className="list-disc space-y-1.5 pl-5">

@@ -10,10 +10,9 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
-*.local
-
-# Deployment (server-side persistent paths)
 .env
+.env.*
+*.local
 data/
 backups/
 uploads/

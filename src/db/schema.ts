@@ -1,5 +1,5 @@
 export const DB_NAME = 'pack_db'
-export const DB_VERSION = 5
+export const DB_VERSION = 6
 
 export const MIGRATIONS = [
   `CREATE TABLE IF NOT EXISTS people (
@@ -147,4 +147,16 @@ export const MIGRATIONS = [
 
   // v5 — interaction event field
   `ALTER TABLE interactions ADD COLUMN event TEXT`,
+
+  // v6 — offline sync queue
+  `CREATE TABLE IF NOT EXISTS sync_queue (
+    id TEXT PRIMARY KEY,
+    table_name TEXT NOT NULL,
+    record_id TEXT NOT NULL,
+    operation TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    attempts INTEGER DEFAULT 0
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_sync_queue_created ON sync_queue(created_at)`,
 ]
