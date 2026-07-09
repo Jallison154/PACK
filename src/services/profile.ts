@@ -52,6 +52,21 @@ export async function fetchCloudProfile(userId: string, email: string | null): P
   return rowToProfile(data as Record<string, unknown>)
 }
 
+function isMissingProfileColumnError(error: { message?: string; code?: string }): boolean {
+  const message = error.message ?? ''
+  return (
+    error.code === 'PGRST204' ||
+    /column.*does not exist/i.test(message) ||
+    /Could not find the '.*' column of 'profiles'/i.test(message)
+  )
+}
+
+function buildLegacyDisplayName(input: PackUserProfileInput): string | null {
+  if (input.displayName?.trim()) return input.displayName.trim()
+  const full = [input.firstName?.trim(), input.lastName?.trim()].filter(Boolean).join(' ')
+  return full || null
+}
+
 export async function updateCloudProfile(
   userId: string,
   input: PackUserProfileInput,
@@ -67,11 +82,29 @@ export async function updateCloudProfile(
   if (input.lastName !== undefined) payload.last_name = input.lastName.trim() || null
   if (input.displayName !== undefined) payload.display_name = input.displayName.trim() || null
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('profiles')
     .upsert({ id: userId, ...payload }, { onConflict: 'id' })
     .select('*')
     .single()
+
+  if (error && isMissingProfileColumnError(error)) {
+    const legacyName = buildLegacyDisplayName(input)
+    const legacyPayload: Record<string, string | null> = {
+      id: userId,
+      updated_at: new Date().toISOString(),
+    }
+    if (legacyName) legacyPayload.display_name = legacyName
+
+    const retry = await supabase
+      .from('profiles')
+      .upsert(legacyPayload, { onConflict: 'id' })
+      .select('*')
+      .single()
+
+    data = retry.data
+    error = retry.error
+  }
 
   if (error) throw error
   return rowToProfile(data as Record<string, unknown>)
