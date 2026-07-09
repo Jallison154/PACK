@@ -33,16 +33,20 @@ export function rowToPlace(row: Record<string, unknown>): Place {
     notes: (row.notes as string) || null,
     isFavorite: Boolean(row.is_favorite),
     createdAt: row.created_at as string,
+    updatedAt: (row.updated_at as string) || (row.created_at as string),
+    deletedAt: (row.deleted_at as string) || null,
     syncVersion: (row.sync_version as number) || 1,
   }
 }
+
+const ACTIVE_PLACES = 'deleted_at IS NULL'
 
 export async function createPlace(input: PlaceInput): Promise<Place> {
   const id = uuid()
   const now = new Date().toISOString()
   await db.run(
-    `INSERT INTO places (id, name, address, city, state, latitude, longitude, category, notes, is_favorite, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO places (id, name, address, city, state, latitude, longitude, category, notes, is_favorite, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.name,
@@ -55,6 +59,7 @@ export async function createPlace(input: PlaceInput): Promise<Place> {
       input.notes ?? null,
       input.isFavorite ? 1 : 0,
       now,
+      now,
     ],
   )
   const rows = await db.query('SELECT * FROM places WHERE id = ?', [id])
@@ -62,9 +67,10 @@ export async function createPlace(input: PlaceInput): Promise<Place> {
 }
 
 export async function updatePlace(id: string, input: PlaceInput): Promise<Place> {
+  const now = new Date().toISOString()
   await db.run(
     `UPDATE places SET name = ?, address = ?, city = ?, state = ?, latitude = ?, longitude = ?,
-     category = ?, notes = ?, is_favorite = ? WHERE id = ?`,
+     category = ?, notes = ?, is_favorite = ?, updated_at = ? WHERE id = ? AND ${ACTIVE_PLACES}`,
     [
       input.name,
       input.address ?? null,
@@ -75,15 +81,21 @@ export async function updatePlace(id: string, input: PlaceInput): Promise<Place>
       input.category ?? null,
       input.notes ?? null,
       input.isFavorite ? 1 : 0,
+      now,
       id,
     ],
   )
-  const rows = await db.query('SELECT * FROM places WHERE id = ?', [id])
+  const rows = await db.query(`SELECT * FROM places WHERE id = ? AND ${ACTIVE_PLACES}`, [id])
   return rowToPlace(rows[0])
 }
 
+export async function deletePlace(id: string): Promise<void> {
+  const now = new Date().toISOString()
+  await db.run(`UPDATE places SET deleted_at = ?, updated_at = ? WHERE id = ?`, [now, now, id])
+}
+
 export async function getPlaceById(id: string): Promise<Place | null> {
-  const rows = await db.query('SELECT * FROM places WHERE id = ?', [id])
+  const rows = await db.query(`SELECT * FROM places WHERE id = ? AND ${ACTIVE_PLACES}`, [id])
   if (rows.length === 0) return null
   return rowToPlace(rows[0])
 }
@@ -95,7 +107,7 @@ export async function upsertPlaceByName(
   category?: PlaceCategory,
 ): Promise<string> {
   const existing = await db.query<{ id: string }>(
-    'SELECT id FROM places WHERE LOWER(name) = LOWER(?)',
+    `SELECT id FROM places WHERE LOWER(name) = LOWER(?) AND ${ACTIVE_PLACES}`,
     [name],
   )
   if (existing.length > 0) return existing[0].id
@@ -116,7 +128,7 @@ export async function togglePlaceFavorite(id: string): Promise<boolean> {
 }
 
 export async function getAllPlaces(): Promise<PlaceWithStats[]> {
-  const rows = await db.query('SELECT * FROM places ORDER BY name ASC')
+  const rows = await db.query(`SELECT * FROM places WHERE ${ACTIVE_PLACES} ORDER BY name ASC`)
   const places: PlaceWithStats[] = []
   for (const row of rows) {
     places.push({ ...(await getPlaceStats(rowToPlace(row).id))! })
@@ -156,7 +168,7 @@ export async function getPlaceStats(id: string): Promise<PlaceWithStats | null> 
 
 export async function getPlacesWithCoordinates(): Promise<PlaceWithStats[]> {
   const rows = await db.query(
-    'SELECT * FROM places WHERE latitude IS NOT NULL AND longitude IS NOT NULL',
+    `SELECT * FROM places WHERE ${ACTIVE_PLACES} AND latitude IS NOT NULL AND longitude IS NOT NULL`,
   )
   const places: PlaceWithStats[] = []
   for (const row of rows) {
@@ -167,7 +179,9 @@ export async function getPlacesWithCoordinates(): Promise<PlaceWithStats[]> {
 }
 
 export async function getFavoritePlaces(): Promise<Place[]> {
-  const rows = await db.query('SELECT * FROM places WHERE is_favorite = 1 ORDER BY name')
+  const rows = await db.query(
+    `SELECT * FROM places WHERE is_favorite = 1 AND ${ACTIVE_PLACES} ORDER BY name`,
+  )
   return rows.map(rowToPlace)
 }
 
@@ -176,6 +190,7 @@ export async function getRecentPlaces(limit = 10): Promise<Place[]> {
     `SELECT DISTINCT p.* FROM places p
      LEFT JOIN interactions i ON i.place_id = p.id
      LEFT JOIN people pe ON pe.last_seen_place_id = p.id
+     WHERE p.${ACTIVE_PLACES}
      ORDER BY COALESCE(i.created_at, pe.updated_at, p.created_at) DESC
      LIMIT ?`,
     [limit],
@@ -186,15 +201,19 @@ export async function getRecentPlaces(limit = 10): Promise<Place[]> {
 export async function searchPlaces(query: string): Promise<PlaceSearchResult[]> {
   const like = `%${query.trim()}%`
   if (!query.trim()) {
-    const rows = await db.query('SELECT * FROM places ORDER BY name LIMIT 20')
+    const rows = await db.query(`SELECT * FROM places WHERE ${ACTIVE_PLACES} ORDER BY name LIMIT 20`)
     return rows.map(rowToPlace)
   }
   const rows = await db.query(
-    `SELECT * FROM places WHERE
-     name LIKE ? OR address LIKE ? OR city LIKE ? OR state LIKE ? OR
-     category LIKE ? OR notes LIKE ?
-     ORDER BY name LIMIT 30`,
-    [like, like, like, like, like, like],
+    `SELECT DISTINCT p.* FROM places p
+     LEFT JOIN people pe_met ON pe_met.where_met_place_id = p.id AND pe_met.deleted_at IS NULL
+     LEFT JOIN people pe_seen ON pe_seen.last_seen_place_id = p.id AND pe_seen.deleted_at IS NULL
+     WHERE p.${ACTIVE_PLACES} AND (
+     p.name LIKE ? OR p.address LIKE ? OR p.city LIKE ? OR p.state LIKE ? OR
+     p.category LIKE ? OR p.notes LIKE ? OR
+     pe_met.name LIKE ? OR pe_seen.name LIKE ?
+     ) ORDER BY p.name LIMIT 30`,
+    [like, like, like, like, like, like, like, like],
   )
   return rows.map(rowToPlace)
 }
@@ -205,7 +224,7 @@ export async function getNearbyPlaces(
   limit = 10,
 ): Promise<PlaceSearchResult[]> {
   const rows = await db.query(
-    'SELECT * FROM places WHERE latitude IS NOT NULL AND longitude IS NOT NULL',
+    `SELECT * FROM places WHERE ${ACTIVE_PLACES} AND latitude IS NOT NULL AND longitude IS NOT NULL`,
   )
   const withDistance = rows
     .map((row) => {
@@ -269,6 +288,8 @@ export async function getInteractionsAtPlace(placeId: string): Promise<Interacti
 }
 
 export async function getAllPlaceNames(): Promise<string[]> {
-  const rows = await db.query<{ name: string }>('SELECT name FROM places ORDER BY name')
+  const rows = await db.query<{ name: string }>(
+    `SELECT name FROM places WHERE ${ACTIVE_PLACES} ORDER BY name`,
+  )
   return rows.map((r) => r.name)
 }

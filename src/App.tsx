@@ -11,6 +11,8 @@ import { AddPersonPage } from './pages/AddPersonPage'
 import { PersonDetailPage } from './pages/PersonDetailPage'
 import { EditPersonPage } from './pages/EditPersonPage'
 import { PlaceDetailPage } from './pages/PlaceDetailPage'
+import { AddPlacePage } from './pages/AddPlacePage'
+import { EditPlacePage } from './pages/EditPlacePage'
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage'
 import { TermsOfServicePage } from './pages/TermsOfServicePage'
 
@@ -31,6 +33,8 @@ export default function App() {
                     <Route path="/favorites" element={<Navigate to="/pack" replace />} />
                     <Route path="/places" element={<TabShell />} />
                     <Route path="/settings/*" element={<TabShell />} />
+                    <Route path="/places/add" element={<AddPlacePage />} />
+                    <Route path="/places/:id/edit" element={<EditPlacePage />} />
                     <Route path="/places/:id" element={<PlaceDetailPage />} />
                     <Route path="/locations" element={<Navigate to="/places" replace />} />
                     <Route path="/locations/:id" element={<PlaceDetailPage />} />

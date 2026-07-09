@@ -8,6 +8,7 @@ import { WorkspaceToggle } from '../components/ui/WorkspaceToggle'
 import { PossibleMatchesList } from '../components/person/PossibleMatchesList'
 import { AddInteractionSheet } from '../components/person/AddInteractionSheet'
 import { DuplicateWarningModal } from '../components/person/DuplicateWarningModal'
+import { PlaceField } from '../components/places/PlaceField'
 import { createPerson, mergeDraftIntoPerson } from '../db/repositories/people'
 import {
   findPossibleDuplicates,
@@ -32,7 +33,8 @@ export function AddPersonPage() {
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [company, setCompany] = useState('')
-  const [whereMet, setWhereMet] = useState('')
+  const [whereMetPlaceId, setWhereMetPlaceId] = useState<string | null>(null)
+  const [whereMetPlaceName, setWhereMetPlaceName] = useState('')
   const [notes, setNotes] = useState('')
   const [matches, setMatches] = useState<DuplicateMatch[]>([])
   const [searching, setSearching] = useState(false)
@@ -40,8 +42,8 @@ export function AddPersonPage() {
   const [duplicateWarning, setDuplicateWarning] = useState<DuplicateMatch | null>(null)
 
   const searchInput = useMemo(
-    () => ({ name, phone, email, company, whereMet, notes }),
-    [name, phone, email, company, whereMet, notes],
+    () => ({ name, phone, email, company, whereMet: whereMetPlaceName, notes }),
+    [name, phone, email, company, whereMetPlaceName, notes],
   )
   const debouncedSearch = useDebouncedValue(searchInput, 300)
 
@@ -72,7 +74,8 @@ export function AddPersonPage() {
         phone: phone || undefined,
         email: email || undefined,
         company: workspace === 'work' ? company || undefined : undefined,
-        whereMet: whereMet || undefined,
+        whereMet: whereMetPlaceName || undefined,
+        whereMetPlaceId: whereMetPlaceId ?? undefined,
         notes: notes || undefined,
         dateMet: todayISO(),
         profileColor: randomProfileColor(),
@@ -86,7 +89,7 @@ export function AddPersonPage() {
   const handleSave = async () => {
     if (!name.trim()) return
 
-    const duplicates = await findPossibleDuplicates({ name, phone, email, company, whereMet, notes })
+    const duplicates = await findPossibleDuplicates({ name, phone, email, company, whereMet: whereMetPlaceName, notes })
     if (duplicates.length > 0) {
       setDuplicateWarning(duplicates[0])
       return
@@ -106,7 +109,8 @@ export function AddPersonPage() {
         phone: phone || undefined,
         email: email || undefined,
         company: workspace === 'work' ? company || undefined : undefined,
-        whereMet: whereMet || undefined,
+        whereMet: whereMetPlaceName || undefined,
+        whereMetPlaceId: whereMetPlaceId ?? undefined,
         notes: notes || undefined,
         dateMet: todayISO(),
       })
@@ -147,7 +151,7 @@ export function AddPersonPage() {
     phone.trim().length >= 3 ||
     email.includes('@') ||
     company.trim().length >= 2 ||
-    whereMet.trim().length >= 2 ||
+    whereMetPlaceName.trim().length >= 2 ||
     notes.trim().length >= 3
 
   return (
@@ -238,11 +242,15 @@ export function AddPersonPage() {
           />
         )}
 
-        <Input
+        <PlaceField
           label="Where Met"
-          value={whereMet}
-          onChange={(e) => setWhereMet(e.target.value)}
-          placeholder="Conference, coffee shop, neighborhood..."
+          description="Where did you meet them? Search your places, add a new one, or use your current location."
+          placeId={whereMetPlaceId}
+          placeName={whereMetPlaceName}
+          onChange={(id, name) => {
+            setWhereMetPlaceId(id)
+            setWhereMetPlaceName(name)
+          }}
         />
 
         <Textarea
@@ -277,7 +285,7 @@ export function AddPersonPage() {
           onClose={() => setInteractionTarget(null)}
           onSaved={(id) => navigate(`/person/${id}`, { replace: true })}
           initialNotes={notes}
-          initialPlaceName={whereMet}
+          initialPlaceName={whereMetPlaceName}
         />
       )}
 

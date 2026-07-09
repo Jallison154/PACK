@@ -4,6 +4,7 @@ import { Search, UserPlus, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Avatar } from '../ui/Avatar'
 import { Button } from '../ui/Button'
+import { PlaceField } from '../places/PlaceField'
 import {
   searchPeople,
   createPerson,
@@ -37,6 +38,8 @@ export function QuickCapture({ onCreated, size = 'default' }: QuickCaptureProps)
   const [saving, setSaving] = useState(false)
   const [companies, setCompanies] = useState<string[]>([])
   const [places, setPlaces] = useState<string[]>([])
+  const [whereMetPlaceId, setWhereMetPlaceId] = useState<string | null>(null)
+  const [whereMetPlaceName, setWhereMetPlaceName] = useState('')
 
   const debouncedName = useDebouncedValue(name, 180)
   const trimmedName = name.trim()
@@ -82,6 +85,8 @@ export function QuickCapture({ onCreated, size = 'default' }: QuickCaptureProps)
     setExpanded(false)
     setFocused(false)
     setMatches([])
+    setWhereMetPlaceId(null)
+    setWhereMetPlaceName('')
   }
 
   const addToPack = async () => {
@@ -93,7 +98,7 @@ export function QuickCapture({ onCreated, size = 'default' }: QuickCaptureProps)
         phone: parsedMemory.phone,
         email: parsedMemory.email,
         company: parsedMemory.company,
-        whereMet: parsedMemory.whereMet,
+        whereMet: whereMetPlaceName || parsedMemory.whereMet,
         notes: memory,
       })
       const strong = duplicates.find((d) => d.strength === 'strong')
@@ -113,7 +118,8 @@ export function QuickCapture({ onCreated, size = 'default' }: QuickCaptureProps)
         phone: parsedMemory.phone,
         email: parsedMemory.email,
         company: lastUsedWorkspace === 'work' ? parsedMemory.company : undefined,
-        whereMet: parsedMemory.whereMet,
+        whereMet: whereMetPlaceName || parsedMemory.whereMet,
+        whereMetPlaceId: whereMetPlaceId ?? undefined,
         notes: [parsedMemory.notes, parsedMemory.url].filter(Boolean).join('\n'),
         dateMet: parsedMemory.dateMet ?? todayISO(),
       })
@@ -213,6 +219,16 @@ export function QuickCapture({ onCreated, size = 'default' }: QuickCaptureProps)
                   </p>
                 )}
               </div>
+
+              <PlaceField
+                label="Where did you meet?"
+                placeId={whereMetPlaceId}
+                placeName={whereMetPlaceName}
+                onChange={(id, name) => {
+                  setWhereMetPlaceId(id)
+                  setWhereMetPlaceName(name)
+                }}
+              />
 
               {canAdd && (
                 <Button

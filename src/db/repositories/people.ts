@@ -42,19 +42,23 @@ async function upsertCompany(name: string): Promise<string> {
 }
 
 async function resolvePlaceId(
-  placeId?: string,
+  placeId?: string | null,
   placeName?: string,
   city?: string,
   state?: string,
 ): Promise<string | null> {
+  if (placeId === null) return null
   if (placeId) return placeId
-  if (placeName) return upsertPlaceByName(placeName, city, state)
+  if (placeName?.trim()) return upsertPlaceByName(placeName.trim(), city, state)
   return null
 }
 
 async function getPlaceName(id: string | null): Promise<string | null> {
   if (!id) return null
-  const rows = await db.query<{ name: string }>('SELECT name FROM places WHERE id = ?', [id])
+  const rows = await db.query<{ name: string }>(
+    'SELECT name FROM places WHERE id = ? AND deleted_at IS NULL',
+    [id],
+  )
   return rows[0]?.name ?? null
 }
 async function upsertTags(tagNames: string[]): Promise<string[]> {

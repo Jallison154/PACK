@@ -94,8 +94,8 @@ export async function importFromJSON(jsonStr: string): Promise<void> {
   for (const place of data.places ?? []) {
     await db.run(
       `INSERT INTO places (
-        id, name, address, city, state, latitude, longitude, category, notes, is_favorite, created_at, sync_version
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        id, name, address, city, state, latitude, longitude, category, notes, is_favorite, created_at, updated_at, deleted_at, sync_version
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         place.id,
         place.name,
@@ -108,6 +108,8 @@ export async function importFromJSON(jsonStr: string): Promise<void> {
         place.notes ?? null,
         place.is_favorite ?? 0,
         place.created_at,
+        place.updated_at ?? place.created_at,
+        place.deleted_at ?? null,
         place.sync_version ?? 1,
       ],
     )

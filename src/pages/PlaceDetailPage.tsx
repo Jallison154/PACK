@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Star, Users, Eye } from 'lucide-react'
+import { Star, Users, Eye, Pencil, Trash2 } from 'lucide-react'
 import { Header } from '../components/layout/Header'
 import { Card } from '../components/ui/Card'
+import { Button } from '../components/ui/Button'
 import { PersonCard } from '../components/person/PersonCard'
 import { PlaceMapPreview } from '../components/places/PlaceMap'
 import {
@@ -11,6 +12,7 @@ import {
   getPeopleLastSeenAtPlace,
   getInteractionsAtPlace,
   togglePlaceFavorite,
+  deletePlace,
 } from '../db/repositories/places'
 import { formatLocation, formatDate } from '../utils/format'
 import { getPlaceCategoryLabel } from '../types'
@@ -24,6 +26,7 @@ export function PlaceDetailPage() {
   const [metHere, setMetHere] = useState<PersonWithTags[]>([])
   const [lastSeen, setLastSeen] = useState<PersonWithTags[]>([])
   const [interactions, setInteractions] = useState<InteractionWithPerson[]>([])
+  const [deleting, setDeleting] = useState(false)
 
   const load = async () => {
     if (!id) return
@@ -40,13 +43,28 @@ export function PlaceDetailPage() {
   }
 
   useEffect(() => {
-    load()
+    void load()
   }, [id])
 
   const handleFavorite = async () => {
     if (!id) return
     await togglePlaceFavorite(id)
-    load()
+    void load()
+  }
+
+  const handleDelete = async () => {
+    if (!id || !place) return
+    const confirmed = window.confirm(
+      `Delete "${place.name}"? Pack Members will keep their history, but this place pin will be removed.`,
+    )
+    if (!confirmed) return
+    setDeleting(true)
+    try {
+      await deletePlace(id)
+      navigate('/places', { replace: true })
+    } finally {
+      setDeleting(false)
+    }
   }
 
   if (!place) {
@@ -64,11 +82,21 @@ export function PlaceDetailPage() {
         title={place.name}
         showBack
         right={
-          <button onClick={handleFavorite} className="p-2">
-            <Star
-              className={`h-6 w-6 ${place.isFavorite ? 'text-pack-accent fill-current' : 'text-pack-text-muted'}`}
-            />
-          </button>
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={handleFavorite} className="p-2" aria-label="Favorite">
+              <Star
+                className={`h-6 w-6 ${place.isFavorite ? 'text-pack-accent fill-current' : 'text-pack-text-muted'}`}
+              />
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate(`/places/${id}/edit`)}
+              className="text-pack-text-muted hover:text-pack-text p-2"
+              aria-label="Edit place"
+            >
+              <Pencil className="h-5 w-5" />
+            </button>
+          </div>
         }
       />
 
@@ -145,6 +173,7 @@ export function PlaceDetailPage() {
               {interactions.map((i) => (
                 <button
                   key={i.id}
+                  type="button"
                   onClick={() => navigate(`/person/${i.personId}`)}
                   className="hover:bg-pack-card-hover block w-full rounded-xl p-2 text-left"
                 >
@@ -159,6 +188,15 @@ export function PlaceDetailPage() {
             </div>
           )}
         </Card>
+
+        <div className="flex gap-3 pt-2">
+          <Button variant="secondary" className="flex-1" onClick={() => navigate(`/places/${id}/edit`)}>
+            <Pencil className="h-4 w-4" /> Edit Place
+          </Button>
+          <Button variant="danger" className="flex-1" onClick={() => void handleDelete()} loading={deleting}>
+            <Trash2 className="h-4 w-4" /> Delete
+          </Button>
+        </div>
       </div>
     </div>
   )

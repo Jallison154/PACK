@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MapPin, Star, Navigation, Search, Plus, X } from 'lucide-react'
+import { MapPin, Star, Navigation, Search, Plus, X, Globe } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Input, Select, Textarea } from '../ui/Input'
 import { useGeolocation } from '../../hooks/useGeolocation'
@@ -10,6 +10,8 @@ import {
   searchPlaces,
   createPlace,
 } from '../../db/repositories/places'
+import { searchPlacesNominatim } from '../../services/geocoding'
+import type { GeocodeResult } from '../../services/geocoding'
 import { formatDistance } from '../../utils/geo'
 import { formatLocation } from '../../utils/format'
 import { PLACE_CATEGORIES } from '../../types'
@@ -26,7 +28,9 @@ type Tab = 'nearby' | 'recent' | 'favorites' | 'search' | 'new'
 export function PlacePicker({ value, onChange, onClose }: PlacePickerProps) {
   const [tab, setTab] = useState<Tab>('recent')
   const [places, setPlaces] = useState<PlaceSearchResult[]>([])
+  const [webResults, setWebResults] = useState<GeocodeResult[]>([])
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchingWeb, setSearchingWeb] = useState(false)
   const { position, error, loading, requestLocation } = useGeolocation()
   const [newPlace, setNewPlace] = useState({
     name: '',
@@ -44,16 +48,55 @@ export function PlacePicker({ value, onChange, onClose }: PlacePickerProps) {
     if (tab === 'nearby' && position) {
       getNearbyPlaces(position.latitude, position.longitude).then(setPlaces)
     }
-    if (tab === 'search' && searchQuery) {
-      const t = setTimeout(() => searchPlaces(searchQuery).then(setPlaces), 200)
-      return () => clearTimeout(t)
+    if (tab === 'nearby' && !position) setPlaces([])
+    if (tab === 'search' && !searchQuery) {
+      setPlaces([])
+      setWebResults([])
     }
-    if (tab === 'search' && !searchQuery) setPlaces([])
   }, [tab, position, searchQuery])
+
+  useEffect(() => {
+    if (tab !== 'search' || !searchQuery.trim()) return
+    const timer = setTimeout(async () => {
+      const local = await searchPlaces(searchQuery)
+      setPlaces(local)
+      if (searchQuery.trim().length >= 3) {
+        setSearchingWeb(true)
+        try {
+          const web = await searchPlacesNominatim(searchQuery)
+          setWebResults(web)
+        } catch {
+          setWebResults([])
+        } finally {
+          setSearchingWeb(false)
+        }
+      } else {
+        setWebResults([])
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [tab, searchQuery])
 
   const selectPlace = (place: Place) => {
     onChange(place.id, place.name)
     onClose()
+  }
+
+  const selectWebResult = async (result: GeocodeResult) => {
+    setSaving(true)
+    try {
+      const place = await createPlace({
+        name: result.name,
+        address: result.address ?? undefined,
+        city: result.city ?? undefined,
+        state: result.state ?? undefined,
+        latitude: result.latitude,
+        longitude: result.longitude,
+      })
+      selectPlace(place)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleCreate = async () => {
@@ -89,7 +132,7 @@ export function PlacePicker({ value, onChange, onClose }: PlacePickerProps) {
       <div className="bg-pack-surface flex max-h-[85dvh] w-full max-w-lg flex-col rounded-t-3xl sm:rounded-3xl">
         <div className="border-pack-border flex items-center justify-between border-b px-4 py-3">
           <h3 className="text-lg font-bold">Select Place</h3>
-          <button onClick={onClose} className="text-pack-text-muted p-2">
+          <button type="button" onClick={onClose} className="text-pack-text-muted p-2">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -98,6 +141,7 @@ export function PlacePicker({ value, onChange, onClose }: PlacePickerProps) {
           {tabs.map((t) => (
             <button
               key={t.id}
+              type="button"
               onClick={() => setTab(t.id)}
               className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium ${
                 tab === t.id ? 'bg-pack-accent text-black' : 'text-pack-text-secondary'
@@ -110,20 +154,18 @@ export function PlacePicker({ value, onChange, onClose }: PlacePickerProps) {
 
         <div className="flex-1 overflow-y-auto px-4 pb-4">
           {tab === 'nearby' && (
-            <div className="mb-3">
-              {!position && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={requestLocation}
-                  loading={loading}
-                  className="w-full"
-                >
-                  <Navigation className="h-4 w-4" /> Use My Location (optional)
-                </Button>
-              )}
+            <div className="mb-3 space-y-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={requestLocation}
+                loading={loading}
+                className="w-full"
+              >
+                <Navigation className="h-4 w-4" /> Use My Current Location
+              </Button>
               {error && (
-                <p className="text-pack-text-muted mt-2 text-xs">
+                <p className="text-pack-text-muted text-xs">
                   {error}. You can still search or add places manually.
                 </p>
               )}
@@ -136,10 +178,11 @@ export function PlacePicker({ value, onChange, onClose }: PlacePickerProps) {
               <input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search places..."
+                placeholder="Pub Station Billings MT, convention center..."
                 className="bg-pack-card border-pack-border w-full rounded-xl border py-2.5 pr-3 pl-10 text-sm outline-none"
                 autoFocus
               />
+              <p className="text-pack-text-muted mt-1.5 text-xs">Search your Pack or OpenStreetMap</p>
             </div>
           )}
 
@@ -188,13 +231,11 @@ export function PlacePicker({ value, onChange, onClose }: PlacePickerProps) {
                 </Button>
               )}
               {position && (
-                <p className="text-pack-success text-xs">
-                  GPS will be saved with this place
-                </p>
+                <p className="text-pack-success text-xs">GPS will be saved with this place</p>
               )}
               <Button
                 className="w-full"
-                onClick={handleCreate}
+                onClick={() => void handleCreate()}
                 loading={saving}
                 disabled={!newPlace.name.trim()}
               >
@@ -203,40 +244,74 @@ export function PlacePicker({ value, onChange, onClose }: PlacePickerProps) {
             </div>
           ) : (
             <div className="space-y-2">
-              {places.length === 0 ? (
+              {places.length === 0 && webResults.length === 0 ? (
                 <p className="text-pack-text-muted py-8 text-center text-sm">
                   {tab === 'nearby' && !position
                     ? 'Enable location to see nearby places'
-                    : 'No places found'}
+                    : tab === 'search' && searchingWeb
+                      ? 'Searching...'
+                      : 'No places found'}
                 </p>
               ) : (
-                places.map((place) => (
-                  <button
-                    key={place.id}
-                    onClick={() => selectPlace(place)}
-                    className={`hover:bg-pack-card-hover flex w-full items-start gap-3 rounded-xl p-3 text-left transition-colors ${
-                      value === place.id ? 'bg-pack-accent-muted ring-pack-accent ring-1' : 'bg-pack-card'
-                    }`}
-                  >
-                    <MapPin className="text-pack-accent mt-0.5 h-5 w-5 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium">{place.name}</p>
-                      {formatLocation(place.city, place.state) && (
-                        <p className="text-pack-text-muted text-sm">
-                          {formatLocation(place.city, place.state)}
-                        </p>
+                <>
+                  {places.length > 0 && tab === 'search' && (
+                    <p className="text-pack-text-muted pt-1 text-xs font-medium uppercase">Your Places</p>
+                  )}
+                  {places.map((place) => (
+                    <button
+                      key={place.id}
+                      type="button"
+                      onClick={() => selectPlace(place)}
+                      className={`hover:bg-pack-card-hover flex w-full items-start gap-3 rounded-xl p-3 text-left transition-colors ${
+                        value === place.id ? 'bg-pack-accent-muted ring-pack-accent ring-1' : 'bg-pack-card'
+                      }`}
+                    >
+                      <MapPin className="text-pack-accent mt-0.5 h-5 w-5 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium">{place.name}</p>
+                        {formatLocation(place.city, place.state) && (
+                          <p className="text-pack-text-muted text-sm">
+                            {formatLocation(place.city, place.state)}
+                          </p>
+                        )}
+                        {place.distanceKm != null && (
+                          <p className="text-pack-accent text-xs">
+                            {formatDistance(place.distanceKm)} away
+                          </p>
+                        )}
+                      </div>
+                      {place.isFavorite && (
+                        <Star className="text-pack-accent h-4 w-4 fill-current" />
                       )}
-                      {place.distanceKm != null && (
-                        <p className="text-pack-accent text-xs">
-                          {formatDistance(place.distanceKm)} away
-                        </p>
-                      )}
-                    </div>
-                    {place.isFavorite && (
-                      <Star className="text-pack-accent h-4 w-4 fill-current" />
-                    )}
-                  </button>
-                ))
+                    </button>
+                  ))}
+
+                  {tab === 'search' && webResults.length > 0 && (
+                    <>
+                      <p className="text-pack-text-muted pt-2 text-xs font-medium uppercase">
+                        <Globe className="mr-1 inline h-3 w-3" />
+                        OpenStreetMap
+                      </p>
+                      {webResults.map((result) => (
+                        <button
+                          key={result.osmId}
+                          type="button"
+                          onClick={() => void selectWebResult(result)}
+                          disabled={saving}
+                          className="hover:bg-pack-card-hover bg-pack-card flex w-full items-start gap-3 rounded-xl p-3 text-left"
+                        >
+                          <Globe className="text-pack-text-muted mt-0.5 h-5 w-5 shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium">{result.name}</p>
+                            <p className="text-pack-text-muted text-sm leading-relaxed">
+                              {result.displayName}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </>
               )}
             </div>
           )}

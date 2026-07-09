@@ -185,6 +185,8 @@ export interface Place {
   notes: string | null
   isFavorite: boolean
   createdAt: string
+  updatedAt: string
+  deletedAt: string | null
   syncVersion: number
 }
 
@@ -233,7 +235,7 @@ export interface PersonInput {
   company?: string
   jobTitle?: string
   whereMet?: string
-  whereMetPlaceId?: string
+  whereMetPlaceId?: string | null
   event?: string
   city?: string
   state?: string
@@ -244,7 +246,7 @@ export interface PersonInput {
   homeAddress?: string
   workLocation?: string
   lastSeenAt?: string
-  lastSeenPlaceId?: string
+  lastSeenPlaceId?: string | null
   lastSeenDate?: string
   lastInteractionNotes?: string
   profileColor?: string

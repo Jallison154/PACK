@@ -54,7 +54,9 @@ const LOCAL_COLUMNS: Record<string, string[]> = {
     'notes',
     'is_favorite',
     'created_at',
+    'updated_at',
     'sync_version',
+    'deleted_at',
   ],
   tags: ['id', 'name', 'created_at', 'sync_version'],
   people: [

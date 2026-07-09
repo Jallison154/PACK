@@ -7,6 +7,7 @@ import { Button } from '../components/ui/Button'
 import { TagChip } from '../components/ui/TagChip'
 import { WorkspaceToggle } from '../components/ui/WorkspaceToggle'
 import { DuplicateWarningModal } from '../components/person/DuplicateWarningModal'
+import { PlaceField } from '../components/places/PlaceField'
 import { getPersonById, updatePerson, mergePeople } from '../db/repositories/people'
 import {
   findPossibleDuplicates,
@@ -24,6 +25,10 @@ export function EditPersonPage() {
   const [duplicateWarning, setDuplicateWarning] = useState<DuplicateMatch | null>(null)
   const [tagInput, setTagInput] = useState('')
   const [tags, setTags] = useState<string[]>([])
+  const [whereMetPlaceId, setWhereMetPlaceId] = useState<string | null>(null)
+  const [whereMetPlaceName, setWhereMetPlaceName] = useState('')
+  const [lastSeenPlaceId, setLastSeenPlaceId] = useState<string | null>(null)
+  const [lastSeenPlaceName, setLastSeenPlaceName] = useState('')
   const [households, setHouseholds] = useState<{ id: string; name: string }[]>([])
   const [newHouseholdName, setNewHouseholdName] = useState('')
   const [workspace, setWorkspace] = useState<Workspace>('work')
@@ -78,6 +83,10 @@ export function EditPersonPage() {
         lastInteractionNotes: person.lastInteractionNotes ?? '',
       })
       setTags(person.tags)
+      setWhereMetPlaceId(person.whereMetPlaceId)
+      setWhereMetPlaceName(person.whereMetPlaceName || person.whereMet || '')
+      setLastSeenPlaceId(person.lastSeenPlaceId)
+      setLastSeenPlaceName(person.lastSeenPlaceName || person.lastSeenAt || '')
       setLoaded(true)
     })
   }, [id])
@@ -109,7 +118,8 @@ export function EditPersonPage() {
     email: form.email || undefined,
     company: form.company || undefined,
     jobTitle: form.jobTitle || undefined,
-    whereMet: form.whereMet || undefined,
+    whereMet: whereMetPlaceName || undefined,
+    whereMetPlaceId,
     event: form.event || undefined,
     city: form.city || undefined,
     state: form.state || undefined,
@@ -119,7 +129,8 @@ export function EditPersonPage() {
     householdId: form.householdId || undefined,
     homeAddress: form.homeAddress || undefined,
     workLocation: form.workLocation || undefined,
-    lastSeenAt: form.lastSeenAt || undefined,
+    lastSeenAt: lastSeenPlaceName || undefined,
+    lastSeenPlaceId,
     lastSeenDate: form.lastSeenDate || undefined,
     lastInteractionNotes: form.lastInteractionNotes || undefined,
     tags,
@@ -140,7 +151,7 @@ export function EditPersonPage() {
         phone: form.phone,
         email: form.email,
         company: form.company,
-        whereMet: form.whereMet,
+        whereMet: whereMetPlaceName,
         notes: form.notes,
         tags,
       },
@@ -244,8 +255,16 @@ export function EditPersonPage() {
           </div>
         )}
 
-        <Input label="Where Met" value={form.whereMet} onChange={(e) => update('whereMet', e.target.value)} />
-        <p className="text-pack-text-muted -mt-2 text-xs">Where you first met — not the same as Last Seen At</p>
+        <PlaceField
+          label="Where Met"
+          description="Where you first met — not the same as Last Seen At."
+          placeId={whereMetPlaceId}
+          placeName={whereMetPlaceName}
+          onChange={(id, name) => {
+            setWhereMetPlaceId(id)
+            setWhereMetPlaceName(name)
+          }}
+        />
         <Input label="Event" value={form.event} onChange={(e) => update('event', e.target.value)} />
         <div className="grid grid-cols-2 gap-3">
           <Input label="City" value={form.city} onChange={(e) => update('city', e.target.value)} />
@@ -257,9 +276,18 @@ export function EditPersonPage() {
         <Input label="Work Location" value={form.workLocation} onChange={(e) => update('workLocation', e.target.value)} placeholder="Office, shop, etc." />
 
         <div className="border-pack-border border-t pt-4">
-          <p className="text-pack-text-secondary mb-3 text-sm font-medium">Last Seen (auto-updated from interactions)</p>
+          <p className="text-pack-text-secondary mb-3 text-sm font-medium">Last Seen</p>
           <div className="space-y-3">
-            <Input label="Last Seen At" value={form.lastSeenAt} onChange={(e) => update('lastSeenAt', e.target.value)} />
+            <PlaceField
+              label="Last Seen At"
+              description="Where you last saw them. Also updated automatically from trail entries."
+              placeId={lastSeenPlaceId}
+              placeName={lastSeenPlaceName}
+              onChange={(id, name) => {
+                setLastSeenPlaceId(id)
+                setLastSeenPlaceName(name)
+              }}
+            />
             <Input label="Last Seen Date" type="date" value={form.lastSeenDate} onChange={(e) => update('lastSeenDate', e.target.value)} />
             <Textarea label="Latest Trail Notes" value={form.lastInteractionNotes} onChange={(e) => update('lastInteractionNotes', e.target.value)} rows={2} />
           </div>

@@ -1,5 +1,5 @@
 export const DB_NAME = 'pack_db'
-export const DB_VERSION = 6
+export const DB_VERSION = 7
 
 export const MIGRATIONS = [
   `CREATE TABLE IF NOT EXISTS people (
@@ -159,4 +159,9 @@ export const MIGRATIONS = [
     attempts INTEGER DEFAULT 0
   )`,
   `CREATE INDEX IF NOT EXISTS idx_sync_queue_created ON sync_queue(created_at)`,
+
+  // v7 — place timestamps and soft delete
+  `ALTER TABLE places ADD COLUMN updated_at TEXT`,
+  `ALTER TABLE places ADD COLUMN deleted_at TEXT`,
+  `UPDATE places SET updated_at = created_at WHERE updated_at IS NULL`,
 ]
