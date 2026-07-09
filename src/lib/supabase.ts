@@ -1,10 +1,26 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { getAppUrl, getSupabaseAnonKey, getSupabaseUrl, isCloudSyncAvailable } from './env'
+import {
+  getAppUrl,
+  getSupabaseAnonKey,
+  getSupabaseUrl,
+  isCloudSyncAvailable,
+  validateCloudEnv,
+} from './env'
 
 let client: SupabaseClient | null = null
+let warnedAboutConfig = false
 
 export function getSupabase(): SupabaseClient | null {
-  if (!isCloudSyncAvailable()) return null
+  if (!isCloudSyncAvailable()) {
+    if (!warnedAboutConfig) {
+      const validation = validateCloudEnv()
+      console.warn(
+        `[Pack Sync] Cloud sync disabled. Missing environment: ${validation.missing.join(', ')}`,
+      )
+      warnedAboutConfig = true
+    }
+    return null
+  }
   if (!client) {
     client = createClient(getSupabaseUrl()!, getSupabaseAnonKey()!, {
       auth: {

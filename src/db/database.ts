@@ -115,6 +115,16 @@ class DatabaseService {
     }
   }
 
+  async withoutSyncNotifications<T>(fn: () => Promise<T>): Promise<T> {
+    const previous = this.syncNotifyDisabled
+    this.syncNotifyDisabled = true
+    try {
+      return await fn()
+    } finally {
+      this.syncNotifyDisabled = previous
+    }
+  }
+
   private async notifySyncChange(sql: string, params: unknown[]): Promise<void> {
     if (this.syncNotifyDisabled) return
     const normalized = sql.trim().toUpperCase()
@@ -130,6 +140,13 @@ class DatabaseService {
       )
       const parsed = parseWriteForSync(sql, params)
       if (!parsed) return
+
+      if (parsed.operation === 'delete') {
+        await enqueueSyncChange(parsed.table, parsed.recordId, parsed.operation, {
+          id: parsed.recordId,
+        })
+        return
+      }
 
       const row = await loadRowPayload(parsed.table, parsed.recordId)
       if (row) {

@@ -24,6 +24,9 @@ export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error' | 'disabled'
 export const SYNC_STORAGE_KEYS = {
   mode: 'pack_sync_mode',
   lastSyncAt: 'pack_last_sync_at',
+  lastSyncAttemptAt: 'pack_last_sync_attempt_at',
+  lastSyncSuccessAt: 'pack_last_sync_success_at',
+  lastSyncError: 'pack_last_sync_error',
   promptDismissed: 'pack_sync_prompt_dismissed',
   migrationDone: 'pack_cloud_migration_done',
 } as const

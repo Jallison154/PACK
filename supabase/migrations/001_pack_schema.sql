@@ -24,6 +24,9 @@ create policy "profiles_update_own" on public.profiles
 create policy "profiles_insert_own" on public.profiles
   for insert with check (auth.uid() = id);
 
+create policy "profiles_delete_own" on public.profiles
+  for delete using (auth.uid() = id);
+
 -- Auto-create profile on signup
 create or replace function public.handle_new_user()
 returns trigger

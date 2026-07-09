@@ -12,6 +12,7 @@ import { getSupabase, getPasswordResetRedirectUrl } from '../lib/supabase'
 import { isCloudSyncAvailable } from '../lib/env'
 import { deleteCloudAccountData } from '../services/sync/engine'
 import { setSyncMode, SYNC_STORAGE_KEYS } from '../services/sync/types'
+import { recordSyncError } from '../services/sync/diagnostics'
 
 interface AuthContextValue {
   user: User | null
@@ -42,13 +43,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
-      setUser(data.session?.user ?? null)
-      setLoading(false)
-    })
+    supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (error) {
+          recordSyncError(error, 'auth getSession')
+        }
+        setSession(data.session)
+        setUser(data.session?.user ?? null)
+        setLoading(false)
+      })
+      .catch((error) => {
+        recordSyncError(error, 'auth getSession')
+        setLoading(false)
+      })
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      console.info(`[Pack Auth] ${event}`, nextSession?.user?.email ?? 'no user')
       setSession(nextSession)
       setUser(nextSession?.user ?? null)
       setLoading(false)
@@ -70,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           emailRedirectTo: getPasswordResetRedirectUrl(),
         },
       })
+      if (error) recordSyncError(error, 'auth signUp')
       return { error: error?.message ?? null }
     },
     [],
@@ -83,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: email.trim(),
       password,
     })
+    if (error) recordSyncError(error, 'auth signIn')
     return { error: error?.message ?? null }
   }, [])
 
@@ -101,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: getPasswordResetRedirectUrl(),
     })
+    if (error) recordSyncError(error, 'auth resetPassword')
     return { error: error?.message ?? null }
   }, [])
 
@@ -109,6 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!supabase) return { error: 'Cloud accounts are not configured.' }
 
     const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) recordSyncError(error, 'auth updatePassword')
     return { error: error?.message ?? null }
   }, [])
 

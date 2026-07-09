@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   SettingsDetailCard,
   ActionRow,
+  CollapsibleSection,
   InfoRow,
   SettingsButton,
 } from '../../components/settings/SettingsPrimitives'
@@ -12,6 +13,7 @@ import { getSyncStatusLabel, uploadLocalDatabaseToCloud } from '../../services/s
 import { SYNC_STORAGE_KEYS } from '../../services/sync/types'
 import { useDataActions } from '../../hooks/useSettingsData'
 import { countPackMembers } from '../../db/repositories/people'
+import { validateCloudEnv } from '../../lib/env'
 
 export function AccountSettings() {
   const {
@@ -22,17 +24,55 @@ export function AccountSettings() {
     deleteAccount,
     cloudAvailable,
   } = useAuth()
-  const { syncMode, syncStatus, lastSyncAt, syncNow, enableCloudSync, useLocalOnly } = useSync()
+  const {
+    syncMode,
+    syncStatus,
+    lastSyncAt,
+    diagnostics,
+    syncNow,
+    enableCloudSync,
+    useLocalOnly,
+    refreshDiagnostics,
+    testConnection,
+  } = useSync()
   const { handleExportJSON } = useDataActions()
   const [authOpen, setAuthOpen] = useState(false)
   const [authView, setAuthView] = useState<'login' | 'signup' | 'forgot'>('login')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [debugOpen, setDebugOpen] = useState(false)
+  const [localCount, setLocalCount] = useState(0)
 
   const statusLabel = getSyncStatusLabel(syncStatus, lastSyncAt, isAuthenticated)
+  const env = validateCloudEnv()
+
+  useEffect(() => {
+    countPackMembers().then(setLocalCount).catch(() => setLocalCount(0))
+    void refreshDiagnostics()
+  }, [refreshDiagnostics])
+
+  const handleUploadLocalData = async () => {
+    if (!user) return
+    setLoading(true)
+    setError(null)
+    setMessage(null)
+    try {
+      const n = await uploadLocalDatabaseToCloud(user.id)
+      setMessage(`Uploaded ${n} records to your account.`)
+      enableCloudSync()
+      await syncNow()
+      await refreshDiagnostics()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Upload failed')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleEnableSync = async () => {
+    setError(null)
+    setMessage(null)
     if (!isAuthenticated) {
       setAuthView('login')
       setAuthOpen(true)
@@ -41,24 +81,9 @@ export function AccountSettings() {
     enableCloudSync()
 
     const migrationDone = localStorage.getItem(SYNC_STORAGE_KEYS.migrationDone) === 'true'
-    const localCount = await countPackMembers()
     if (!migrationDone && localCount > 0 && user) {
-      const upload = window.confirm(
-        `Upload ${localCount} local Pack Members to your account? Existing cloud records with the same IDs will be updated, not duplicated.`,
-      )
-      if (upload) {
-        setLoading(true)
-        try {
-          const n = await uploadLocalDatabaseToCloud(user.id)
-          setMessage(`Uploaded ${n} records to your account.`)
-          await syncNow()
-        } catch (e) {
-          setError(e instanceof Error ? e.message : 'Upload failed')
-        } finally {
-          setLoading(false)
-        }
-        return
-      }
+      setMessage('You have local Pack data. Choose Sync Now, Later, or Keep Local Only below.')
+      return
     }
 
     await syncNow()
@@ -86,17 +111,32 @@ export function AccountSettings() {
     setLoading(false)
     if (result.error) setError(result.error)
     else setMessage('Account data deleted. You have been signed out.')
+    await refreshDiagnostics()
+  }
+
+  const handleTestConnection = async () => {
+    setLoading(true)
+    setError(null)
+    setMessage(null)
+    const result = await testConnection()
+    setLoading(false)
+    if (result.ok) setMessage(result.message)
+    else setError(result.message)
   }
 
   return (
     <>
       <SettingsDetailCard>
-        {!cloudAvailable && (
-          <InfoRow label="Cloud sync" value="Not configured on this server" />
-        )}
+        <InfoRow label="Mode" value={isAuthenticated ? 'Signed in' : 'Local Mode'} />
+        <InfoRow label="Cloud Sync" value={syncMode === 'cloud' ? 'On' : 'Off'} />
+        <InfoRow label="Sync Status" value={statusLabel} />
 
         {cloudAvailable && !isAuthenticated && (
           <>
+            <InfoRow
+              label="Create an account to sync your Pack across devices."
+              value=""
+            />
             <ActionRow
               label="Sign in"
               description="Access your Pack on any device"
@@ -128,11 +168,19 @@ export function AccountSettings() {
           </>
         )}
 
+        {!cloudAvailable && (
+          <InfoRow
+            label="Cloud sync"
+            value="Not configured"
+            description={`Missing: ${env.missing.join(', ') || 'unknown'}`}
+          />
+        )}
+
         {isAuthenticated && (
           <>
-            <InfoRow label="Signed in as" value={user?.email ?? '—'} />
-            <InfoRow label="Sync mode" value={syncMode === 'cloud' ? 'Cloud + local cache' : 'Local only'} />
-            <InfoRow label="Sync status" value={statusLabel} />
+            <InfoRow label="Email" value={user?.email ?? '—'} />
+            <InfoRow label="Last Sync Time" value={lastSyncAt ? new Date(lastSyncAt).toLocaleString() : 'Never'} />
+            <InfoRow label="Pending Local Changes" value={diagnostics.pendingLocalChanges} />
             <ActionRow
               label="Sync now"
               description="Push local changes and pull updates"
@@ -145,8 +193,39 @@ export function AccountSettings() {
             <ActionRow
               label="Enable cloud sync"
               description="Save to your account when online"
-              action={<SettingsButton onClick={() => void handleEnableSync()} loading={loading}>Enable</SettingsButton>}
+              action={
+                <SettingsButton
+                  onClick={() => void handleEnableSync()}
+                  loading={loading}
+                  disabled={!cloudAvailable}
+                >
+                  Enable
+                </SettingsButton>
+              }
             />
+            {syncMode === 'cloud' &&
+              localCount > 0 &&
+              localStorage.getItem(SYNC_STORAGE_KEYS.migrationDone) !== 'true' && (
+                <div className="py-3.5">
+                  <p className="text-[15px] leading-snug font-medium">
+                    You have local Pack data. Sync it to your account?
+                  </p>
+                  <p className="text-pack-text-muted mt-0.5 text-sm leading-relaxed">
+                    Existing cloud records with the same IDs are updated, not duplicated.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <SettingsButton onClick={() => void handleUploadLocalData()} loading={loading}>
+                      Sync Now
+                    </SettingsButton>
+                    <SettingsButton onClick={() => setMessage('No problem. You can sync later from Account settings.')}>
+                      Later
+                    </SettingsButton>
+                    <SettingsButton onClick={useLocalOnly}>
+                      Keep Local Only
+                    </SettingsButton>
+                  </div>
+                </div>
+              )}
             <ActionRow
               label="Use local only"
               description="Keep data on this device"
@@ -177,8 +256,9 @@ export function AccountSettings() {
             <ActionRow
               label="Delete account"
               description="Remove cloud Pack data and sign out"
+              destructive
               action={
-                <SettingsButton onClick={() => void handleDeleteAccount()} loading={loading}>
+                <SettingsButton variant="danger" onClick={() => void handleDeleteAccount()} loading={loading}>
                   Delete
                 </SettingsButton>
               }
@@ -189,6 +269,32 @@ export function AccountSettings() {
         {message && <p className="text-pack-text-secondary px-1 pt-2 text-sm">{message}</p>}
         {error && <p className="text-pack-danger px-1 pt-2 text-sm">{error}</p>}
       </SettingsDetailCard>
+
+      <div className="mt-4">
+        <CollapsibleSection
+          title="Sync Diagnostics"
+          open={debugOpen}
+          onToggle={() => setDebugOpen((v) => !v)}
+        >
+          <InfoRow label="Supabase Configured" value={diagnostics.supabaseConfigured ? 'Yes' : 'No'} />
+          <InfoRow label="Logged In" value={isAuthenticated ? 'Yes' : 'No'} />
+          <InfoRow label="Cloud Sync Enabled" value={syncMode === 'cloud' ? 'Yes' : 'No'} />
+          <InfoRow label="Last Sync Attempt" value={diagnostics.lastSyncAttempt ? new Date(diagnostics.lastSyncAttempt).toLocaleString() : 'Never'} />
+          <InfoRow label="Last Sync Success" value={diagnostics.lastSyncSuccess ? new Date(diagnostics.lastSyncSuccess).toLocaleString() : 'Never'} />
+          <InfoRow label="Last Sync Error" value={diagnostics.lastSyncError ?? 'None'} />
+          <InfoRow label="Pending Local Changes" value={diagnostics.pendingLocalChanges} />
+          {isAuthenticated && <InfoRow label="User ID" value={<span className="font-mono text-xs">{user?.id}</span>} />}
+          <ActionRow
+            label="Test Supabase Connection"
+            description="Checks auth session and reads your people table through RLS"
+            action={
+              <SettingsButton onClick={() => void handleTestConnection()} loading={loading}>
+                Test
+              </SettingsButton>
+            }
+          />
+        </CollapsibleSection>
+      </div>
 
       <AuthModal
         open={authOpen}

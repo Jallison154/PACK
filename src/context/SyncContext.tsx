@@ -10,6 +10,14 @@ import {
 import { isCloudSyncAvailable } from '../lib/env'
 import { runFullSync, getLastSyncTime } from '../services/sync/engine'
 import {
+  getSyncDiagnostics,
+  recordSyncAttempt,
+  recordSyncError,
+  testSupabaseConnection,
+  type SyncDiagnostics,
+  type SupabaseConnectionTest,
+} from '../services/sync/diagnostics'
+import {
   isCloudSyncEnabled,
   setSyncMode,
   type SyncMode,
@@ -21,13 +29,25 @@ interface SyncContextValue {
   syncMode: SyncMode
   syncStatus: SyncStatus
   lastSyncAt: string | null
+  diagnostics: SyncDiagnostics
   isOnline: boolean
   enableCloudSync: () => void
   useLocalOnly: () => void
   syncNow: () => Promise<void>
+  refreshDiagnostics: () => Promise<void>
+  testConnection: () => Promise<SupabaseConnectionTest>
 }
 
 const SyncContext = createContext<SyncContextValue | null>(null)
+
+const EMPTY_DIAGNOSTICS: SyncDiagnostics = {
+  supabaseConfigured: false,
+  missingEnv: [],
+  lastSyncAttempt: null,
+  lastSyncSuccess: null,
+  lastSyncError: null,
+  pendingLocalChanges: 0,
+}
 
 export function SyncProvider({ children }: { children: ReactNode }) {
   const { user, isAuthenticated } = useAuth()
@@ -36,6 +56,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   )
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(() => getLastSyncTime())
+  const [diagnostics, setDiagnostics] = useState<SyncDiagnostics>(EMPTY_DIAGNOSTICS)
   const [isOnline, setIsOnline] = useState(
     () => typeof navigator !== 'undefined' && navigator.onLine,
   )
@@ -51,22 +72,40 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const refreshDiagnostics = useCallback(async () => {
+    setDiagnostics(await getSyncDiagnostics())
+    setLastSyncAt(getLastSyncTime())
+  }, [])
+
+  useEffect(() => {
+    void refreshDiagnostics()
+  }, [refreshDiagnostics])
+
   const syncNow = useCallback(async () => {
-    if (!user || !isCloudSyncAvailable() || syncMode !== 'cloud') return
+    if (!user || !isCloudSyncAvailable() || syncMode !== 'cloud') {
+      await refreshDiagnostics()
+      return
+    }
     if (!navigator.onLine) {
       setSyncStatus('offline')
+      recordSyncError(new Error('Network offline'), 'sync')
+      await refreshDiagnostics()
       return
     }
 
+    recordSyncAttempt()
     setSyncStatus('syncing')
     try {
       await runFullSync(user.id)
       setLastSyncAt(getLastSyncTime())
       setSyncStatus('idle')
-    } catch {
+    } catch (error) {
+      recordSyncError(error, 'sync')
       setSyncStatus('error')
+    } finally {
+      await refreshDiagnostics()
     }
-  }, [user, syncMode])
+  }, [user, syncMode, refreshDiagnostics])
 
   useEffect(() => {
     if (!isAuthenticated || syncMode !== 'cloud' || !user) return
@@ -92,17 +131,37 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     setSyncStatus('disabled')
   }, [])
 
+  const testConnection = useCallback(async () => {
+    const result = await testSupabaseConnection(user?.id)
+    await refreshDiagnostics()
+    return result
+  }, [user, refreshDiagnostics])
+
   const value = useMemo(
     () => ({
       syncMode,
       syncStatus,
       lastSyncAt,
+      diagnostics,
       isOnline,
       enableCloudSync,
       useLocalOnly,
       syncNow,
+      refreshDiagnostics,
+      testConnection,
     }),
-    [syncMode, syncStatus, lastSyncAt, isOnline, enableCloudSync, useLocalOnly, syncNow],
+    [
+      syncMode,
+      syncStatus,
+      lastSyncAt,
+      diagnostics,
+      isOnline,
+      enableCloudSync,
+      useLocalOnly,
+      syncNow,
+      refreshDiagnostics,
+      testConnection,
+    ],
   )
 
   return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>

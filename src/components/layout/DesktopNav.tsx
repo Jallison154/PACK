@@ -2,6 +2,7 @@ import { Home, MapPin, Settings, Users, Search } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { DESKTOP_BREAKPOINT, useIsDesktop } from '../ui/WorkspaceToggle'
 import { PackLogo } from '../brand/PackLogo'
+import { AccountIndicator } from '../auth/AccountIndicator'
 
 const items = [
   { to: '/', icon: Home, label: 'Home' },
@@ -40,6 +41,7 @@ export function DesktopNav() {
             </NavLink>
           ))}
         </div>
+        <AccountIndicator />
       </div>
     </nav>
   )

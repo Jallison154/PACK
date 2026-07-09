@@ -1,4 +1,12 @@
 /** Vite client environment (prefixed with VITE_). */
+export interface CloudEnvValidation {
+  configured: boolean
+  missing: string[]
+  supabaseUrl?: string
+  supabaseAnonKey?: string
+  appUrl?: string
+}
+
 export function getAppUrl(): string {
   return import.meta.env.VITE_APP_URL ?? window.location.origin
 }
@@ -13,6 +21,25 @@ export function getSupabaseAnonKey(): string | undefined {
   return key && key.length > 0 ? key : undefined
 }
 
+export function validateCloudEnv(): CloudEnvValidation {
+  const supabaseUrl = getSupabaseUrl()
+  const supabaseAnonKey = getSupabaseAnonKey()
+  const appUrl = import.meta.env.VITE_APP_URL
+  const missing: string[] = []
+
+  if (!supabaseUrl) missing.push('VITE_SUPABASE_URL')
+  if (!supabaseAnonKey) missing.push('VITE_SUPABASE_ANON_KEY')
+  if (!appUrl) missing.push('VITE_APP_URL')
+
+  return {
+    configured: missing.length === 0,
+    missing,
+    supabaseUrl,
+    supabaseAnonKey,
+    appUrl,
+  }
+}
+
 export function isCloudSyncAvailable(): boolean {
-  return Boolean(getSupabaseUrl() && getSupabaseAnonKey())
+  return validateCloudEnv().configured
 }
