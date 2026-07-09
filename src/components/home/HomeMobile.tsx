@@ -5,6 +5,7 @@ import { QuickCapture } from './QuickCapture'
 import { HomeExploreIndicator } from './HomeExploreIndicator'
 import { HomeScrollContent, type HomeScrollData } from './HomeScrollContent'
 import { getGreeting } from '../../utils/greeting'
+import { useProfile } from '../../context/ProfileContext'
 
 function useViewportHeight() {
   const [height, setHeight] = useState(
@@ -27,6 +28,7 @@ interface HomeMobileProps {
 }
 
 export function HomeMobile({ data, onCreated }: HomeMobileProps) {
+  const { greetingName } = useProfile()
   const scrollRef = useRef<HTMLDivElement>(null)
   const viewportHeight = useViewportHeight()
   const [heroInteractive, setHeroInteractive] = useState(true)
@@ -67,7 +69,7 @@ export function HomeMobile({ data, onCreated }: HomeMobileProps) {
             <PackLogo href="/" size="sm" align="center" />
           </div>
           <h1 className="text-pack-text text-[2rem] leading-tight font-semibold tracking-tight">
-            {getGreeting()}
+            {getGreeting(greetingName)}
           </h1>
         </div>
 

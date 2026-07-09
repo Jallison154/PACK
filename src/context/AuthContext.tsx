@@ -19,12 +19,19 @@ interface AuthContextValue {
   session: Session | null
   loading: boolean
   isAuthenticated: boolean
+  isEmailVerified: boolean
   cloudAvailable: boolean
   signUp: (email: string, password: string, displayName?: string) => Promise<{ error: string | null }>
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
+  signOutAllDevices: () => Promise<{ error: string | null }>
   resetPassword: (email: string) => Promise<{ error: string | null }>
   updatePassword: (newPassword: string) => Promise<{ error: string | null }>
+  changePassword: (
+    currentPassword: string,
+    newPassword: string,
+  ) => Promise<{ error: string | null }>
+  updateEmail: (newEmail: string) => Promise<{ error: string | null; message?: string }>
   deleteAccount: () => Promise<{ error: string | null }>
 }
 
@@ -107,6 +114,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }, [])
 
+  const signOutAllDevices = useCallback(async () => {
+    const supabase = getSupabase()
+    if (!supabase) return { error: 'Cloud accounts are not configured.' }
+
+    const { error } = await supabase.auth.signOut({ scope: 'global' })
+    if (error) {
+      recordSyncError(error, 'auth signOutAll')
+      return { error: error.message }
+    }
+
+    setSyncMode('local')
+    setSession(null)
+    setUser(null)
+    return { error: null }
+  }, [])
+
   const resetPassword = useCallback(async (email: string) => {
     const supabase = getSupabase()
     if (!supabase) return { error: 'Cloud accounts are not configured.' }
@@ -117,6 +140,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) recordSyncError(error, 'auth resetPassword')
     return { error: error?.message ?? null }
   }, [])
+
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      const supabase = getSupabase()
+      if (!supabase || !user?.email) return { error: 'Not signed in.' }
+
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      })
+      if (verifyError) {
+        return { error: 'Current password is incorrect.' }
+      }
+
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) recordSyncError(error, 'auth changePassword')
+      return { error: error?.message ?? null }
+    },
+    [user],
+  )
+
+  const updateEmail = useCallback(
+    async (newEmail: string) => {
+      const supabase = getSupabase()
+      if (!supabase) return { error: 'Cloud accounts are not configured.' }
+
+      const trimmed = newEmail.trim()
+      if (!trimmed.includes('@')) return { error: 'Enter a valid email address.' }
+
+      const { error } = await supabase.auth.updateUser(
+        { email: trimmed },
+        { emailRedirectTo: getPasswordResetRedirectUrl() },
+      )
+      if (error) {
+        recordSyncError(error, 'auth updateEmail')
+        return { error: error.message }
+      }
+
+      return {
+        error: null,
+        message:
+          'Check your inbox to confirm the new email address. Your sign-in email will update after verification.',
+      }
+    },
+    [],
+  )
 
   const updatePassword = useCallback(async (newPassword: string) => {
     const supabase = getSupabase()
@@ -149,12 +218,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       loading,
       isAuthenticated: Boolean(user),
+      isEmailVerified: Boolean(user?.email_confirmed_at),
       cloudAvailable,
       signUp,
       signIn,
       signOut,
+      signOutAllDevices,
       resetPassword,
       updatePassword,
+      changePassword,
+      updateEmail,
       deleteAccount,
     }),
     [
@@ -165,8 +238,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp,
       signIn,
       signOut,
+      signOutAllDevices,
       resetPassword,
       updatePassword,
+      changePassword,
+      updateEmail,
       deleteAccount,
     ],
   )

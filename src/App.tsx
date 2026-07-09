@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { DatabaseProvider } from './context/DatabaseContext'
 import { AuthProvider } from './context/AuthContext'
+import { ProfileProvider } from './context/ProfileContext'
 import { SyncProvider } from './context/SyncContext'
 import { WorkspaceProvider } from './context/WorkspaceContext'
 import { PasscodeGate } from './components/auth/PasscodeGate'
@@ -17,7 +18,8 @@ export default function App() {
   return (
     <DatabaseProvider>
       <AuthProvider>
-        <SyncProvider>
+        <ProfileProvider>
+          <SyncProvider>
           <WorkspaceProvider>
             <PasscodeGate>
               <BrowserRouter>
@@ -43,7 +45,8 @@ export default function App() {
               </BrowserRouter>
             </PasscodeGate>
           </WorkspaceProvider>
-        </SyncProvider>
+          </SyncProvider>
+        </ProfileProvider>
       </AuthProvider>
     </DatabaseProvider>
   )

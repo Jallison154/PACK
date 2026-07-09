@@ -1,6 +1,11 @@
-export function getGreeting(): string {
+export function getGreeting(name?: string | null): string {
   const hour = new Date().getHours()
-  if (hour < 12) return 'Good Morning'
-  if (hour < 17) return 'Good Afternoon'
-  return 'Good Evening'
+  let base: string
+  if (hour < 12) base = 'Good Morning'
+  else if (hour < 17) base = 'Good Afternoon'
+  else if (hour >= 20) base = 'Welcome back'
+  else base = 'Good Evening'
+
+  const trimmed = name?.trim()
+  return trimmed ? `${base}, ${trimmed}` : base
 }

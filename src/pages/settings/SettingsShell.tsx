@@ -26,6 +26,10 @@ export function SettingsShell() {
   const section = getSettingsSection(sectionId)
   const showMobileDetail = isMobile && Boolean(section)
 
+  if (sectionId === 'profile') {
+    return <Navigate to="/settings/account" replace />
+  }
+
   if (sectionId && !section) {
     return <Navigate to="/settings" replace />
   }

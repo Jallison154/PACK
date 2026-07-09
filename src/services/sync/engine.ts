@@ -20,6 +20,7 @@ import {
   recordSyncError,
   recordSyncSuccess,
 } from './diagnostics'
+import { logSyncCreate, logSyncDelete, logSyncUpdate } from '../../utils/personLog'
 
 function rowToUpsertPayload(
   userId: string,
@@ -127,6 +128,7 @@ export async function pushSyncQueue(userId: string): Promise<number> {
           .eq('user_id', userId)
           .eq(cloudTable === 'person_tags' ? 'person_id' : 'id', item.recordId)
         if (error) throw error
+        logSyncDelete(item.tableName, item.recordId, 'pushed')
       } else {
         const payload = JSON.parse(item.payload) as Record<string, unknown>
         const row =
@@ -134,8 +136,41 @@ export async function pushSyncQueue(userId: string): Promise<number> {
             ? payload
             : ((await loadRowPayload(item.tableName, item.recordId)) ?? payload)
         const upsert = rowToUpsertPayload(userId, item.tableName, row)
-        const { error } = await supabase.from(cloudTable).upsert(upsert)
-        if (error) throw error
+
+        if (item.operation === 'insert') {
+          const { error } = await supabase.from(cloudTable).insert(upsert)
+          if (error) {
+            const { error: upsertError } = await supabase
+              .from(cloudTable)
+              .upsert(upsert, { onConflict: cloudTable === 'person_tags' ? 'user_id,person_id,tag_id' : 'id' })
+            if (upsertError) throw upsertError
+            logSyncUpdate(item.tableName, item.recordId, 'upsert-fallback')
+          } else {
+            logSyncCreate(item.tableName, item.recordId, 'pushed')
+          }
+        } else {
+          const { data, error } = await supabase
+            .from(cloudTable)
+            .update(upsert)
+            .eq('user_id', userId)
+            .eq(cloudTable === 'person_tags' ? 'person_id' : 'id', item.recordId)
+            .select('id')
+
+          if (error) throw error
+
+          if (!data || data.length === 0) {
+            const { error: insertError } = await supabase.from(cloudTable).insert(upsert)
+            if (insertError) {
+              const { error: upsertError } = await supabase
+                .from(cloudTable)
+                .upsert(upsert, { onConflict: cloudTable === 'person_tags' ? 'user_id,person_id,tag_id' : 'id' })
+              if (upsertError) throw upsertError
+            }
+            logSyncCreate(item.tableName, item.recordId, 'insert-fallback')
+          } else {
+            logSyncUpdate(item.tableName, item.recordId, 'pushed')
+          }
+        }
       }
 
       await removeSyncQueueItem(item.id)
@@ -201,7 +236,7 @@ async function upsertLocalFromCloud(
 
   if (table === 'person_tags') {
     await db.run(
-      `INSERT OR REPLACE INTO person_tags (person_id, tag_id) VALUES (?, ?)`,
+      `INSERT OR IGNORE INTO person_tags (person_id, tag_id) VALUES (?, ?)`,
       [local.person_id, local.tag_id],
     )
     return
@@ -213,15 +248,38 @@ async function upsertLocalFromCloud(
     if (!allowed.includes(key)) delete local[key]
   }
 
+  const recordId = local.id
+  if (typeof recordId !== 'string' || !recordId) return
+
   const columns = Object.keys(local)
   if (columns.length === 0) return
-  const placeholders = columns.map(() => '?').join(', ')
-  const values = columns.map((c) => local[c])
 
-  await db.run(
-    `INSERT OR REPLACE INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`,
-    values,
-  )
+  const existingRows = await db.query(`SELECT * FROM ${table} WHERE id = ?`, [recordId])
+
+  if (existingRows.length > 0) {
+    const existing = existingRows[0] as Record<string, unknown>
+    const localUpdated = String(existing.updated_at ?? '')
+    const cloudUpdated = String(local.updated_at ?? '')
+
+    if (localUpdated && cloudUpdated && localUpdated > cloudUpdated) {
+      return
+    }
+
+    local.created_at = existing.created_at
+
+    const setColumns = columns.filter((column) => column !== 'id' && column !== 'created_at')
+    if (setColumns.length === 0) return
+
+    const setClause = setColumns.map((column) => `${column} = ?`).join(', ')
+    const values = [...setColumns.map((column) => local[column]), recordId]
+
+    await db.run(`UPDATE ${table} SET ${setClause} WHERE id = ?`, values)
+    return
+  }
+
+  const placeholders = columns.map(() => '?').join(', ')
+  const values = columns.map((column) => local[column])
+  await db.run(`INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`, values)
 }
 
 export async function runFullSync(userId: string): Promise<{ pushed: number; pulled: number }> {

@@ -1,7 +1,7 @@
-import { v4 as uuid } from 'uuid'
 import { db } from '../../db/database'
 import type { SyncOperation, SyncQueueItem, SyncTable } from './types'
 import { isCloudSyncEnabled } from './types'
+import { logSyncCreate, logSyncDelete, logSyncUpdate } from '../../utils/personLog'
 
 const SYNC_TABLES: SyncTable[] = [
   'people',
@@ -17,6 +17,10 @@ export function isSyncableTable(name: string): name is SyncTable {
   return SYNC_TABLES.includes(name as SyncTable)
 }
 
+function queueIdFor(tableName: SyncTable, recordId: string): string {
+  return `${tableName}:${recordId}`
+}
+
 export async function enqueueSyncChange(
   tableName: SyncTable,
   recordId: string,
@@ -26,11 +30,32 @@ export async function enqueueSyncChange(
   if (!isCloudSyncEnabled()) return
 
   const now = new Date().toISOString()
+  const queueId = queueIdFor(tableName, recordId)
+
+  const existing = await db.query<{ operation: string }>(
+    'SELECT operation FROM sync_queue WHERE id = ?',
+    [queueId],
+  )
+  let finalOperation = operation
+  if (existing[0]?.operation === 'insert' && operation === 'update') {
+    finalOperation = 'insert'
+  } else if (existing[0]?.operation === 'update' && operation === 'insert') {
+    finalOperation = 'update'
+  }
+
   await db.run(
     `INSERT OR REPLACE INTO sync_queue (id, table_name, record_id, operation, payload, created_at, attempts)
-     VALUES (?, ?, ?, ?, ?, ?, 0)`,
-    [uuid(), tableName, recordId, operation, JSON.stringify(payload), now],
+     VALUES (?, ?, ?, ?, ?, ?, COALESCE((SELECT attempts FROM sync_queue WHERE id = ?), 0))`,
+    [queueId, tableName, recordId, finalOperation, JSON.stringify(payload), now, queueId],
   )
+
+  if (finalOperation === 'delete') {
+    logSyncDelete(tableName, recordId)
+  } else if (finalOperation === 'insert') {
+    logSyncCreate(tableName, recordId)
+  } else {
+    logSyncUpdate(tableName, recordId)
+  }
 }
 
 export async function listSyncQueue(): Promise<SyncQueueItem[]> {
@@ -68,13 +93,14 @@ export async function clearSyncQueue(): Promise<void> {
 }
 
 const WRITE_RE =
-  /^(INSERT(?:\s+OR\s+REPLACE)?\s+INTO|UPDATE|DELETE\s+FROM)\s+([a-z_]+)/i
+  /^(INSERT(?:\s+OR\s+(?:REPLACE|IGNORE))?\s+INTO|UPDATE|DELETE\s+FROM)\s+([a-z_]+)/i
 
 export function parseWriteForSync(
   sql: string,
   params: unknown[],
 ): { table: SyncTable; operation: SyncOperation; recordId: string } | null {
-  const match = sql.trim().match(WRITE_RE)
+  const trimmed = sql.trim()
+  const match = trimmed.match(WRITE_RE)
   if (!match) return null
 
   const verb = match[1].toUpperCase()
@@ -95,7 +121,19 @@ export function parseWriteForSync(
       : null
   }
 
-  // INSERT — first param is usually id
+  const isInsertOrReplace = /INSERT\s+OR\s+REPLACE/i.test(trimmed)
+  const isInsertOrIgnore = /INSERT\s+OR\s+IGNORE/i.test(trimmed)
+  if (isInsertOrReplace) {
+    const id = params[0]
+    return typeof id === 'string'
+      ? { table, operation: 'update', recordId: id }
+      : null
+  }
+
+  if (isInsertOrIgnore) {
+    return null
+  }
+
   const id = params[0]
   return typeof id === 'string'
     ? { table, operation: 'insert', recordId: id }

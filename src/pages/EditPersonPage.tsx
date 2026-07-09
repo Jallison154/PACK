@@ -6,7 +6,12 @@ import { Input, Textarea, Select } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { TagChip } from '../components/ui/TagChip'
 import { WorkspaceToggle } from '../components/ui/WorkspaceToggle'
-import { getPersonById, updatePerson } from '../db/repositories/people'
+import { DuplicateWarningModal } from '../components/person/DuplicateWarningModal'
+import { getPersonById, updatePerson, mergePeople } from '../db/repositories/people'
+import {
+  findPossibleDuplicates,
+  type DuplicateMatch,
+} from '../db/repositories/duplicates'
 import { getHouseholdNames, createHousehold } from '../db/repositories/households'
 import { getRelationshipTypes } from '../types'
 import type { Workspace } from '../types'
@@ -15,6 +20,8 @@ export function EditPersonPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [saving, setSaving] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const [duplicateWarning, setDuplicateWarning] = useState<DuplicateMatch | null>(null)
   const [tagInput, setTagInput] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [households, setHouseholds] = useState<{ id: string; name: string }[]>([])
@@ -45,7 +52,10 @@ export function EditPersonPage() {
     getHouseholdNames().then(setHouseholds)
     if (!id) return
     getPersonById(id).then((person) => {
-      if (!person) return
+      if (!person) {
+        setLoaded(true)
+        return
+      }
       setWorkspace(person.workspace)
       setForm({
         name: person.name,
@@ -68,6 +78,7 @@ export function EditPersonPage() {
         lastInteractionNotes: person.lastInteractionNotes ?? '',
       })
       setTags(person.tags)
+      setLoaded(true)
     })
   }, [id])
 
@@ -91,39 +102,99 @@ export function EditPersonPage() {
     setNewHouseholdName('')
   }
 
+  const buildPersonInput = () => ({
+    name: form.name.trim(),
+    workspace,
+    phone: form.phone || undefined,
+    email: form.email || undefined,
+    company: form.company || undefined,
+    jobTitle: form.jobTitle || undefined,
+    whereMet: form.whereMet || undefined,
+    event: form.event || undefined,
+    city: form.city || undefined,
+    state: form.state || undefined,
+    dateMet: form.dateMet || undefined,
+    notes: form.notes || undefined,
+    relationshipType: (form.relationshipType || undefined) as never,
+    householdId: form.householdId || undefined,
+    homeAddress: form.homeAddress || undefined,
+    workLocation: form.workLocation || undefined,
+    lastSeenAt: form.lastSeenAt || undefined,
+    lastSeenDate: form.lastSeenDate || undefined,
+    lastInteractionNotes: form.lastInteractionNotes || undefined,
+    tags,
+  })
+
+  const saveUpdate = async () => {
+    if (!id) return
+    await updatePerson(id, buildPersonInput())
+    navigate(`/person/${id}`, { replace: true })
+  }
+
   const handleSave = async () => {
     if (!id || !form.name.trim()) return
+
+    const duplicates = await findPossibleDuplicates(
+      {
+        name: form.name,
+        phone: form.phone,
+        email: form.email,
+        company: form.company,
+        whereMet: form.whereMet,
+        notes: form.notes,
+        tags,
+      },
+      { excludeId: id },
+    )
+
+    if (duplicates.length > 0) {
+      setDuplicateWarning(duplicates[0])
+      return
+    }
+
     setSaving(true)
     try {
-      await updatePerson(id, {
-        name: form.name.trim(),
-        workspace,
-        phone: form.phone || undefined,
-        email: form.email || undefined,
-        company: form.company || undefined,
-        jobTitle: form.jobTitle || undefined,
-        whereMet: form.whereMet || undefined,
-        event: form.event || undefined,
-        city: form.city || undefined,
-        state: form.state || undefined,
-        dateMet: form.dateMet || undefined,
-        notes: form.notes || undefined,
-        relationshipType: (form.relationshipType || undefined) as never,
-        householdId: form.householdId || undefined,
-        homeAddress: form.homeAddress || undefined,
-        workLocation: form.workLocation || undefined,
-        lastSeenAt: form.lastSeenAt || undefined,
-        lastSeenDate: form.lastSeenDate || undefined,
-        lastInteractionNotes: form.lastInteractionNotes || undefined,
-        tags,
-      })
-      navigate(`/person/${id}`, { replace: true })
+      await saveUpdate()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleMergeFromWarning = async () => {
+    if (!id || !duplicateWarning) return
+    setSaving(true)
+    try {
+      await updatePerson(id, buildPersonInput())
+      const merged = await mergePeople(id, duplicateWarning.person.id)
+      setDuplicateWarning(null)
+      navigate(`/person/${merged.id}`, { replace: true })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSaveAnyway = async () => {
+    setDuplicateWarning(null)
+    setSaving(true)
+    try {
+      await saveUpdate()
     } finally {
       setSaving(false)
     }
   }
 
   const relTypes = getRelationshipTypes(workspace)
+
+  if (loaded && !form.name && id) {
+    return (
+      <div className="min-h-dvh">
+        <Header title="Edit Pack Member" showBack />
+        <div className="page-px mx-auto max-w-lg pt-6">
+          <p className="text-pack-text-secondary">Pack member not found.</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="min-h-dvh">
@@ -224,6 +295,21 @@ export function EditPersonPage() {
         <Button variant="secondary" className="flex-1" onClick={() => navigate(-1)}>Cancel</Button>
         <Button className="flex-1" onClick={handleSave} loading={saving} disabled={!form.name.trim()}>Save</Button>
       </div>
+
+      {duplicateWarning && (
+        <DuplicateWarningModal
+          mode="edit"
+          match={duplicateWarning}
+          onOpenExisting={() => {
+            setDuplicateWarning(null)
+            navigate(`/person/${duplicateWarning.person.id}`)
+          }}
+          onMerge={handleMergeFromWarning}
+          onCreateAnyway={handleSaveAnyway}
+          onCancel={() => setDuplicateWarning(null)}
+          loading={saving}
+        />
+      )}
     </motion.div>
   )
 }

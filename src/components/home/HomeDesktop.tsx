@@ -7,6 +7,7 @@ import { MemoryFeed } from './MemoryFeed'
 import { MemoryPersonCard } from './MemoryPersonCard'
 import { formatDate } from '../../utils/format'
 import { getGreeting } from '../../utils/greeting'
+import { useProfile } from '../../context/ProfileContext'
 import type { HomeScrollData } from './HomeScrollContent'
 
 interface HomeDesktopProps {
@@ -20,6 +21,7 @@ function EmptyLine({ children }: { children: string }) {
 
 export function HomeDesktop({ data, onCreated }: HomeDesktopProps) {
   const navigate = useNavigate()
+  const { greetingName } = useProfile()
   const { todayTrail, followUps, recentPlaces, recentPackMembers, insights } = data
 
   return (
@@ -28,7 +30,7 @@ export function HomeDesktop({ data, onCreated }: HomeDesktopProps) {
         <div>
           <PackLogo href="/" size="sm" align="left" />
           <h1 className="text-pack-text mt-4 text-[2rem] leading-tight font-semibold tracking-tight">
-            {getGreeting()}
+            {getGreeting(greetingName)}
           </h1>
           <p className="text-pack-text-muted mt-1 text-sm">Your pack at a glance</p>
         </div>

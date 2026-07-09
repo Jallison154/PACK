@@ -99,20 +99,26 @@ class DatabaseService {
     return []
   }
 
-  async run(sql: string, params: unknown[] = []): Promise<void> {
+  async run(sql: string, params: unknown[] = []): Promise<number> {
     await this.init()
 
     if (this.isNative && this.nativeDb) {
-      await this.nativeDb.run(sql, params)
+      const result = await this.nativeDb.run(sql, params)
       await this.notifySyncChange(sql, params)
-      return
+      return result.changes?.changes ?? 0
     }
 
     if (this.webDb) {
       this.webDb.run(sql, params)
+      const changes = (
+        this.webDb as SqlJsDatabase & { getRowsModified?: () => number }
+      ).getRowsModified?.() ?? 0
       await this.persistWeb()
       await this.notifySyncChange(sql, params)
+      return changes
     }
+
+    return 0
   }
 
   async withoutSyncNotifications<T>(fn: () => Promise<T>): Promise<T> {

@@ -5,18 +5,24 @@ import { Button } from '../ui/Button'
 
 interface DuplicateWarningModalProps {
   match: DuplicateMatch
-  onAddInteraction: () => void
-  onCreateAnyway: () => void
+  onOpenExisting: () => void
+  onMerge: () => void
+  onCreateAnyway?: () => void
+  onAddInteraction?: () => void
   onCancel: () => void
   loading?: boolean
+  mode?: 'create' | 'edit'
 }
 
 export function DuplicateWarningModal({
   match,
-  onAddInteraction,
+  onOpenExisting,
+  onMerge,
   onCreateAnyway,
+  onAddInteraction,
   onCancel,
   loading,
+  mode = 'create',
 }: DuplicateWarningModalProps) {
   const subtitle = formatMatchSubtitle(match.person)
 
@@ -29,7 +35,9 @@ export function DuplicateWarningModal({
       >
         <h3 className="text-lg font-bold">This person may already be in your Pack</h3>
         <p className="text-pack-text-secondary mt-2 text-sm">
-          We found someone who looks similar. Add to their trail instead of creating a duplicate?
+          {mode === 'edit'
+            ? 'Your changes look similar to another Pack Member. Open them, merge information, or continue editing anyway.'
+            : 'We found someone who looks similar. Open the existing profile, merge your information, or create a new entry.'}
         </p>
 
         <div className="bg-pack-card border-pack-border mt-4 rounded-xl border p-4">
@@ -46,17 +54,22 @@ export function DuplicateWarningModal({
         </div>
 
         <div className="mt-6 space-y-2">
-          <Button className="w-full" onClick={onAddInteraction} disabled={loading}>
-            Add to Existing Pack Member&apos;s Trail
+          <Button className="w-full" onClick={onOpenExisting} disabled={loading}>
+            Open Existing
           </Button>
-          <Button
-            variant="secondary"
-            className="w-full"
-            onClick={onCreateAnyway}
-            loading={loading}
-          >
-            Add to Pack Anyway
+          <Button variant="secondary" className="w-full" onClick={onMerge} loading={loading}>
+            Merge Information
           </Button>
+          {onAddInteraction && (
+            <Button variant="secondary" className="w-full" onClick={onAddInteraction} disabled={loading}>
+              Add to Existing Pack Member&apos;s Trail
+            </Button>
+          )}
+          {onCreateAnyway && (
+            <Button variant="ghost" className="w-full" onClick={onCreateAnyway} loading={loading}>
+              {mode === 'edit' ? 'Save Anyway' : 'Create Anyway'}
+            </Button>
+          )}
           <Button variant="ghost" className="w-full" onClick={onCancel}>
             Cancel
           </Button>

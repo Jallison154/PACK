@@ -36,7 +36,7 @@ export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
   {
     id: 'account',
     title: 'Account',
-    subtitle: 'Sign in, sync, and manage your Pack',
+    subtitle: 'Your Pack Profile, sign-in, and sync',
     icon: UserCircle,
   },
   {

@@ -8,7 +8,21 @@ import type {
   Workspace,
 } from '../../types'
 import { randomProfileColor } from '../../utils/colors'
+import {
+  logPersonCreate,
+  logPersonDelete,
+  logPersonUpdate,
+  warnUnexpectedPersonCountChange,
+} from '../../utils/personLog'
 import { upsertPlaceByName } from './places'
+
+async function assertPersonExists(id: string): Promise<PersonWithTags> {
+  const person = await getPersonById(id)
+  if (!person) {
+    throw new Error(`Pack member not found: ${id}`)
+  }
+  return person
+}
 
 async function upsertCompany(name: string): Promise<string> {
   const id = uuid()
@@ -120,9 +134,30 @@ async function enrichPerson(row: Record<string, unknown>): Promise<PersonWithTag
 
 export const enrichPersonFromRow = enrichPerson
 
+function joinNotes(...parts: Array<string | null | undefined>): string | undefined {
+  const merged = parts
+    .map((part) => part?.trim())
+    .filter((part): part is string => Boolean(part))
+  return merged.length > 0 ? merged.join('\n\n') : undefined
+}
+
+function preferString(primary?: string | null, secondary?: string | null): string | undefined {
+  const first = primary?.trim()
+  if (first) return first
+  const second = secondary?.trim()
+  return second || undefined
+}
+
 export async function createPerson(input: PersonInput): Promise<Person> {
   const id = uuid()
   const now = new Date().toISOString()
+  const countBefore = await countPackMembers()
+
+  const existingId = await db.query<{ id: string }>('SELECT id FROM people WHERE id = ?', [id])
+  if (existingId.length > 0) {
+    throw new Error(`Cannot create Pack member: ID already exists (${id})`)
+  }
+
   let companyId: string | null = null
   let whereMetPlaceId: string | null = null
   let locationId: string | null = null
@@ -185,14 +220,31 @@ export async function createPerson(input: PersonInput): Promise<Person> {
   }
 
   const person = await getPersonById(id)
-  return person!
+  if (!person || person.id !== id) {
+    throw new Error(`Failed to reload Pack member after create: ${id}`)
+  }
+
+  const countAfter = await countPackMembers()
+  logPersonCreate({
+    personId: id,
+    databaseId: id,
+    countBefore,
+    countAfter,
+  })
+  if (countAfter !== countBefore + 1) {
+    warnUnexpectedPersonCountChange('CREATE', id, countBefore, countAfter)
+  }
+
+  return person
 }
 
 export async function updatePerson(id: string, input: PersonInput): Promise<Person> {
+  const existing = await assertPersonExists(id)
+  const countBefore = await countPackMembers()
   const now = new Date().toISOString()
-  let companyId: string | null = null
-  let whereMetPlaceId: string | null = null
-  let locationId: string | null = null
+  let companyId: string | null = existing.companyId
+  let whereMetPlaceId: string | null = existing.whereMetPlaceId
+  let locationId: string | null = existing.locationId
 
   if (input.company) {
     companyId = await upsertCompany(input.company)
@@ -207,7 +259,7 @@ export async function updatePerson(id: string, input: PersonInput): Promise<Pers
   locationId = whereMetPlaceId
   const lastSeenPlaceId = await resolvePlaceId(input.lastSeenPlaceId)
 
-  await db.run(
+  const changes = await db.run(
     `UPDATE people SET
       name = ?, workspace = ?, phone = ?, email = ?, company = ?, company_id = ?,
       job_title = ?, where_met = ?, event = ?, city = ?, state = ?,
@@ -215,7 +267,7 @@ export async function updatePerson(id: string, input: PersonInput): Promise<Pers
       household_id = ?, home_address = ?, work_location = ?,
       last_seen_at = ?, last_seen_place_id = ?, last_seen_date = ?, last_interaction_notes = ?,
       updated_at = ?
-    WHERE id = ?`,
+    WHERE id = ? AND deleted_at IS NULL`,
     [
       input.name,
       input.workspace ?? 'work',
@@ -245,18 +297,190 @@ export async function updatePerson(id: string, input: PersonInput): Promise<Pers
     ],
   )
 
+  if (changes === 0) {
+    throw new Error(`Update failed: Pack member not found or already removed (${id})`)
+  }
+
   if (input.tags) {
     await syncPersonTags(id, input.tags)
   }
 
   const person = await getPersonById(id)
-  return person!
+  if (!person || person.id !== id) {
+    throw new Error(`Failed to reload Pack member after update: ${id}`)
+  }
+
+  const countAfter = await countPackMembers()
+  logPersonUpdate({
+    personId: id,
+    databaseId: id,
+    countBefore,
+    countAfter,
+  })
+  if (countAfter !== countBefore) {
+    warnUnexpectedPersonCountChange('UPDATE', id, countBefore, countAfter)
+  }
+
+  return person
 }
 
 export async function deletePerson(id: string): Promise<void> {
+  await assertPersonExists(id)
+  const countBefore = await countPackMembers()
+
   await db.run('DELETE FROM interactions WHERE person_id = ?', [id])
   await db.run('DELETE FROM person_tags WHERE person_id = ?', [id])
-  await db.run('DELETE FROM people WHERE id = ?', [id])
+  const changes = await db.run('DELETE FROM people WHERE id = ?', [id])
+
+  if (changes === 0) {
+    throw new Error(`Delete failed: Pack member not found (${id})`)
+  }
+
+  const countAfter = await countPackMembers()
+  logPersonDelete({
+    personId: id,
+    databaseId: id,
+    countBefore,
+    countAfter,
+  })
+  if (countAfter !== countBefore - 1) {
+    warnUnexpectedPersonCountChange('DELETE', id, countBefore, countAfter)
+  }
+}
+
+export async function mergeDraftIntoPerson(
+  keepId: string,
+  draft: PersonInput,
+): Promise<Person> {
+  const keep = await assertPersonExists(keepId)
+  return updatePerson(keepId, {
+    name: preferString(keep.name, draft.name) ?? keep.name,
+    workspace: draft.workspace ?? keep.workspace,
+    phone: preferString(keep.phone, draft.phone),
+    email: preferString(keep.email, draft.email),
+    company: preferString(keep.company, draft.company),
+    jobTitle: preferString(keep.jobTitle, draft.jobTitle),
+    whereMet: preferString(keep.whereMet, draft.whereMet),
+    event: preferString(keep.event, draft.event),
+    city: preferString(keep.city, draft.city),
+    state: preferString(keep.state, draft.state),
+    dateMet: keep.dateMet ?? draft.dateMet,
+    notes: joinNotes(keep.notes, draft.notes),
+    relationshipType: keep.relationshipType ?? draft.relationshipType,
+    householdId: keep.householdId ?? draft.householdId,
+    homeAddress: preferString(keep.homeAddress, draft.homeAddress),
+    workLocation: preferString(keep.workLocation, draft.workLocation),
+    lastSeenAt: keep.lastSeenAt ?? draft.lastSeenAt,
+    lastSeenPlaceId: keep.lastSeenPlaceId ?? draft.lastSeenPlaceId,
+    lastSeenDate: keep.lastSeenDate ?? draft.lastSeenDate,
+    lastInteractionNotes: joinNotes(keep.lastInteractionNotes, draft.lastInteractionNotes),
+    tags: [...new Set([...keep.tags, ...(draft.tags ?? [])])],
+  })
+}
+
+export async function mergePeople(keepId: string, mergeId: string): Promise<Person> {
+  if (keepId === mergeId) {
+    throw new Error('Cannot merge a Pack member with themselves')
+  }
+
+  const keep = await assertPersonExists(keepId)
+  const merge = await assertPersonExists(mergeId)
+  const countBefore = await countPackMembers()
+
+  await db.withoutSyncNotifications(async () => {
+    await db.run('UPDATE interactions SET person_id = ? WHERE person_id = ?', [keepId, mergeId])
+
+    const mergeTagRows = await db.query<{ tag_id: string }>(
+      'SELECT tag_id FROM person_tags WHERE person_id = ?',
+      [mergeId],
+    )
+    for (const row of mergeTagRows) {
+      await db.run('INSERT OR IGNORE INTO person_tags (person_id, tag_id) VALUES (?, ?)', [
+        keepId,
+        row.tag_id,
+      ])
+    }
+
+    await db.run(
+      `UPDATE people SET
+        phone = COALESCE(phone, ?),
+        email = COALESCE(email, ?),
+        company = COALESCE(company, ?),
+        company_id = COALESCE(company_id, ?),
+        job_title = COALESCE(job_title, ?),
+        where_met = COALESCE(where_met, ?),
+        event = COALESCE(event, ?),
+        city = COALESCE(city, ?),
+        state = COALESCE(state, ?),
+        location_id = COALESCE(location_id, ?),
+        where_met_place_id = COALESCE(where_met_place_id, ?),
+        last_seen_place_id = COALESCE(last_seen_place_id, ?),
+        home_address = COALESCE(home_address, ?),
+        work_location = COALESCE(work_location, ?),
+        notes = ?,
+        last_interaction_notes = ?,
+        is_favorite = CASE WHEN is_favorite = 1 OR ? = 1 THEN 1 ELSE 0 END,
+        updated_at = ?
+      WHERE id = ?`,
+      [
+        merge.phone,
+        merge.email,
+        merge.company,
+        merge.companyId,
+        merge.jobTitle,
+        merge.whereMet,
+        merge.event,
+        merge.city,
+        merge.state,
+        merge.locationId,
+        merge.whereMetPlaceId,
+        merge.lastSeenPlaceId,
+        merge.homeAddress,
+        merge.workLocation,
+        joinNotes(keep.notes, merge.notes) ?? null,
+        joinNotes(keep.lastInteractionNotes, merge.lastInteractionNotes) ?? null,
+        merge.isFavorite ? 1 : 0,
+        new Date().toISOString(),
+        keepId,
+      ],
+    )
+
+    await syncPersonTags(keepId, [...new Set([...keep.tags, ...merge.tags])])
+    await db.run('DELETE FROM person_tags WHERE person_id = ?', [mergeId])
+    await db.run('DELETE FROM people WHERE id = ?', [mergeId])
+  })
+
+  const person = await getPersonById(keepId)
+  if (!person) {
+    throw new Error(`Failed to reload Pack member after merge: ${keepId}`)
+  }
+
+  const countAfter = await countPackMembers()
+  logPersonUpdate({
+    personId: keepId,
+    databaseId: keepId,
+    countBefore,
+    countAfter,
+  })
+  if (countAfter !== countBefore - 1) {
+    warnUnexpectedPersonCountChange('UPDATE', keepId, countBefore, countAfter)
+  }
+
+  if (await isCloudSyncEnabled()) {
+    const { enqueueSyncChange } = await import('../../services/sync/queue')
+    const keepRow = await db.query('SELECT * FROM people WHERE id = ?', [keepId])
+    if (keepRow[0]) {
+      await enqueueSyncChange('people', keepId, 'update', keepRow[0] as Record<string, unknown>)
+    }
+    await enqueueSyncChange('people', mergeId, 'delete', { id: mergeId })
+  }
+
+  return person
+}
+
+async function isCloudSyncEnabled(): Promise<boolean> {
+  const { isCloudSyncEnabled: enabled } = await import('../../services/sync/types')
+  return enabled()
 }
 
 export async function getPersonById(id: string): Promise<PersonWithTags | null> {
@@ -511,7 +735,7 @@ export async function countPackMembers(workspace?: Workspace): Promise<number> {
     : await db.query<{ count: number }>(
         'SELECT COUNT(*) as count FROM people WHERE deleted_at IS NULL',
       )
-  return rows[0]?.count ?? 0
+  return Number(rows[0]?.count ?? 0)
 }
 
 export async function listPackMembers(

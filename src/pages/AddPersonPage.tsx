@@ -8,7 +8,7 @@ import { WorkspaceToggle } from '../components/ui/WorkspaceToggle'
 import { PossibleMatchesList } from '../components/person/PossibleMatchesList'
 import { AddInteractionSheet } from '../components/person/AddInteractionSheet'
 import { DuplicateWarningModal } from '../components/person/DuplicateWarningModal'
-import { createPerson } from '../db/repositories/people'
+import { createPerson, mergeDraftIntoPerson } from '../db/repositories/people'
 import {
   findPossibleDuplicates,
   type DuplicateMatch,
@@ -93,6 +93,34 @@ export function AddPersonPage() {
     }
 
     await createNewPerson()
+  }
+
+  const handleMergeFromWarning = async () => {
+    if (!duplicateWarning) return
+    setSaving(true)
+    try {
+      setLastUsedWorkspace(workspace)
+      await mergeDraftIntoPerson(duplicateWarning.person.id, {
+        name: name.trim(),
+        workspace,
+        phone: phone || undefined,
+        email: email || undefined,
+        company: workspace === 'work' ? company || undefined : undefined,
+        whereMet: whereMet || undefined,
+        notes: notes || undefined,
+        dateMet: todayISO(),
+      })
+      setDuplicateWarning(null)
+      navigate(`/person/${duplicateWarning.person.id}`, { replace: true })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleOpenExistingFromWarning = () => {
+    if (!duplicateWarning) return
+    setDuplicateWarning(null)
+    navigate(`/person/${duplicateWarning.person.id}`)
   }
 
   const handleAddInteractionFromWarning = () => {
@@ -256,6 +284,8 @@ export function AddPersonPage() {
       {duplicateWarning && (
         <DuplicateWarningModal
           match={duplicateWarning}
+          onOpenExisting={handleOpenExistingFromWarning}
+          onMerge={handleMergeFromWarning}
           onAddInteraction={handleAddInteractionFromWarning}
           onCreateAnyway={handleCreateAnyway}
           onCancel={() => setDuplicateWarning(null)}

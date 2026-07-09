@@ -26,6 +26,11 @@ export interface DuplicateSearchInput {
   tags?: string[]
 }
 
+export interface FindDuplicatesOptions {
+  excludeId?: string
+  limit?: number
+}
+
 async function enrichForMatch(row: Record<string, unknown>): Promise<PersonWithTags> {
   const person = rowToPerson(row)
   const tagRows = await db.query<{ name: string }>(
@@ -143,8 +148,9 @@ function scorePerson(
 
 export async function findPossibleDuplicates(
   input: DuplicateSearchInput,
-  limit = 8,
+  options: FindDuplicatesOptions = {},
 ): Promise<DuplicateMatch[]> {
+  const limit = options.limit ?? 8
   const hasQuery =
     (input.name && input.name.trim().length >= 2) ||
     (input.phone && normalizePhone(input.phone).length >= 3) ||
@@ -203,6 +209,7 @@ export async function findPossibleDuplicates(
 
   for (const row of rows) {
     const person = await enrichForMatch(row)
+    if (options.excludeId && person.id === options.excludeId) continue
     const scored = scorePerson(person, input)
     if (scored) matches.push(scored)
   }
