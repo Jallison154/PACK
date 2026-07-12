@@ -364,11 +364,17 @@ export async function applyRemoteRow(
   await db.run(`INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`, values)
 }
 
-export async function pullRemoteChanges(userId: string): Promise<number> {
+export interface PullRemoteResult {
+  merged: number
+  peopleDownloaded: number
+}
+
+export async function pullRemoteChanges(userId: string): Promise<PullRemoteResult> {
   const supabase = getSupabase()
-  if (!supabase) return 0
+  if (!supabase) return { merged: 0, peopleDownloaded: 0 }
 
   let merged = 0
+  let peopleDownloaded = 0
 
   for (const table of SYNC_TABLES) {
     const { data, error } = await supabase.from(table).select('*').eq('user_id', userId)
@@ -382,6 +388,7 @@ export async function pullRemoteChanges(userId: string): Promise<number> {
       throw error
     }
     if (!data) continue
+    if (table === 'people') peopleDownloaded = data.length
 
     for (const row of data) {
       await db.withoutSyncNotifications(() =>
@@ -392,19 +399,33 @@ export async function pullRemoteChanges(userId: string): Promise<number> {
   }
 
   notifyDataChanged('sync', [...SYNC_TABLES])
-  return merged
+  localStorage.setItem(SYNC_STORAGE_KEYS.initialCloudDownloadAt, new Date().toISOString())
+  localStorage.setItem(SYNC_STORAGE_KEYS.initialCloudPeopleDownloaded, String(peopleDownloaded))
+  return { merged, peopleDownloaded }
 }
 
-export async function pullCloudDataOnly(userId: string): Promise<number> {
+export async function pullCloudDataOnly(userId: string): Promise<PullRemoteResult> {
   return pullRemoteChanges(userId)
 }
 
 export async function runFullSync(userId: string): Promise<{ pushed: number; pulled: number }> {
   if (!navigator.onLine) throw new Error('Network offline')
   const pushed = await pushSyncQueue(userId)
-  const pulled = await pullRemoteChanges(userId)
+  const { merged } = await pullRemoteChanges(userId)
   recordSyncSuccess()
-  return { pushed, pulled }
+  return { pushed, pulled: merged }
+}
+
+export async function runInitialCloudSync(userId: string): Promise<{
+  pushed: number
+  pulled: number
+  peopleDownloaded: number
+}> {
+  if (!navigator.onLine) throw new Error('Network offline')
+  const { merged, peopleDownloaded } = await pullRemoteChanges(userId)
+  const pushed = await pushSyncQueue(userId)
+  recordSyncSuccess()
+  return { pushed, pulled: merged, peopleDownloaded }
 }
 
 export function getLastSyncTime(): string | null {
@@ -419,16 +440,24 @@ export function getSyncStatusLabel(
   if (!isCloudSyncAvailable()) return 'Cloud sync not configured'
   if (!isLoggedIn) return 'Local only — sign in to sync'
   switch (status) {
-    case 'syncing':
+    case 'starting':
       return 'Syncing…'
+    case 'restoring_session':
+      return 'Restoring session…'
+    case 'downloading':
+      return 'Downloading your Pack…'
+    case 'uploading':
+      return 'Uploading changes…'
     case 'offline':
       return 'Offline — changes queued'
+    case 'saved_locally':
+      return 'Saved locally. Pack Sync will retry.'
     case 'error':
       return 'Saved locally. Pack Sync will retry.'
     case 'disabled':
       return 'Local only'
     default:
-      return lastSync ? `Last synced ${new Date(lastSync).toLocaleString()}` : 'Ready to sync'
+      return lastSync ? `Up to date ${new Date(lastSync).toLocaleString()}` : 'Starting'
   }
 }
 

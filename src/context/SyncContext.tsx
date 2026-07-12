@@ -11,10 +11,12 @@ import {
 import { isCloudSyncAvailable } from '../lib/env'
 import {
   pullCloudDataOnly,
+  runInitialCloudSync,
   runFullSync,
   getLastSyncTime,
   uploadLocalDatabaseToCloud,
 } from '../services/sync/engine'
+import { getSupabase } from '../lib/supabase'
 import {
   getSyncDiagnostics,
   recordSyncAttempt,
@@ -26,6 +28,7 @@ import {
 import { registerSyncTrigger, unregisterSyncTrigger } from '../services/sync/queue'
 import { cancelDebouncedSync } from '../services/sync/debouncedSync'
 import {
+  getRealtimeConnectionState,
   subscribeToRealtimeChanges,
   unsubscribeFromRealtimeChanges,
   onRealtimeConnectionStateChange,
@@ -64,7 +67,16 @@ const EMPTY_DIAGNOSTICS: SyncDiagnostics = {
   missingEnv: [],
   loggedIn: false,
   userId: null,
+  appBuildVersion: '',
+  supabaseProjectHost: null,
+  authSessionRestored: false,
+  accessTokenExpiresAt: null,
   cloudSyncEnabled: false,
+  online: true,
+  initialCloudDownloadCompleted: false,
+  initialCloudDownloadAt: null,
+  cloudPeopleDownloaded: 0,
+  localPeople: 0,
   realtimeConnected: false,
   lastSyncAttempt: null,
   lastSyncSuccess: null,
@@ -73,11 +85,11 @@ const EMPTY_DIAGNOSTICS: SyncDiagnostics = {
 }
 
 export function SyncProvider({ children }: { children: ReactNode }) {
-  const { user, isAuthenticated } = useAuth()
+  const { user, isAuthenticated, sessionRestored } = useAuth()
   const [syncMode, setSyncModeState] = useState<SyncMode>(() =>
     isCloudSyncEnabled() ? 'cloud' : 'local',
   )
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('starting')
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(() => getLastSyncTime())
   const [diagnostics, setDiagnostics] = useState<SyncDiagnostics>(EMPTY_DIAGNOSTICS)
   const [isOnline, setIsOnline] = useState(
@@ -86,6 +98,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const [localNotice, setLocalNotice] = useState<string | null>(null)
   const syncInFlight = useRef(false)
   const initialLoginSyncDone = useRef<string | null>(null)
+  const startupInFlight = useRef(false)
 
   const refreshDiagnostics = useCallback(async () => {
     setDiagnostics(await getSyncDiagnostics(user?.id, isAuthenticated))
@@ -131,7 +144,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
     syncInFlight.current = true
     recordSyncAttempt()
-    setSyncStatus('syncing')
+    setSyncStatus('uploading')
     try {
       await runFullSync(user.id)
       setLastSyncAt(getLastSyncTime())
@@ -139,7 +152,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       setLocalNotice(null)
     } catch (error) {
       recordSyncError(error, 'sync')
-      setSyncStatus('error')
+      setSyncStatus(navigator.onLine ? 'error' : 'offline')
       setLocalNotice('Saved locally. Pack Sync will retry.')
     } finally {
       syncInFlight.current = false
@@ -156,7 +169,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }
 
     recordSyncAttempt()
-    setSyncStatus('syncing')
+    setSyncStatus('downloading')
     try {
       await pullCloudDataOnly(user.id)
       setLastSyncAt(getLastSyncTime())
@@ -170,6 +183,80 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       await refreshDiagnostics()
     }
   }, [user, refreshDiagnostics])
+
+  const restoreCurrentUser = useCallback(async () => {
+    const supabase = getSupabase()
+    if (!supabase) return null
+
+    setSyncStatus('restoring_session')
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+    if (sessionError) throw sessionError
+    if (!sessionData.session?.user.id) return null
+
+    const { data: userData, error: userError } = await supabase.auth.getUser()
+    if (userError) throw userError
+    return userData.user
+  }, [])
+
+  const runStartupSync = useCallback(async () => {
+    if (!sessionRestored || !isAuthenticated || !user || !isCloudSyncAvailable()) return
+    if (syncMode !== 'cloud') return
+    if (startupInFlight.current || initialLoginSyncDone.current === user.id) return
+
+    startupInFlight.current = true
+    unsubscribeFromRealtimeChanges()
+    recordSyncAttempt()
+
+    try {
+      const currentUser = await restoreCurrentUser()
+      if (!currentUser?.id) return
+      if (currentUser.id !== user.id) {
+        throw new Error('Authenticated user changed during startup sync.')
+      }
+
+      if (!navigator.onLine) {
+        setSyncStatus('offline')
+        return
+      }
+
+      setSyncStatus('downloading')
+      await runInitialCloudSync(currentUser.id)
+      initialLoginSyncDone.current = currentUser.id
+      subscribeToRealtimeChanges(currentUser.id)
+      setSyncStatus('idle')
+      setLocalNotice(null)
+    } catch (error) {
+      recordSyncError(error, 'startup sync')
+      setSyncStatus(navigator.onLine ? 'error' : 'offline')
+      setLocalNotice('Saved locally. Pack Sync will retry.')
+    } finally {
+      startupInFlight.current = false
+      await refreshDiagnostics()
+    }
+  }, [isAuthenticated, refreshDiagnostics, restoreCurrentUser, sessionRestored, syncMode, user])
+
+  const recoverSync = useCallback(async () => {
+    if (!sessionRestored || !isAuthenticated || !user || syncMode !== 'cloud') return
+    try {
+      const currentUser = await restoreCurrentUser()
+      if (!currentUser?.id || currentUser.id !== user.id) return
+      if (!navigator.onLine) {
+        setSyncStatus('offline')
+        return
+      }
+      setSyncStatus('downloading')
+      await runInitialCloudSync(currentUser.id)
+      if (getRealtimeConnectionState() !== 'connected') {
+        subscribeToRealtimeChanges(currentUser.id)
+      }
+      setSyncStatus('idle')
+    } catch (error) {
+      recordSyncError(error, 'foreground recovery')
+      setSyncStatus(navigator.onLine ? 'error' : 'offline')
+    } finally {
+      await refreshDiagnostics()
+    }
+  }, [isAuthenticated, refreshDiagnostics, restoreCurrentUser, sessionRestored, syncMode, user])
 
   const uploadLocalData = useCallback(async () => {
     if (!user) throw new Error('Not signed in')
@@ -199,32 +286,15 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   }, [isAuthenticated, user?.id])
 
   useEffect(() => {
-    if (!isAuthenticated || !user || !isCloudSyncAvailable()) {
-      unsubscribeFromRealtimeChanges()
-      initialLoginSyncDone.current = null
-      return
-    }
-
-    if (syncMode !== 'cloud') {
+    if (!isAuthenticated || !user || syncMode !== 'cloud') {
       unsubscribeFromRealtimeChanges()
       return
     }
-
-    subscribeToRealtimeChanges(user.id)
-
+    void runStartupSync()
     return () => {
       unsubscribeFromRealtimeChanges()
     }
-  }, [isAuthenticated, user, syncMode])
-
-  useEffect(() => {
-    if (!isAuthenticated || !user || !isCloudSyncAvailable() || syncMode !== 'cloud') return
-    if (initialLoginSyncDone.current === user.id) return
-
-    initialLoginSyncDone.current = user.id
-
-    void syncNow()
-  }, [isAuthenticated, user, syncMode, syncNow])
+  }, [isAuthenticated, runStartupSync, syncMode, user])
 
   useEffect(() => {
     if (!isAuthenticated || syncMode !== 'cloud' || !user) return
@@ -235,22 +305,35 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (isAuthenticated && syncMode === 'cloud' && isOnline && syncStatus === 'offline') {
-      void syncNow()
+      void recoverSync()
     }
-  }, [isOnline, isAuthenticated, syncMode, syncStatus, syncNow])
+  }, [isOnline, isAuthenticated, recoverSync, syncMode, syncStatus])
 
   useEffect(() => {
     if (!isAuthenticated || syncMode !== 'cloud') return
 
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
-        void syncNow()
+        void recoverSync()
       }
     }
 
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [isAuthenticated, syncMode, syncNow])
+  }, [isAuthenticated, recoverSync, syncMode])
+
+  useEffect(() => {
+    if (!isAuthenticated || syncMode !== 'cloud') return
+
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted || document.visibilityState === 'visible') {
+        void recoverSync()
+      }
+    }
+
+    window.addEventListener('pageshow', onPageShow)
+    return () => window.removeEventListener('pageshow', onPageShow)
+  }, [isAuthenticated, recoverSync, syncMode])
 
   const enableCloudSync = useCallback(() => {
     setSyncMode('cloud')

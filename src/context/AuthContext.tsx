@@ -13,6 +13,7 @@ import { isCloudSyncAvailable } from '../lib/env'
 import { deleteCloudAccountData } from '../services/sync/engine'
 import { setSyncMode, SYNC_STORAGE_KEYS } from '../services/sync/types'
 import { recordSyncError } from '../services/sync/diagnostics'
+import { PackLogo } from '../components/brand/PackLogo'
 
 interface AuthContextValue {
   user: User | null
@@ -21,6 +22,7 @@ interface AuthContextValue {
   isAuthenticated: boolean
   isEmailVerified: boolean
   cloudAvailable: boolean
+  sessionRestored: boolean
   signUp: (email: string, password: string, displayName?: string) => Promise<{ error: string | null }>
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
@@ -41,37 +43,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [sessionRestored, setSessionRestored] = useState(false)
   const cloudAvailable = isCloudSyncAvailable()
 
   useEffect(() => {
     const supabase = getSupabase()
     if (!supabase) {
       setLoading(false)
+      setSessionRestored(true)
       return
     }
+    const client = supabase
 
-    supabase.auth
-      .getSession()
-      .then(({ data, error }) => {
+    let cancelled = false
+
+    async function restoreSession() {
+      try {
+        const { data, error } = await client.auth.getSession()
         if (error) {
           recordSyncError(error, 'auth getSession')
         }
-        setSession(data.session)
-        setUser(data.session?.user ?? null)
-        setLoading(false)
-      })
-      .catch((error) => {
-        recordSyncError(error, 'auth getSession')
-        setLoading(false)
-      })
 
-    const { data: sub } = supabase.auth.onAuthStateChange((event, nextSession) => {
+        let restoredUser = data.session?.user ?? null
+        if (data.session) {
+          const { data: userData, error: userError } = await client.auth.getUser()
+          if (userError) {
+            recordSyncError(userError, 'auth getUser')
+          } else {
+            restoredUser = userData.user
+          }
+        }
+
+        if (cancelled) return
+        setSession(data.session)
+        setUser(restoredUser)
+      } catch (error) {
+        if (cancelled) return
+        recordSyncError(error, 'auth getSession')
+      } finally {
+        if (cancelled) return
+        setSessionRestored(true)
+        setLoading(false)
+      }
+    }
+
+    void restoreSession()
+
+    const { data: sub } = client.auth.onAuthStateChange((event, nextSession) => {
       console.info(`[Pack Auth] ${event}`, nextSession?.user?.email ?? 'no user')
       setSession(nextSession)
       setUser(nextSession?.user ?? null)
+      setSessionRestored(true)
       setLoading(false)
 
-      if (event === 'SIGNED_IN' && nextSession?.user && isCloudSyncAvailable()) {
+      if (
+        (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') &&
+        nextSession?.user &&
+        isCloudSyncAvailable()
+      ) {
         setSyncMode('cloud')
       }
 
@@ -80,7 +109,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     })
 
-    return () => sub.subscription.unsubscribe()
+    return () => {
+      cancelled = true
+      sub.subscription.unsubscribe()
+    }
   }, [])
 
   const signUp = useCallback(
@@ -228,6 +260,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: Boolean(user),
       isEmailVerified: Boolean(user?.email_confirmed_at),
       cloudAvailable,
+      sessionRestored,
       signUp,
       signIn,
       signOut,
@@ -243,6 +276,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       loading,
       cloudAvailable,
+      sessionRestored,
       signUp,
       signIn,
       signOut,
@@ -254,6 +288,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       deleteAccount,
     ],
   )
+
+  if (loading) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center">
+        <div className="text-center">
+          <PackLogo size="sm" className="mx-auto mb-5" />
+          <div className="border-pack-accent mx-auto h-10 w-10 animate-spin rounded-full border-3 border-t-transparent" />
+          <p className="text-pack-text-secondary mt-4 text-sm">Restoring session...</p>
+        </div>
+      </div>
+    )
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

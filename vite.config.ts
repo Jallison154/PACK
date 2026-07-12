@@ -3,13 +3,21 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const appVersion = process.env.npm_package_version ?? '0.0.0'
+const buildTime = new Date().toISOString()
+const cacheVersion = `pack-${appVersion}`
+
 export default defineConfig({
   assetsInclude: ['**/*.wasm'],
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+    __BUILD_TIME__: JSON.stringify(buildTime),
+  },
   plugins: [
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['favicon.png', 'apple-touch-icon.png', 'pack-icon.png'],
       manifest: {
         name: 'Pack',
@@ -41,13 +49,42 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: false,
+        navigateFallback: '/index.html',
+        globPatterns: ['**/*.{js,css,ico,png,svg,woff2,wasm,webmanifest}'],
         runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.hostname.endsWith('supabase.co'),
+            handler: 'NetworkOnly',
+            options: {
+              cacheName: `${cacheVersion}-supabase-network-only`,
+            },
+          },
+          {
+            urlPattern: ({ request, url }) =>
+              request.mode === 'navigate' || url.pathname === '/',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: `${cacheVersion}-html`,
+              networkTimeoutSeconds: 4,
+            },
+          },
+          {
+            urlPattern: ({ request, url }) =>
+              request.destination !== 'document' && url.pathname.startsWith('/assets/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: `${cacheVersion}-static-assets`,
+              expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            },
+          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'google-fonts-cache',
+              cacheName: `${cacheVersion}-google-fonts`,
               expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
             },
           },

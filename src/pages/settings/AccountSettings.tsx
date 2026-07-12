@@ -93,6 +93,11 @@ export function AccountSettings() {
 
   const statusLabel = getSyncStatusLabel(syncStatus, lastSyncAt, isAuthenticated)
   const env = validateCloudEnv()
+  const syncBusy =
+    syncStatus === 'starting' ||
+    syncStatus === 'restoring_session' ||
+    syncStatus === 'downloading' ||
+    syncStatus === 'uploading'
 
   const previewProfile = {
     ...profile,
@@ -523,7 +528,7 @@ export function AccountSettings() {
               action={
                 <SettingsButton
                   onClick={() => void syncNow()}
-                  loading={syncStatus === 'syncing'}
+                  loading={syncBusy}
                   disabled={syncMode !== 'cloud'}
                 >
                   Sync
@@ -626,15 +631,34 @@ export function AccountSettings() {
         open={debugOpen}
         onToggle={() => setDebugOpen((value) => !value)}
       >
+        <InfoRow label="App build version" value={diagnostics.appBuildVersion} />
         <InfoRow label="Supabase configured" value={diagnostics.supabaseConfigured ? 'Yes' : 'No'} />
+        <InfoRow label="Supabase project host" value={diagnostics.supabaseProjectHost ?? '—'} />
         {!diagnostics.supabaseConfigured && diagnostics.missingEnv.length > 0 && (
           <InfoRow label="Missing env" value={diagnostics.missingEnv.join(', ')} />
         )}
+        <InfoRow label="Auth session restored" value={diagnostics.authSessionRestored ? 'Yes' : 'No'} />
         <InfoRow label="Logged in" value={diagnostics.loggedIn ? 'Yes' : 'No'} />
         {isAuthenticated && (
           <InfoRow label="Current user ID" value={diagnostics.userId ?? user?.id ?? '—'} />
         )}
+        <InfoRow label="Access token expiration" value={diagnostics.accessTokenExpiresAt ?? '—'} />
+        <InfoRow label="Online" value={diagnostics.online ? 'Yes' : 'No'} />
         <InfoRow label="Cloud sync enabled" value={diagnostics.cloudSyncEnabled ? 'Yes' : 'No'} />
+        <InfoRow
+          label="Initial cloud download"
+          value={diagnostics.initialCloudDownloadCompleted ? 'Completed' : 'Not completed'}
+        />
+        <InfoRow
+          label="Initial download time"
+          value={
+            diagnostics.initialCloudDownloadAt
+              ? new Date(diagnostics.initialCloudDownloadAt).toLocaleString()
+              : 'Never'
+          }
+        />
+        <InfoRow label="Cloud people downloaded" value={diagnostics.cloudPeopleDownloaded} />
+        <InfoRow label="Local people" value={diagnostics.localPeople} />
         <InfoRow label="Realtime connected" value={diagnostics.realtimeConnected ? 'Yes' : 'No'} />
         <InfoRow
           label="Last sync attempt"
@@ -689,7 +713,7 @@ export function AccountSettings() {
               action={
                 <SettingsButton
                   onClick={() => void syncNow()}
-                  loading={syncStatus === 'syncing'}
+                  loading={syncBusy}
                   disabled={syncMode !== 'cloud'}
                 >
                   Sync

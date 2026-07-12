@@ -19,7 +19,16 @@ export interface SyncQueueItem {
   attempts: number
 }
 
-export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error' | 'disabled'
+export type SyncStatus =
+  | 'starting'
+  | 'restoring_session'
+  | 'downloading'
+  | 'uploading'
+  | 'idle'
+  | 'saved_locally'
+  | 'offline'
+  | 'error'
+  | 'disabled'
 
 export const SYNC_STORAGE_KEYS = {
   mode: 'pack_sync_mode',
@@ -27,6 +36,8 @@ export const SYNC_STORAGE_KEYS = {
   lastSyncAttemptAt: 'pack_last_sync_attempt_at',
   lastSyncSuccessAt: 'pack_last_sync_success_at',
   lastSyncError: 'pack_last_sync_error',
+  initialCloudDownloadAt: 'pack_initial_cloud_download_at',
+  initialCloudPeopleDownloaded: 'pack_initial_cloud_people_downloaded',
   promptDismissed: 'pack_sync_prompt_dismissed',
   migrationDone: 'pack_cloud_migration_done',
 } as const

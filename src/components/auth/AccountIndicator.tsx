@@ -20,6 +20,11 @@ export function AccountIndicator() {
   const menuRef = useRef<HTMLDivElement>(null)
 
   const status = getSyncStatusLabel(syncStatus, lastSyncAt, isAuthenticated)
+  const syncBusy =
+    syncStatus === 'starting' ||
+    syncStatus === 'restoring_session' ||
+    syncStatus === 'downloading' ||
+    syncStatus === 'uploading'
 
   useEffect(() => {
     if (!open) return
@@ -70,7 +75,7 @@ export function AccountIndicator() {
         {!isAuthenticated && (
           <CloudOff className="text-pack-text-muted h-4 w-4" aria-hidden />
         )}
-        {syncStatus === 'syncing' && isAuthenticated && (
+        {syncBusy && isAuthenticated && (
           <Loader2 className="text-pack-accent h-4 w-4 animate-spin" aria-hidden />
         )}
       </button>
