@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Pack</string>
+    <string name="title_activity_main">Pack</string>
+    <string name="package_name">com.okamidesigns.pack</string>
+    <string name="custom_url_scheme">com.okamidesigns.pack</string>
+</resources>

@@ -1,0 +1,8 @@
+{
+  "appId": "com.okamidesigns.pack",
+  "appName": "Pack",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}
