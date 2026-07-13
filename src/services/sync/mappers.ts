@@ -1,5 +1,7 @@
 /** Map local SQLite snake_case rows to Supabase rows with user_id. */
 
+import { sanitizeCloudRow } from './cloudSchema'
+
 function boolToDb(v: unknown): boolean {
   return Boolean(v)
 }
@@ -11,10 +13,12 @@ function boolFromDb(v: unknown): number {
 export function withUserId(
   userId: string,
   row: Record<string, unknown>,
+  table?: string,
 ): Record<string, unknown> {
   const out: Record<string, unknown> = { user_id: userId }
 
   for (const [key, value] of Object.entries(row)) {
+    if (key === 'user_id') continue
     if (key === 'sync_version') {
       out.sync_version = value ?? 1
       continue
@@ -23,21 +27,25 @@ export function withUserId(
       out.is_favorite = boolToDb(value)
       continue
     }
-    if (key === 'deleted_at' && value) {
-      out.deleted_at = value
+    if (key === 'deleted_at') {
+      if (value) out.deleted_at = value
       continue
     }
     out[key] = value ?? null
   }
 
-  return out
+  return table ? sanitizeCloudRow(table, out) : out
 }
 
 export function localPersonToCloud(userId: string, row: Record<string, unknown>) {
-  return withUserId(userId, {
-    ...row,
-    is_favorite: boolToDb(row.is_favorite),
-  })
+  return withUserId(
+    userId,
+    {
+      ...row,
+      is_favorite: boolToDb(row.is_favorite),
+    },
+    'people',
+  )
 }
 
 export function cloudPersonToLocal(row: Record<string, unknown>): Record<string, unknown> {
@@ -49,10 +57,14 @@ export function cloudPersonToLocal(row: Record<string, unknown>): Record<string,
 }
 
 export function localPlaceToCloud(userId: string, row: Record<string, unknown>) {
-  return withUserId(userId, {
-    ...row,
-    is_favorite: boolToDb(row.is_favorite),
-  })
+  return withUserId(
+    userId,
+    {
+      ...row,
+      is_favorite: boolToDb(row.is_favorite),
+    },
+    'places',
+  )
 }
 
 export function cloudPlaceToLocal(row: Record<string, unknown>): Record<string, unknown> {

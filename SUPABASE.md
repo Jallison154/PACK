@@ -16,6 +16,7 @@ In **Supabase → SQL Editor**, run these files **in order**:
 2. `supabase/migrations/002_profile_names.sql`
 3. `supabase/migrations/003_places_deleted.sql`
 4. `supabase/migrations/004_sync_standardization.sql`
+5. `supabase/migrations/005_column_audit.sql`
 
 This creates all Pack tables with **Row Level Security (RLS)**, profile name fields, place soft-delete, explicit per-operation policies, and **Realtime** publication for synced tables.
 

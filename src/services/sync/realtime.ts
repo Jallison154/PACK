@@ -87,6 +87,27 @@ async function handleRealtimePayload(
 
   if (!row) return
 
+  if (
+    (table === 'people' || table === 'places') &&
+    row.deleted_at != null &&
+    String(row.deleted_at).length > 0
+  ) {
+    const recordId = String(row.id ?? '')
+    if (!recordId) return
+
+    await db.withoutSyncNotifications(async () => {
+      const now = new Date().toISOString()
+      await db.run(`UPDATE ${table} SET deleted_at = ?, updated_at = ? WHERE id = ?`, [
+        row.deleted_at,
+        row.updated_at ?? now,
+        recordId,
+      ])
+    })
+
+    notifyDataChanged('realtime', [table])
+    return
+  }
+
   const recordId = String(row.id ?? row.person_id ?? '')
   if (!recordId) return
 

@@ -7,6 +7,7 @@ import {
   localPlaceToCloud,
   withUserId,
 } from './mappers'
+import { isSoftDeleteTable, sanitizeCloudRow } from './cloudSchema'
 import {
   clearSyncQueue,
   listSyncQueue,
@@ -48,19 +49,19 @@ function rowToUpsertPayload(
   table: string,
   row: Record<string, unknown>,
 ): Record<string, unknown> {
-  if (table === 'people') return localPersonToCloud(userId, row)
-  if (table === 'places') return localPlaceToCloud(userId, row)
   if (table === 'person_tags') {
-    return {
+    return sanitizeCloudRow('person_tags', {
       user_id: userId,
       person_id: row.person_id,
       tag_id: row.tag_id,
       id: row.id ?? `${row.person_id}:${row.tag_id}`,
       created_at: row.created_at ?? new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    }
+    })
   }
-  return withUserId(userId, row)
+  if (table === 'people') return localPersonToCloud(userId, row)
+  if (table === 'places') return localPlaceToCloud(userId, row)
+  return withUserId(userId, row, table)
 }
 
 export function upsertConflictKey(table: string): string {
@@ -165,6 +166,24 @@ function extractErrorFields(error: unknown) {
   return { message: String(error) }
 }
 
+async function softDeleteRemoteRow(
+  userId: string,
+  table: 'people' | 'places',
+  recordId: string,
+): Promise<void> {
+  const supabase = getSupabase()
+  if (!supabase) return
+
+  const now = new Date().toISOString()
+  const { error } = await supabase
+    .from(table)
+    .update(sanitizeCloudRow(table, { deleted_at: now, updated_at: now }))
+    .eq('user_id', userId)
+    .eq('id', recordId)
+
+  if (error) throw error
+}
+
 async function pushPersonTagsForPerson(userId: string, personId: string): Promise<void> {
   const supabase = getSupabase()
   if (!supabase) return
@@ -185,14 +204,16 @@ async function pushPersonTagsForPerson(userId: string, personId: string): Promis
   if (localTags.length === 0) return
 
   const now = new Date().toISOString()
-  const payload = localTags.map((row) => ({
-    user_id: userId,
-    person_id: row.person_id,
-    tag_id: row.tag_id,
-    id: `${row.person_id}:${row.tag_id}`,
-    created_at: now,
-    updated_at: now,
-  }))
+  const payload = localTags.map((row) =>
+    sanitizeCloudRow('person_tags', {
+      user_id: userId,
+      person_id: row.person_id,
+      tag_id: row.tag_id,
+      id: `${row.person_id}:${row.tag_id}`,
+      created_at: now,
+      updated_at: now,
+    }),
+  )
 
   const { error } = await supabase.from('person_tags').upsert(payload, {
     onConflict: upsertConflictKey('person_tags'),
@@ -236,6 +257,8 @@ export async function pushSyncQueue(userId: string): Promise<number> {
             .eq('user_id', userId)
             .eq('person_id', item.recordId)
           if (error) throw error
+        } else if (isSoftDeleteTable(item.tableName)) {
+          await softDeleteRemoteRow(userId, item.tableName, item.recordId)
         } else {
           const { error } = await supabase
             .from(cloudTable)

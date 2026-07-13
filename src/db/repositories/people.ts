@@ -334,10 +334,14 @@ export async function updatePerson(id: string, input: PersonInput): Promise<Pers
 export async function deletePerson(id: string): Promise<void> {
   await assertPersonExists(id)
   const countBefore = await countPackMembers()
+  const now = new Date().toISOString()
 
   await db.run('DELETE FROM interactions WHERE person_id = ?', [id])
   await db.run('DELETE FROM person_tags WHERE person_id = ?', [id])
-  const changes = await db.run('DELETE FROM people WHERE id = ?', [id])
+  const changes = await db.run(
+    'UPDATE people SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
+    [now, now, id],
+  )
 
   if (changes === 0) {
     throw new Error(`Delete failed: Pack member not found (${id})`)
@@ -454,7 +458,11 @@ export async function mergePeople(keepId: string, mergeId: string): Promise<Pers
 
     await syncPersonTags(keepId, [...new Set([...keep.tags, ...merge.tags])])
     await db.run('DELETE FROM person_tags WHERE person_id = ?', [mergeId])
-    await db.run('DELETE FROM people WHERE id = ?', [mergeId])
+    const mergeDeletedAt = new Date().toISOString()
+    await db.run(
+      'UPDATE people SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
+      [mergeDeletedAt, mergeDeletedAt, mergeId],
+    )
   })
 
   const person = await getPersonById(keepId)
@@ -479,7 +487,10 @@ export async function mergePeople(keepId: string, mergeId: string): Promise<Pers
     if (keepRow[0]) {
       await enqueueSyncChange('people', keepId, 'update', keepRow[0] as Record<string, unknown>)
     }
-    await enqueueSyncChange('people', mergeId, 'delete', { id: mergeId })
+    const mergeRow = await db.query('SELECT * FROM people WHERE id = ?', [mergeId])
+    if (mergeRow[0]) {
+      await enqueueSyncChange('people', mergeId, 'update', mergeRow[0] as Record<string, unknown>)
+    }
   }
 
   return person
