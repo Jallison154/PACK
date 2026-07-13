@@ -6,7 +6,7 @@ import { Header } from '../components/layout/Header'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { PersonCard } from '../components/person/PersonCard'
-import { PlaceMapPreview } from '../components/places/PlaceMap'
+import { PackMapPreview } from '../components/places/PackMap'
 import {
   getPlaceStats,
   getPeopleMetAtPlace,
@@ -102,7 +102,7 @@ export function PlaceDetailPage() {
       />
 
       <div className="page-px mx-auto max-w-lg space-y-4 pt-6">
-        <PlaceMapPreview place={place} height="200px" />
+        <PackMapPreview place={place} height="200px" />
 
         <Card>
           <div className="space-y-2 text-sm">

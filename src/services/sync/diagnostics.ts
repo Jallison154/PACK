@@ -1,5 +1,6 @@
 import { getSupabase } from '../../lib/supabase'
 import { getSupabaseUrl, validateCloudEnv } from '../../lib/env'
+import { getMapDiagnostics } from '../../lib/mapProvider'
 import { listSyncQueue } from './queue'
 import { SYNC_STORAGE_KEYS, getSyncMode } from './types'
 import { classifySyncError, extractSupabaseError, logSupabaseError } from './errors'
@@ -12,6 +13,8 @@ export interface SyncDiagnostics {
   loggedIn: boolean
   userId: string | null
   appBuildVersion: string
+  mapProvider: string
+  mapboxConfigured: boolean
   supabaseProjectHost: string | null
   authSessionRestored: boolean
   accessTokenExpiresAt: string | null
@@ -50,12 +53,16 @@ export function getStoredSyncDiagnostics(
     projectHost = null
   }
 
+  const mapDiagnostics = getMapDiagnostics()
+
   return {
     supabaseConfigured: validation.configured,
     missingEnv: validation.missing,
     loggedIn: isAuthenticated,
     userId: userId ?? null,
     appBuildVersion: `${__APP_VERSION__} (${__BUILD_TIME__})`,
+    mapProvider: mapDiagnostics.mapProvider,
+    mapboxConfigured: mapDiagnostics.mapboxConfigured,
     supabaseProjectHost: projectHost,
     authSessionRestored: isAuthenticated,
     accessTokenExpiresAt: null,
@@ -262,6 +269,8 @@ export function buildDiagnosticReport(diagnostics: SyncDiagnostics): string {
     `Generated: ${new Date().toISOString()}`,
     '',
     `App build version: ${diagnostics.appBuildVersion}`,
+    `Map provider: ${diagnostics.mapProvider}`,
+    `Mapbox configured: ${diagnostics.mapboxConfigured ? 'Yes' : 'No'}`,
     `Supabase configured: ${diagnostics.supabaseConfigured ? 'Yes' : 'No'}`,
     `Supabase project host: ${diagnostics.supabaseProjectHost ?? 'None'}`,
     `Missing env: ${diagnostics.missingEnv.join(', ') || 'None'}`,

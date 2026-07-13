@@ -8,7 +8,7 @@ import Map, {
   type MapMouseEvent,
 } from 'react-map-gl/mapbox'
 import type { FeatureCollection, Point } from 'geojson'
-import type { GeoJSONSource } from 'mapbox-gl'
+import { LngLatBounds, type GeoJSONSource, type Map as MapboxMap } from 'mapbox-gl'
 import { formatDate } from '../../utils/format'
 import { getMapboxAccessToken } from '../../lib/env'
 import {
@@ -18,32 +18,33 @@ import {
   isMapboxConfigured,
 } from '../../services/mapbox'
 import type { Place } from '../../types'
-import 'mapbox-gl/dist/mapbox-gl.css'
 
-export interface MapPlace extends Place {
+export interface PackMapPlace extends Place {
   metCount?: number
   lastSeenCount?: number
   interactionCount?: number
   lastInteractionDate?: string | null
 }
 
-interface PlaceMapProps {
-  places: MapPlace[]
+export interface PackMapProps {
+  places: PackMapPlace[]
   height?: string
   center?: { longitude: number; latitude: number }
   zoom?: number
+  currentLocation?: { latitude: number; longitude: number; accuracy?: number } | null
+  selectedPlace?: string | null
   singlePlaceId?: string
-  userLocation?: { latitude: number; longitude: number; accuracy?: number } | null
-  selectedPlaceId?: string | null
-  onPlaceClick?: (place: MapPlace) => void
+  onPlaceSelect?: (place: PackMapPlace) => void
   onOpenPlace?: (placeId: string) => void
+  onMapReady?: (map: MapboxMap) => void
+  fitBounds?: boolean
   scrollWheelZoom?: boolean
   emptyMessage?: string
   showClustering?: boolean
 }
 
 interface PopupState {
-  place: MapPlace
+  place: PackMapPlace
   longitude: number
   latitude: number
 }
@@ -56,41 +57,56 @@ function Pin({ color, size = 28 }: { color: string; size?: number }) {
         width: size,
         height: size,
         backgroundColor: color,
-        boxShadow: `0 0 0 2px rgba(255,106,45,0.25)`,
+        boxShadow: '0 0 0 2px rgba(255,106,45,0.25)',
       }}
     />
   )
 }
 
-export function PlaceMap({
+function MapUnavailable({ height, message }: { height: string; message: string }) {
+  return (
+    <div
+      className="bg-pack-card border-pack-border flex items-center justify-center rounded-2xl border p-6 text-center"
+      style={{ height }}
+    >
+      <p className="text-pack-text-secondary text-sm leading-relaxed">{message}</p>
+    </div>
+  )
+}
+
+export function PackMap({
   places,
   height = '320px',
   center,
   zoom,
+  currentLocation,
+  selectedPlace,
   singlePlaceId,
-  userLocation,
-  selectedPlaceId,
-  onPlaceClick,
+  onPlaceSelect,
   onOpenPlace,
+  onMapReady,
+  fitBounds = false,
   scrollWheelZoom = true,
   emptyMessage,
   showClustering = true,
-}: PlaceMapProps) {
+}: PackMapProps) {
   const token = getMapboxAccessToken()
   const mappable = places.filter((place) => place.latitude != null && place.longitude != null)
+  const activePlaceId = selectedPlace ?? singlePlaceId ?? null
   const [popup, setPopup] = useState<PopupState | null>(null)
+  const [mapError, setMapError] = useState<string | null>(null)
   const [viewState, setViewState] = useState({
-    longitude: center?.longitude ?? userLocation?.longitude ?? MAPBOX_DEFAULT_CENTER.longitude,
-    latitude: center?.latitude ?? userLocation?.latitude ?? MAPBOX_DEFAULT_CENTER.latitude,
-    zoom: zoom ?? (userLocation || mappable.length ? MAPBOX_USER_ZOOM : MAPBOX_DEFAULT_CENTER.zoom),
+    longitude: center?.longitude ?? currentLocation?.longitude ?? MAPBOX_DEFAULT_CENTER.longitude,
+    latitude: center?.latitude ?? currentLocation?.latitude ?? MAPBOX_DEFAULT_CENTER.latitude,
+    zoom: zoom ?? (currentLocation || mappable.length ? MAPBOX_USER_ZOOM : MAPBOX_DEFAULT_CENTER.zoom),
   })
 
   useEffect(() => {
-    if (userLocation) {
+    if (currentLocation) {
       setViewState((current) => ({
         ...current,
-        longitude: userLocation.longitude,
-        latitude: userLocation.latitude,
+        longitude: currentLocation.longitude,
+        latitude: currentLocation.latitude,
         zoom: MAPBOX_USER_ZOOM,
       }))
       return
@@ -103,7 +119,7 @@ export function PlaceMap({
         zoom: MAPBOX_USER_ZOOM,
       })
     }
-  }, [userLocation, mappable])
+  }, [currentLocation, mappable])
 
   const geojson = useMemo<FeatureCollection<Point>>(() => {
     return {
@@ -122,32 +138,66 @@ export function PlaceMap({
     }
   }, [mappable])
 
-  const onClusterClick = useCallback((event: MapMouseEvent) => {
-    const feature = event.features?.[0]
-    if (!feature) return
+  const handleMapLoad = useCallback(
+    (event: { target: MapboxMap }) => {
+      setMapError(null)
+      onMapReady?.(event.target)
 
-    const clusterId = feature.properties?.cluster_id
-    const mapboxSource = event.target.getSource('pack-places') as GeoJSONSource | undefined
-    if (!mapboxSource || clusterId == null) return
+      if (!fitBounds || mappable.length === 0) return
 
-    mapboxSource.getClusterExpansionZoom(clusterId, (error, expansionZoom) => {
-      if (error || expansionZoom == null) return
-      const [lng, lat] = (feature.geometry as Point).coordinates
-      event.target.easeTo({ center: [lng, lat], zoom: expansionZoom })
-    })
-  }, [])
+      const bounds = new LngLatBounds()
+      for (const place of mappable) {
+        bounds.extend([place.longitude!, place.latitude!])
+      }
+      if (currentLocation) {
+        bounds.extend([currentLocation.longitude, currentLocation.latitude])
+      }
+      if (!bounds.isEmpty()) {
+        event.target.fitBounds(bounds, { padding: 48, maxZoom: MAPBOX_USER_ZOOM, duration: 0 })
+      }
+    },
+    [currentLocation, fitBounds, mappable, onMapReady],
+  )
+
+  const onClusterClick = useCallback(
+    (event: MapMouseEvent) => {
+      const feature = event.features?.[0]
+      if (!feature) return
+
+      if (feature.properties?.cluster) {
+        const clusterId = feature.properties.cluster_id
+        const mapboxSource = event.target.getSource('pack-places') as GeoJSONSource | undefined
+        if (!mapboxSource || clusterId == null) return
+
+        mapboxSource.getClusterExpansionZoom(clusterId, (error, expansionZoom) => {
+          if (error || expansionZoom == null) return
+          const [lng, lat] = (feature.geometry as Point).coordinates
+          event.target.easeTo({ center: [lng, lat], zoom: expansionZoom })
+        })
+        return
+      }
+
+      const placeId = feature.properties?.id as string | undefined
+      if (!placeId) return
+      const place = mappable.find((item) => item.id === placeId)
+      if (!place) return
+
+      onPlaceSelect?.(place)
+      setPopup({
+        place,
+        longitude: place.longitude!,
+        latitude: place.latitude!,
+      })
+    },
+    [mappable, onPlaceSelect],
+  )
 
   if (!isMapboxConfigured() || !token) {
-    return (
-      <div
-        className="bg-pack-card border-pack-border flex items-center justify-center rounded-2xl border p-6 text-center"
-        style={{ height }}
-      >
-        <p className="text-pack-text-secondary text-sm leading-relaxed">
-          Map services are not configured.
-        </p>
-      </div>
-    )
+    return <MapUnavailable height={height} message="Mapbox is not configured." />
+  }
+
+  if (mapError) {
+    return <MapUnavailable height={height} message={mapError} />
   }
 
   const hasPins = mappable.length > 0
@@ -159,8 +209,10 @@ export function PlaceMap({
         mapStyle={MAPBOX_STYLE}
         {...viewState}
         onMove={(event) => setViewState(event.viewState)}
-        onClick={showClustering ? onClusterClick : undefined}
-        interactiveLayerIds={showClustering ? ['pack-clusters', 'pack-unclustered'] : undefined}
+        onLoad={handleMapLoad}
+        onError={() => setMapError('Map could not load. Check your connection or Mapbox configuration.')}
+        onClick={showClustering && hasPins ? onClusterClick : undefined}
+        interactiveLayerIds={showClustering && hasPins ? ['pack-clusters', 'pack-unclustered'] : undefined}
         scrollZoom={scrollWheelZoom}
         style={{ width: '100%', height: '100%' }}
         attributionControl
@@ -204,7 +256,7 @@ export function PlaceMap({
               paint={{
                 'circle-color': [
                   'case',
-                  ['==', ['get', 'id'], selectedPlaceId ?? singlePlaceId ?? ''],
+                  ['==', ['get', 'id'], activePlaceId ?? ''],
                   '#FF6A2D',
                   '#71717A',
                 ],
@@ -225,7 +277,7 @@ export function PlaceMap({
               anchor="center"
               onClick={(event) => {
                 event.originalEvent.stopPropagation()
-                onPlaceClick?.(place)
+                onPlaceSelect?.(place)
                 setPopup({
                   place,
                   longitude: place.longitude!,
@@ -234,16 +286,14 @@ export function PlaceMap({
               }}
             >
               <Pin
-                color={
-                  place.id === selectedPlaceId || place.id === singlePlaceId ? '#FF6A2D' : '#71717A'
-                }
-                size={place.id === selectedPlaceId || place.id === singlePlaceId ? 32 : 24}
+                color={place.id === activePlaceId ? '#FF6A2D' : '#71717A'}
+                size={place.id === activePlaceId ? 32 : 24}
               />
             </Marker>
           ))}
 
-        {userLocation && (
-          <Marker longitude={userLocation.longitude} latitude={userLocation.latitude} anchor="center">
+        {currentLocation && (
+          <Marker longitude={currentLocation.longitude} latitude={currentLocation.latitude} anchor="center">
             <Pin color="#FF6A2D" size={18} />
           </Marker>
         )}
@@ -303,7 +353,7 @@ export function PlaceMap({
   )
 }
 
-export function PlaceMapPreview({
+export function PackMapPreview({
   place,
   height = '160px',
 }: {
@@ -312,7 +362,7 @@ export function PlaceMapPreview({
 }) {
   if (!place?.latitude || !place?.longitude) return null
   return (
-    <PlaceMap
+    <PackMap
       places={[place]}
       height={height}
       center={{ longitude: place.longitude, latitude: place.latitude }}

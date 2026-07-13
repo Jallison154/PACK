@@ -16,7 +16,7 @@ import { Button } from '../components/ui/Button'
 import { Avatar } from '../components/ui/Avatar'
 import { Timeline } from '../components/ui/Timeline'
 import { AddInteractionSheet } from '../components/person/AddInteractionSheet'
-import { PlaceMapPreview } from '../components/places/PlaceMap'
+import { PackMapPreview } from '../components/places/PackMap'
 import {
   getPersonById,
   deletePerson,
@@ -167,7 +167,7 @@ export function PersonDetailPage() {
 
         {lastSeenPlace && (
           <div className="mb-10">
-            <PlaceMapPreview place={lastSeenPlace} />
+            <PackMapPreview place={lastSeenPlace} />
           </div>
         )}
 

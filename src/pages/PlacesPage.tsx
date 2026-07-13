@@ -2,7 +2,7 @@ import { MobilePageShell } from '../components/layout/MobilePageShell'
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MapPin, Plus, Navigation } from 'lucide-react'
-import { PlaceMap } from '../components/places/PlaceMap'
+import { PackMap } from '../components/places/PackMap'
 import { Button } from '../components/ui/Button'
 import { EmptyState } from '../components/ui/EmptyState'
 import { useGeolocation } from '../hooks/useGeolocation'
@@ -86,16 +86,16 @@ export function PlacesPage() {
           <div className="space-y-4">
             {!mapConfigured && (
               <p className="text-pack-text-muted rounded-xl border border-[#2a2a2a] bg-[#171717] px-4 py-3 text-sm">
-                Map services are not configured. You can still add and manage places manually.
+                Mapbox is not configured. You can still add and manage places manually.
               </p>
             )}
             <div className="pack-surface overflow-hidden">
-              <PlaceMap
+              <PackMap
                 places={mapPlaces}
                 height="min(50vh, 400px)"
-                userLocation={position}
-                selectedPlaceId={selected?.id ?? null}
-                onPlaceClick={(place) => {
+                currentLocation={position}
+                selectedPlace={selected?.id ?? null}
+                onPlaceSelect={(place) => {
                   const full = places.find((item) => item.id === place.id)
                   setSelected(full ?? (place as PlaceWithStats))
                 }}

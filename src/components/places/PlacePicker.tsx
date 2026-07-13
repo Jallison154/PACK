@@ -69,7 +69,7 @@ export function PlacePicker({ value, onChange, onClose, proximity }: PlacePicker
 
   const loadNearby = useCallback(async (latitude: number, longitude: number, force = false) => {
     if (!isMapboxConfigured()) {
-      setNearbyError('Map services are not configured.')
+      setNearbyError('Mapbox is not configured.')
       setNearbyPois([])
       return
     }
@@ -118,7 +118,7 @@ export function PlacePicker({ value, onChange, onClose, proximity }: PlacePicker
 
     const timer = window.setTimeout(async () => {
       if (!isMapboxConfigured()) {
-        setSearchError('Map services are not configured.')
+        setSearchError('Mapbox is not configured.')
         setSearchResults([])
         return
       }

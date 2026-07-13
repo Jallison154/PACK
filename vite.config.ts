@@ -5,7 +5,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 const appVersion = process.env.npm_package_version ?? '0.0.0'
 const buildTime = new Date().toISOString()
-const cacheVersion = `pack-${appVersion}`
+/** Bumped for Mapbox migration — invalidates old Leaflet PWA asset caches. */
+const cacheVersion = `pack-${appVersion}-mapbox`
 
 export default defineConfig({
   assetsInclude: ['**/*.wasm'],
@@ -49,9 +50,10 @@ export default defineConfig({
         ],
       },
       workbox: {
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         cleanupOutdatedCaches: true,
         clientsClaim: true,
-        skipWaiting: false,
+        skipWaiting: true,
         navigateFallback: '/index.html',
         globPatterns: ['**/*.{js,css,ico,png,svg,woff2,wasm,webmanifest}'],
         runtimeCaching: [

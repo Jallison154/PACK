@@ -11,7 +11,7 @@ export function isMapboxConfigured(): boolean {
 export function mapboxTokenOrThrow(): string {
   const token = getMapboxAccessToken()
   if (!token) {
-    throw new Error('Map services are not configured.')
+    throw new Error('Mapbox is not configured.')
   }
   return token
 }

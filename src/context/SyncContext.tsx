@@ -68,6 +68,8 @@ const EMPTY_DIAGNOSTICS: SyncDiagnostics = {
   loggedIn: false,
   userId: null,
   appBuildVersion: '',
+  mapProvider: 'Mapbox',
+  mapboxConfigured: false,
   supabaseProjectHost: null,
   authSessionRestored: false,
   accessTokenExpiresAt: null,
