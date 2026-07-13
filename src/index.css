@@ -2,6 +2,24 @@
 
 /* Okami Designs Design System */
 :root {
+  /* iPhone safe areas — Safari + standalone PWA */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
+  /* Mobile bottom tab bar */
+  --mobile-nav-base-height: 3.5rem;
+  --mobile-nav-padding-bottom: max(12px, var(--safe-bottom));
+  --mobile-nav-height: calc(var(--mobile-nav-base-height) + var(--mobile-nav-padding-bottom));
+  --page-scroll-bottom: calc(var(--mobile-nav-height) + 16px);
+
+  /* Full-screen form action bar (no tab nav) */
+  --mobile-form-actions-height: 4.5rem;
+  --mobile-form-page-bottom: calc(
+    var(--mobile-form-actions-height) + var(--mobile-nav-padding-bottom) + 16px
+  );
+
   --okami-orange: #ff6a2d;
   --okami-orange-hover: #ff7a45;
   --okami-orange-active: #e65a22;
@@ -86,17 +104,27 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 html {
   background-color: var(--bg-primary);
   color: var(--text-primary);
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
   min-height: 100dvh;
+  min-height: 100svh;
   font-family: var(--font-sans);
   background-color: var(--bg-primary);
-  overscroll-behavior: none;
+  overscroll-behavior-x: none;
+  overflow-x: hidden;
   position: relative;
   isolation: isolate;
 }
@@ -160,9 +188,40 @@ body::after {
 
 #root {
   min-height: 100dvh;
+  min-height: 100svh;
   position: relative;
   z-index: 0;
   isolation: isolate;
+  overflow-x: hidden;
+}
+
+/* App shell — tab layout with fixed bottom navigation */
+.app-shell {
+  min-height: 100dvh;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+.app-top-banners {
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  padding-top: var(--safe-top);
+  padding-left: max(var(--content-padding), var(--safe-left));
+  padding-right: max(var(--content-padding), var(--safe-right));
+}
+
+.app-top-banners > * + * {
+  margin-top: 0.75rem;
+}
+
+.app-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
 }
 
 /* Layer 3 — Surface panels */
@@ -216,6 +275,7 @@ textarea,
 select,
 button {
   font-family: inherit;
+  font-size: max(16px, 1rem);
 }
 
 input::placeholder,
@@ -233,22 +293,40 @@ textarea::placeholder {
 }
 
 .safe-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: var(--safe-bottom);
 }
 
 .safe-top {
-  padding-top: env(safe-area-inset-top, 0px);
+  padding-top: var(--safe-top);
 }
 
-/* Page spacing system — inherit these instead of ad-hoc padding.
-   Combines the device safe area with the generous native top spacing. */
+.app-safe-top {
+  padding-top: var(--safe-top);
+}
+
+.page-content-bottom {
+  padding-bottom: var(--page-scroll-bottom);
+}
+
+@media (min-width: 768px) {
+  .page-content-bottom {
+    padding-bottom: 2.5rem;
+  }
+}
+
+/* Page spacing system — inherit these instead of ad-hoc padding. */
 .page-top {
-  padding-top: calc(env(safe-area-inset-top, 0px) + var(--page-top-spacing));
+  padding-top: calc(var(--safe-top) + var(--page-top-spacing));
+}
+
+/* Inside AppLayout — safe-top is owned by .app-top-banners */
+.page-top-shell {
+  padding-top: var(--page-top-spacing);
 }
 
 .page-px {
-  padding-left: var(--content-padding);
-  padding-right: var(--content-padding);
+  padding-left: max(var(--content-padding), var(--safe-left));
+  padding-right: max(var(--content-padding), var(--safe-right));
 }
 
 .page-header-gap {
@@ -259,16 +337,73 @@ textarea::placeholder {
   margin-top: var(--section-spacing);
 }
 
-/* Sticky headers (nav-style) — safe area plus a comfortable, consistent height */
+/* Sticky headers (nav-style) */
 .page-nav-top {
-  padding-top: calc(env(safe-area-inset-top, 0px) + 1rem);
+  padding-top: calc(var(--safe-top) + 1rem);
   padding-bottom: 0.75rem;
+}
+
+.page-nav-top-shell {
+  padding-top: 1rem;
+  padding-bottom: 0.75rem;
+}
+
+.sticky-below-notch {
+  position: sticky;
+  top: var(--safe-top);
+  z-index: 10;
 }
 
 @media (min-width: 768px) {
   .page-nav-top {
-    padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+    padding-top: calc(var(--safe-top) + 0.75rem);
   }
+
+  .page-nav-top-shell {
+    padding-top: 0.75rem;
+  }
+}
+
+/* Fixed mobile bottom tab navigation */
+.mobile-bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  padding-bottom: var(--mobile-nav-padding-bottom);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.mobile-bottom-nav__inner {
+  min-height: var(--mobile-nav-base-height);
+}
+
+/* Fixed form action bars on full-screen add/edit pages */
+.mobile-form-actions {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem;
+  padding-left: max(1rem, var(--safe-left));
+  padding-right: max(1rem, var(--safe-right));
+  padding-bottom: max(1rem, var(--mobile-nav-padding-bottom));
+}
+
+.mobile-form-page {
+  padding-bottom: var(--mobile-form-page-bottom);
+}
+
+img,
+svg,
+video {
+  max-width: 100%;
+  height: auto;
 }
 
 .pack-glow {
@@ -286,12 +421,29 @@ textarea::placeholder {
 }
 
 .home-viewport-height {
-  height: calc(100dvh - 4.5rem);
-  min-height: calc(100dvh - 4.5rem);
+  height: calc(100dvh - var(--mobile-nav-height) - var(--safe-top));
+  min-height: calc(100dvh - var(--mobile-nav-height) - var(--safe-top));
+  min-height: calc(100svh - var(--mobile-nav-height) - var(--safe-top));
 }
 
 .home-fade-spacer {
   height: 12vh;
+}
+
+.home-feed-bottom {
+  padding-bottom: var(--page-scroll-bottom);
+}
+
+/* Auth modal — safe areas for bottom sheet + home indicator */
+.auth-modal-overlay {
+  padding: max(1rem, var(--safe-top)) max(1rem, var(--safe-right))
+    max(1rem, var(--safe-bottom)) max(1rem, var(--safe-left));
+}
+
+.auth-modal-sheet {
+  max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 2rem);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .home-hero-section,
@@ -303,6 +455,15 @@ textarea::placeholder {
   .home-viewport-height {
     height: 100dvh;
     min-height: 100dvh;
+  }
+}
+
+@media (display-mode: standalone) {
+  html,
+  body,
+  #root,
+  .app-shell {
+    background-color: var(--bg-primary);
   }
 }
 

@@ -7,12 +7,14 @@ import { SyncNoticeBanner } from '../auth/SyncNoticeBanner'
 
 export function AppLayout() {
   return (
-    <div className="relative min-h-dvh">
+    <div className="app-shell">
       <DesktopNav />
-      <PwaUpdatePrompt />
-      <SyncPromptBanner />
-      <SyncNoticeBanner />
-      <main className="mx-auto w-full max-w-lg pb-28 md:max-w-5xl md:pb-10">
+      <div className="app-top-banners">
+        <PwaUpdatePrompt />
+        <SyncPromptBanner />
+        <SyncNoticeBanner />
+      </div>
+      <main className="app-main mx-auto w-full max-w-lg md:max-w-5xl">
         <Outlet />
       </main>
       <BottomNav />

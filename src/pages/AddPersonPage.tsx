@@ -158,11 +158,11 @@ export function AddPersonPage() {
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      className="min-h-dvh"
+      className="mobile-form-page min-h-dvh"
     >
-      <Header title="Add to Pack" showBack />
+      <Header title="Add to Pack" showBack inShell={false} />
 
-      <div className="page-px mx-auto max-w-lg space-y-5 pt-6 pb-32">
+      <div className="page-px mx-auto max-w-lg space-y-5 pt-6">
         <p className="text-pack-text-secondary text-sm leading-relaxed">
           Capture a new connection in seconds. Search by name, phone, or email to find someone
           already in your Pack, or add someone new.
@@ -262,7 +262,7 @@ export function AddPersonPage() {
         />
       </div>
 
-      <div className="pack-nav fixed right-0 bottom-0 left-0 z-20 flex gap-3 p-4 safe-bottom">
+      <div className="mobile-form-actions pack-nav">
         <Button variant="secondary" className="flex-1" onClick={() => navigate(-1)}>
           Cancel
         </Button>

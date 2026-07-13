@@ -29,7 +29,7 @@ export function HomeScrollContent({ data }: HomeScrollContentProps) {
   const { todayTrail, followUps, recentPlaces, corePack, insights } = data
 
   return (
-    <div className="page-px mx-auto w-full max-w-sm space-y-16 pt-4 pb-32">
+    <div className="page-px home-feed-bottom mx-auto w-full max-w-sm space-y-16 pt-4">
       <HomeRevealSection title="Today's Trail">
         {todayTrail.length > 0 ? (
           <MemoryFeed items={todayTrail} flat />

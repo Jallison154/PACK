@@ -46,12 +46,12 @@ export function EditPlacePage() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="min-h-dvh">
+    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="mobile-form-page min-h-dvh">
       <Header title="Edit Place" showBack />
-      <div className="page-px mx-auto max-w-lg space-y-5 pt-6 pb-32">
+      <div className="page-px mx-auto max-w-lg space-y-5 pt-6">
         <PlaceForm form={form} onChange={setForm} />
       </div>
-      <div className="pack-nav fixed right-0 bottom-0 left-0 z-20 flex gap-3 p-4 safe-bottom">
+      <div className="mobile-form-actions pack-nav">
         <Button variant="secondary" className="flex-1" onClick={() => navigate(-1)}>
           Cancel
         </Button>

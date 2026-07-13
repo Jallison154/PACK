@@ -47,7 +47,7 @@ export function SearchBar({
   }
 
   return (
-    <div className="pack-elevated sticky top-0 z-30 px-4 py-3 safe-top">
+    <div className="pack-elevated sticky top-0 z-30 px-4 py-3 page-nav-top-shell">
       {input}
     </div>
   )

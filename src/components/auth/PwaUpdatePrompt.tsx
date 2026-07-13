@@ -26,8 +26,8 @@ export function PwaUpdatePrompt() {
   if (!updateReady) return null
 
   return (
-    <div className="page-px mx-auto max-w-lg pt-3 md:max-w-5xl">
-      <div className="pack-surface flex items-center justify-between gap-3 rounded-2xl p-4">
+    <div className="w-full max-w-lg md:max-w-5xl">
+      <div className="pack-surface flex min-w-0 items-center justify-between gap-3 rounded-2xl p-4">
         <p className="text-pack-text text-sm font-medium">A new Pack version is available.</p>
         <button
           type="button"

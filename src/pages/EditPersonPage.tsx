@@ -199,7 +199,7 @@ export function EditPersonPage() {
   if (loaded && !form.name && id) {
     return (
       <div className="min-h-dvh">
-        <Header title="Edit Pack Member" showBack />
+        <Header title="Edit Pack Member" showBack inShell={false} />
         <div className="page-px mx-auto max-w-lg pt-6">
           <p className="text-pack-text-secondary">Pack member not found.</p>
         </div>
@@ -208,10 +208,10 @@ export function EditPersonPage() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="min-h-dvh">
-      <Header title="Edit Pack Member" showBack />
+    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="mobile-form-page min-h-dvh">
+      <Header title="Edit Pack Member" showBack inShell={false} />
 
-      <div className="page-px mx-auto max-w-lg space-y-4 pt-6 pb-32">
+      <div className="page-px mx-auto max-w-lg space-y-4 pt-6">
         <div>
           <label className="text-pack-text-secondary mb-2 block text-sm font-medium">Workspace</label>
           <WorkspaceToggle value={workspace} onChange={setWorkspace} size="sm" />
@@ -319,7 +319,7 @@ export function EditPersonPage() {
         <Textarea label="Notes" value={form.notes} onChange={(e) => update('notes', e.target.value)} />
       </div>
 
-      <div className="pack-nav fixed right-0 bottom-0 left-0 z-20 flex gap-3 p-4 safe-bottom">
+      <div className="mobile-form-actions pack-nav">
         <Button variant="secondary" className="flex-1" onClick={() => navigate(-1)}>Cancel</Button>
         <Button className="flex-1" onClick={handleSave} loading={saving} disabled={!form.name.trim()}>Save</Button>
       </div>

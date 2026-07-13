@@ -53,7 +53,11 @@ export function HomeMobile({ data, onCreated }: HomeMobileProps) {
   return (
     <div
       ref={scrollRef}
-      className="home-scroll fixed inset-x-0 top-0 bottom-[4.5rem] z-0 mx-auto max-w-lg"
+      className="home-scroll fixed inset-x-0 top-0 z-0 mx-auto max-w-lg"
+      style={{
+        top: 'var(--safe-top)',
+        bottom: 'var(--mobile-nav-height)',
+      }}
     >
       <motion.section
         aria-label="Home"
@@ -64,7 +68,7 @@ export function HomeMobile({ data, onCreated }: HomeMobileProps) {
           pointerEvents: heroInteractive ? 'auto' : 'none',
         }}
       >
-        <div className="safe-top flex flex-1 flex-col items-center justify-center text-center">
+        <div className="flex min-w-0 flex-1 flex-col items-center justify-center text-center">
           <div className="mb-14">
             <PackLogo href="/" size="sm" align="center" />
           </div>
@@ -84,14 +88,14 @@ export function HomeMobile({ data, onCreated }: HomeMobileProps) {
 
       <motion.section
         aria-label="Explore Your Pack"
-        className="home-feed-section relative z-0 min-h-[calc(100dvh-4.5rem)]"
+        className="home-feed-section relative z-0 min-h-[calc(100dvh-var(--mobile-nav-height))]"
         style={{
           opacity: feedOpacity,
           y: feedY,
           pointerEvents: feedInteractive ? 'auto' : 'none',
         }}
       >
-        <header className="pack-nav page-nav-top sticky top-0 z-20 border-b">
+        <header className="pack-nav page-nav-top-shell sticky top-0 z-20 border-b">
           <div className="page-px mx-auto flex max-w-sm items-center gap-3">
             <PackLogo href="/" size="sm" align="center" className="shrink-0 scale-90" />
             <div className="min-w-0 flex-1">

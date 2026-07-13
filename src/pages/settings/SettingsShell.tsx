@@ -1,3 +1,4 @@
+import { MobilePageShell } from '../../components/layout/MobilePageShell'
 import { useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Header } from '../../components/layout/Header'
@@ -43,7 +44,7 @@ export function SettingsShell() {
   )
 
   return (
-    <div className="min-h-dvh">
+    <MobilePageShell top={false} padded={false}>
       {!showMobileDetail && <Header title="Settings" />}
 
       {showMobileDetail && section ? (
@@ -92,6 +93,6 @@ export function SettingsShell() {
           </div>
         </div>
       )}
-    </div>
+    </MobilePageShell>
   )
 }

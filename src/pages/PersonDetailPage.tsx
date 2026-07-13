@@ -1,3 +1,4 @@
+import { MobilePageShell } from '../components/layout/MobilePageShell'
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
@@ -69,7 +70,7 @@ export function PersonDetailPage() {
 
   if (!person) {
     return (
-      <div className="min-h-dvh pb-12">
+      <MobilePageShell inShell={false} bottomNavOffset={false} top={false} padded={false}>
         <div className="page-nav-top page-px flex items-center">
           <button
             type="button"
@@ -83,7 +84,7 @@ export function PersonDetailPage() {
         <div className="page-px mx-auto max-w-lg pt-4">
           <div className="pack-elevated h-64 animate-pulse" />
         </div>
-      </div>
+      </MobilePageShell>
     )
   }
 
@@ -95,7 +96,7 @@ export function PersonDetailPage() {
   const metAtLabel = whereMet ? `Met at ${whereMet}` : undefined
 
   return (
-    <div className="min-h-dvh pb-12">
+    <MobilePageShell inShell={false} bottomNavOffset={false} top={false} padded={false}>
       <div className="page-nav-top page-px flex items-center justify-between">
         <button
           type="button"
@@ -207,6 +208,6 @@ export function PersonDetailPage() {
         onClose={() => setShowAddInteraction(false)}
         onSaved={() => load()}
       />
-    </div>
+    </MobilePageShell>
   )
 }

@@ -1,3 +1,4 @@
+import { MobilePageShell } from '../components/layout/MobilePageShell'
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Star, Users, Eye, Pencil, Trash2 } from 'lucide-react'
@@ -69,15 +70,15 @@ export function PlaceDetailPage() {
 
   if (!place) {
     return (
-      <div className="min-h-dvh">
+      <MobilePageShell top={false} padded={false}>
         <Header title="Place" showBack />
         <div className="page-px mt-6"><div className="bg-pack-card h-48 animate-pulse rounded-2xl" /></div>
-      </div>
+      </MobilePageShell>
     )
   }
 
   return (
-    <div className="min-h-dvh pb-8">
+    <MobilePageShell top={false} padded={false}>
       <Header
         title={place.name}
         showBack
@@ -198,6 +199,6 @@ export function PlaceDetailPage() {
           </Button>
         </div>
       </div>
-    </div>
+    </MobilePageShell>
   )
 }

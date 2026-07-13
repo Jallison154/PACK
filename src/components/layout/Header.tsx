@@ -7,9 +7,11 @@ interface HeaderProps {
   showBack?: boolean
   backTo?: string
   right?: ReactNode
+  /** When true (default), omits safe-top — AppLayout banners own the notch inset. */
+  inShell?: boolean
 }
 
-export function Header({ title, showBack, backTo, right }: HeaderProps) {
+export function Header({ title, showBack, backTo, right, inShell = true }: HeaderProps) {
   const navigate = useNavigate()
 
   const goBack = () => {
@@ -18,7 +20,11 @@ export function Header({ title, showBack, backTo, right }: HeaderProps) {
   }
 
   return (
-    <header className="pack-nav page-nav-top page-px sticky top-0 z-20 flex items-center gap-3">
+    <header
+      className={`pack-nav page-px sticky top-0 z-20 flex items-center gap-3 ${
+        inShell ? 'page-nav-top-shell' : 'page-nav-top'
+      }`}
+    >
       {showBack && (
         <button
           onClick={goBack}

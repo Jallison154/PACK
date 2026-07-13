@@ -1,3 +1,4 @@
+import { MobilePageShell } from '../components/layout/MobilePageShell'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Search, MapPin, Building2, Calendar, X, SlidersHorizontal } from 'lucide-react'
@@ -101,8 +102,8 @@ export function SearchPage() {
   }, [doSearch])
 
   return (
-    <div className="min-h-dvh">
-      <div className="page-top page-px mx-auto max-w-lg pb-4">
+    <MobilePageShell top={false} padded={false}>
+      <div className="page-top-shell page-px mx-auto max-w-lg pb-4">
         <div className="pack-elevated flex gap-2 p-2">
           <div className="relative flex-1">
             <Search className="text-pack-text-muted absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2" />
@@ -309,6 +310,6 @@ export function SearchPage() {
           </p>
         )}
       </div>
-    </div>
+    </MobilePageShell>
   )
 }

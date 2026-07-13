@@ -40,7 +40,7 @@ export function SettingsGroupRow({
 
 export function SettingsSubpageHeader({ title, onBack }: { title: string; onBack: () => void }) {
   return (
-    <header className="pack-nav page-nav-top page-px sticky top-0 z-20 flex items-center gap-3 border-b">
+    <header className="pack-nav page-nav-top-shell page-px sticky top-0 z-20 flex items-center gap-3 border-b">
       <button
         type="button"
         onClick={onBack}

@@ -1,3 +1,4 @@
+import { MobilePageShell } from '../components/layout/MobilePageShell'
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MapPin, Plus, Navigation } from 'lucide-react'
@@ -33,8 +34,8 @@ export function PlacesPage() {
   const empty = places.length === 0
 
   return (
-    <div className="min-h-dvh">
-      <div className="page-top page-px page-header-gap mx-auto max-w-lg">
+    <MobilePageShell top={false} padded={false}>
+      <div className="page-top-shell page-px page-header-gap mx-auto max-w-lg">
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-pack-text text-2xl font-semibold tracking-tight">Places</h1>
           <div className="flex items-center gap-2">
@@ -151,6 +152,6 @@ export function PlacesPage() {
           </div>
         )}
       </div>
-    </div>
+    </MobilePageShell>
   )
 }

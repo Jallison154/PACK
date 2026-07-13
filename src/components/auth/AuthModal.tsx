@@ -75,14 +75,14 @@ export function AuthModal({ open, onClose, initialView = 'login', onSuccess }: A
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center"
+        className="auth-modal-overlay fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center"
         onClick={onClose}
       >
         <motion.div
           initial={{ y: 24, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 24, opacity: 0 }}
-          className="pack-elevated w-full max-w-md rounded-2xl p-6"
+          className="auth-modal-sheet pack-elevated w-full max-w-md rounded-2xl p-6"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="mb-5 flex items-start justify-between gap-3">

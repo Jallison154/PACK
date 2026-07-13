@@ -1,3 +1,4 @@
+import { MobilePageShell } from '../components/layout/MobilePageShell'
 import { useNavigate } from 'react-router-dom'
 import { Header } from '../components/layout/Header'
 
@@ -14,7 +15,7 @@ export function PrivacyPolicyPage() {
   const navigate = useNavigate()
 
   return (
-    <div className="min-h-dvh pb-12">
+    <MobilePageShell top={false} padded={false}>
       <Header title="Privacy Policy" showBack backTo="/settings/about" />
 
       <article className="page-px mx-auto max-w-lg space-y-8 pt-6">
@@ -189,6 +190,6 @@ export function PrivacyPolicyPage() {
           Back to Settings
         </button>
       </article>
-    </div>
+    </MobilePageShell>
   )
 }

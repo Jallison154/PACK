@@ -76,7 +76,7 @@ export function AddInteractionSheet({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4">
+      <div className="auth-modal-overlay fixed inset-0 z-50 flex items-end justify-center bg-black/60">
         <motion.div
           initial={{ y: 100 }}
           animate={{ y: 0 }}

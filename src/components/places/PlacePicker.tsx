@@ -128,7 +128,7 @@ export function PlacePicker({ value, onChange, onClose }: PlacePickerProps) {
   ]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center">
+    <div className="auth-modal-overlay fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center">
       <div className="bg-pack-surface flex max-h-[85dvh] w-full max-w-lg flex-col rounded-t-3xl sm:rounded-3xl">
         <div className="border-pack-border flex items-center justify-between border-b px-4 py-3">
           <h3 className="text-lg font-bold">Select Place</h3>

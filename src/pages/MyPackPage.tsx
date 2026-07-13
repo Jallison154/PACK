@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { MobilePageShell } from '../components/layout/MobilePageShell'
 import { Search, Users, SlidersHorizontal, X } from 'lucide-react'
 import { PackMemberRow } from '../components/pack/PackMemberRow'
 import { AlphabetIndex } from '../components/pack/AlphabetIndex'
@@ -84,8 +85,8 @@ export function MyPackPage() {
           : 'Your Pack is just getting started.'
 
   return (
-    <div className="min-h-dvh">
-      <div className="page-top page-px sticky top-0 z-10 pb-3">
+    <MobilePageShell top={false} padded={false}>
+      <div className="page-top-shell page-px sticky-below-notch pb-3">
         <div className="relative">
           <Search className="text-pack-text-muted absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2" />
           <input
@@ -222,6 +223,6 @@ export function MyPackPage() {
           </div>
         )}
       </div>
-    </div>
+    </MobilePageShell>
   )
 }
