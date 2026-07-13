@@ -43,7 +43,6 @@ export function HomeMobile({ data, onCreated }: HomeMobileProps) {
 
   const heroOpacity = useTransform(scrollY, [fadeStart, fadeEnd], [1, 0])
   const feedOpacity = useTransform(scrollY, [fadeStart, fadeEnd], [0, 1])
-  const heroY = useTransform(scrollY, [fadeStart, fadeEnd], [0, -20])
   const feedY = useTransform(scrollY, [fadeStart, fadeEnd], [16, 0])
 
   useMotionValueEvent(scrollY, 'change', (y) => {
@@ -57,10 +56,9 @@ export function HomeMobile({ data, onCreated }: HomeMobileProps) {
       <div ref={scrollRef} className="home-scroll mx-auto max-w-lg">
         <motion.section
           aria-label="Home"
-          className="home-hero-section home-hero-panel page-px sticky top-0 z-10 shrink-0"
+          className="home-hero-section home-hero-panel page-px z-10 shrink-0"
           style={{
             opacity: heroOpacity,
-            y: heroY,
             pointerEvents: heroInteractive ? 'auto' : 'none',
           }}
         >

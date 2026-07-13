@@ -6,7 +6,7 @@ import {
 } from '@capacitor-community/sqlite'
 import initSqlJs, { type Database as SqlJsDatabase } from 'sql.js'
 import sqlWasmUrl from 'sql.js/dist/sql-wasm-browser.wasm?url'
-import { DB_NAME, MIGRATIONS } from './schema'
+import { MIGRATIONS } from './schema'
 
 type QueryResult = Record<string, unknown>
 
@@ -14,11 +14,65 @@ class DatabaseService {
   private sqliteConn: SQLiteConnection | null = null
   private nativeDb: SQLiteDBConnection | null = null
   private webDb: SqlJsDatabase | null = null
+  private activeUserId: string | null = null
   private initialized = false
   private readonly isNative = Capacitor.isNativePlatform()
   private syncNotifyDisabled = false
 
+  getActiveUserId(): string | null {
+    return this.activeUserId
+  }
+
+  private storageKey(): string {
+    if (!this.activeUserId) {
+      throw new Error('Pack database is not attached to an authenticated user.')
+    }
+    return `pack:${this.activeUserId}:sqlite`
+  }
+
+  private nativeDbName(): string {
+    if (!this.activeUserId) {
+      throw new Error('Pack database is not attached to an authenticated user.')
+    }
+    return `pack_${this.activeUserId.replace(/[^a-zA-Z0-9_-]/g, '_')}`
+  }
+
+  async attachUser(userId: string): Promise<void> {
+    if (this.activeUserId === userId && this.initialized) return
+    await this.detachUser()
+    this.activeUserId = userId
+    this.initialized = false
+    await this.init()
+  }
+
+  async detachUser(): Promise<void> {
+    if (this.webDb && this.activeUserId) {
+      try {
+        const data = this.webDb.export()
+        await this.saveToIndexedDB(data, this.storageKey())
+      } catch {
+        // best-effort persist before detach
+      }
+    }
+
+    if (this.isNative && this.sqliteConn && this.nativeDb) {
+      try {
+        await this.sqliteConn.closeConnection(this.nativeDbName(), false)
+      } catch {
+        // ignore close errors
+      }
+    }
+
+    this.webDb = null
+    this.nativeDb = null
+    this.activeUserId = null
+    this.initialized = false
+  }
+
   async init(): Promise<void> {
+    if (!this.activeUserId) {
+      throw new Error('Pack database is not attached to an authenticated user.')
+    }
     if (this.initialized) return
 
     if (this.isNative) {
@@ -32,14 +86,15 @@ class DatabaseService {
 
   private async initNative(): Promise<void> {
     this.sqliteConn = new SQLiteConnection(CapacitorSQLite)
+    const dbName = this.nativeDbName()
     const ret = await this.sqliteConn.checkConnectionsConsistency()
-    const isConn = (await this.sqliteConn.isConnection(DB_NAME, false)).result
+    const isConn = (await this.sqliteConn.isConnection(dbName, false)).result
 
     if (ret.result && isConn) {
-      this.nativeDb = await this.sqliteConn.retrieveConnection(DB_NAME, false)
+      this.nativeDb = await this.sqliteConn.retrieveConnection(dbName, false)
     } else {
       this.nativeDb = await this.sqliteConn.createConnection(
-        DB_NAME,
+        dbName,
         false,
         'no-encryption',
         1,
@@ -62,7 +117,15 @@ class DatabaseService {
       locateFile: () => sqlWasmUrl,
     })
 
-    const saved = await this.loadFromIndexedDB()
+    let saved = await this.loadFromIndexedDB(this.storageKey())
+    if (!saved) {
+      const legacy = await this.loadFromIndexedDB('sqlite')
+      if (legacy) {
+        saved = legacy
+        await this.saveToIndexedDB(legacy, this.storageKey())
+      }
+    }
+
     this.webDb = saved ? new SQL.Database(saved) : new SQL.Database()
 
     for (const sql of MIGRATIONS) {
@@ -184,12 +247,12 @@ class DatabaseService {
   }
 
   private async persistWeb(): Promise<void> {
-    if (!this.webDb) return
+    if (!this.webDb || !this.activeUserId) return
     const data = this.webDb.export()
-    await this.saveToIndexedDB(data)
+    await this.saveToIndexedDB(data, this.storageKey())
   }
 
-  private async loadFromIndexedDB(): Promise<Uint8Array | null> {
+  private async loadFromIndexedDB(key: string): Promise<Uint8Array | null> {
     return new Promise((resolve) => {
       const request = indexedDB.open('pack_storage', 1)
       request.onupgradeneeded = () => {
@@ -197,7 +260,7 @@ class DatabaseService {
       }
       request.onsuccess = () => {
         const tx = request.result.transaction('database', 'readonly')
-        const getReq = tx.objectStore('database').get('sqlite')
+        const getReq = tx.objectStore('database').get(key)
         getReq.onsuccess = () => resolve(getReq.result ?? null)
         getReq.onerror = () => resolve(null)
       }
@@ -205,7 +268,7 @@ class DatabaseService {
     })
   }
 
-  private async saveToIndexedDB(data: Uint8Array): Promise<void> {
+  private async saveToIndexedDB(data: Uint8Array, key: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open('pack_storage', 1)
       request.onupgradeneeded = () => {
@@ -213,7 +276,7 @@ class DatabaseService {
       }
       request.onsuccess = () => {
         const tx = request.result.transaction('database', 'readwrite')
-        tx.objectStore('database').put(data, 'sqlite')
+        tx.objectStore('database').put(data, key)
         tx.oncomplete = () => resolve()
         tx.onerror = () => reject(tx.error)
       }

@@ -13,6 +13,9 @@
   --mobile-nav-padding-bottom: max(12px, var(--safe-bottom));
   --mobile-nav-height: calc(var(--mobile-nav-base-height) + var(--mobile-nav-padding-bottom));
   --page-scroll-bottom: calc(var(--mobile-nav-height) + 16px);
+  /* Usable viewport above the tab bar (safe-area counted once inside --mobile-nav-height) */
+  --home-usable-height: calc(100svh - var(--app-chrome-top, 0px) - var(--mobile-nav-height));
+  --home-usable-height: calc(100dvh - var(--app-chrome-top, 0px) - var(--mobile-nav-height));
 
   /* Full-screen form action bar (no tab nav) */
   --mobile-form-actions-height: 4.5rem;
@@ -205,6 +208,16 @@ body::after {
   overflow-x: hidden;
 }
 
+@media (max-width: 767px) {
+  .app-shell {
+    height: 100dvh;
+    height: 100svh;
+    max-height: 100dvh;
+    max-height: 100svh;
+    overflow: hidden;
+  }
+}
+
 .app-top-banners {
   flex-shrink: 0;
   position: sticky;
@@ -226,6 +239,14 @@ body::after {
   width: 100%;
   display: flex;
   flex-direction: column;
+}
+
+/* Home — constrain main to usable viewport above fixed tab bar (no second full-height layer) */
+.app-main:has(.home-page) {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: var(--home-usable-height);
+  overflow: hidden;
 }
 
 /* Layer 3 — Surface panels */
@@ -368,13 +389,14 @@ textarea::placeholder {
   }
 }
 
-/* Fixed mobile bottom tab navigation */
+/* Fixed mobile bottom tab navigation — viewport anchored, safe-area once inside padding */
 .mobile-bottom-nav {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 30;
+  z-index: 50;
+  margin: 0;
   padding-bottom: var(--mobile-nav-padding-bottom);
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
@@ -416,7 +438,7 @@ video {
     0 4px 20px color-mix(in srgb, var(--okami-orange) 18%, transparent);
 }
 
-/* Home — scroll crossfade between hero and feed (in-flow; does not move bottom nav) */
+/* Home — single in-flow scroll region; height from flex parent, not a second 100dvh layer */
 .home-page {
   display: flex;
   min-height: 0;
@@ -430,16 +452,17 @@ video {
   overflow-x: hidden;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
-  height: calc(100dvh - var(--app-chrome-top) - var(--mobile-nav-height));
-  height: calc(100svh - var(--app-chrome-top) - var(--mobile-nav-height));
+  flex: 1 1 auto;
   min-height: 0;
   width: 100%;
+  max-width: 100%;
 }
 
 .home-hero-panel {
   display: flex;
   min-height: 100%;
   flex-direction: column;
+  box-sizing: border-box;
 }
 
 .home-hero-center {
@@ -474,13 +497,14 @@ video {
   -webkit-overflow-scrolling: touch;
 }
 
-.home-hero-section,
-.home-feed-section {
-  will-change: opacity, transform;
-}
-
 @media (min-width: 1024px) {
+  .app-main:has(.home-page) {
+    max-height: none;
+    overflow: visible;
+  }
+
   .home-scroll {
+    flex: none;
     height: auto;
     max-height: none;
   }

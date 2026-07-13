@@ -11,14 +11,17 @@ import type { Session, User } from '@supabase/supabase-js'
 import { getSupabase, getPasswordResetRedirectUrl } from '../lib/supabase'
 import { isCloudSyncAvailable } from '../lib/env'
 import { deleteCloudAccountData } from '../services/sync/engine'
+import { clearAuthenticatedSession } from '../services/auth/sessionCleanup'
 import { setSyncMode, SYNC_STORAGE_KEYS } from '../services/sync/types'
 import { recordSyncError } from '../services/sync/diagnostics'
-import { PackLogo } from '../components/brand/PackLogo'
+
+export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated'
 
 interface AuthContextValue {
   user: User | null
   session: Session | null
   loading: boolean
+  authStatus: AuthStatus
   isAuthenticated: boolean
   isEmailVerified: boolean
   cloudAvailable: boolean
@@ -105,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (event === 'SIGNED_OUT') {
+        void clearAuthenticatedSession(nextSession?.user?.id ?? null)
         setSyncMode('local')
       }
     })
@@ -114,6 +118,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sub.subscription.unsubscribe()
     }
   }, [])
+
+  const authStatus: AuthStatus = loading
+    ? 'loading'
+    : user
+      ? 'authenticated'
+      : 'unauthenticated'
 
   const signUp = useCallback(
     async (email: string, password: string, displayName?: string) => {
@@ -147,28 +157,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signOut = useCallback(async () => {
+    const activeUserId = user?.id ?? null
+    await clearAuthenticatedSession(activeUserId)
     const supabase = getSupabase()
     await supabase?.auth.signOut()
     setSyncMode('local')
     setSession(null)
     setUser(null)
-  }, [])
+  }, [user?.id])
 
   const signOutAllDevices = useCallback(async () => {
     const supabase = getSupabase()
     if (!supabase) return { error: 'Cloud accounts are not configured.' }
 
+    const activeUserId = user?.id ?? null
     const { error } = await supabase.auth.signOut({ scope: 'global' })
     if (error) {
       recordSyncError(error, 'auth signOutAll')
       return { error: error.message }
     }
 
+    await clearAuthenticatedSession(activeUserId)
     setSyncMode('local')
     setSession(null)
     setUser(null)
     return { error: null }
-  }, [])
+  }, [user?.id])
 
   const resetPassword = useCallback(async (email: string) => {
     const supabase = getSupabase()
@@ -244,6 +258,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await deleteCloudAccountData(user.id)
       localStorage.removeItem(SYNC_STORAGE_KEYS.migrationDone)
       localStorage.removeItem(SYNC_STORAGE_KEYS.lastSyncAt)
+      await clearAuthenticatedSession(user.id)
       setSyncMode('local')
       await supabase.auth.signOut()
       return { error: null }
@@ -257,7 +272,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       session,
       loading,
-      isAuthenticated: Boolean(user),
+      authStatus,
+      isAuthenticated: authStatus === 'authenticated',
       isEmailVerified: Boolean(user?.email_confirmed_at),
       cloudAvailable,
       sessionRestored,
@@ -275,6 +291,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       session,
       loading,
+      authStatus,
       cloudAvailable,
       sessionRestored,
       signUp,
@@ -288,18 +305,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       deleteAccount,
     ],
   )
-
-  if (loading) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <div className="text-center">
-          <PackLogo size="sm" className="mx-auto mb-5" />
-          <div className="border-pack-accent mx-auto h-10 w-10 animate-spin rounded-full border-3 border-t-transparent" />
-          <p className="text-pack-text-secondary mt-4 text-sm">Restoring session...</p>
-        </div>
-      </div>
-    )
-  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

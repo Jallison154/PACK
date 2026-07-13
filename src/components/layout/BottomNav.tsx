@@ -1,6 +1,7 @@
 import { Home, MapPin, Settings, Users, Search } from 'lucide-react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { createPortal } from 'react-dom'
 import { DESKTOP_BREAKPOINT, useIsDesktop } from '../ui/WorkspaceToggle'
 
 const navItems = [
@@ -29,8 +30,8 @@ export function BottomNav() {
 
   if (isDesktop || shouldHideBottomNav(pathname)) return null
 
-  return (
-    <nav className="pack-nav mobile-bottom-nav md:hidden">
+  return createPortal(
+    <nav className="pack-nav mobile-bottom-nav md:hidden" aria-label="Main">
       <div className="mobile-bottom-nav__inner mx-auto flex max-w-lg items-center justify-around px-1 pt-1">
         {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink key={to} to={to} end={navLinkEnd(to)} replace>
@@ -48,6 +49,7 @@ export function BottomNav() {
           </NavLink>
         ))}
       </div>
-    </nav>
+    </nav>,
+    document.body,
   )
 }

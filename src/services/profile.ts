@@ -2,7 +2,11 @@ import { getSupabase } from '../lib/supabase'
 import type { PackUserProfile, PackUserProfileInput } from '../types/profile'
 import { EMPTY_PROFILE } from '../types/profile'
 
-const LOCAL_PROFILE_KEY = 'pack_user_profile'
+const LOCAL_PROFILE_KEY_PREFIX = 'pack_user_profile:'
+
+function profileStorageKey(userId: string): string {
+  return `${LOCAL_PROFILE_KEY_PREFIX}${userId}`
+}
 
 function rowToProfile(row: Record<string, unknown>): PackUserProfile {
   return {
@@ -17,9 +21,9 @@ function rowToProfile(row: Record<string, unknown>): PackUserProfile {
   }
 }
 
-function readLocalProfile(): PackUserProfile | null {
+function readLocalProfile(userId: string): PackUserProfile | null {
   try {
-    const raw = localStorage.getItem(LOCAL_PROFILE_KEY)
+    const raw = localStorage.getItem(profileStorageKey(userId))
     if (!raw) return null
     return JSON.parse(raw) as PackUserProfile
   } catch {
@@ -27,8 +31,8 @@ function readLocalProfile(): PackUserProfile | null {
   }
 }
 
-function writeLocalProfile(profile: PackUserProfile): void {
-  localStorage.setItem(LOCAL_PROFILE_KEY, JSON.stringify(profile))
+function writeLocalProfile(userId: string, profile: PackUserProfile): void {
+  localStorage.setItem(profileStorageKey(userId), JSON.stringify(profile))
 }
 
 export async function fetchCloudProfile(userId: string, email: string | null): Promise<PackUserProfile> {
@@ -129,16 +133,16 @@ export async function updateCloudProfile(
   return rowToProfile(data as Record<string, unknown>)
 }
 
-export function loadLocalProfile(email: string | null): PackUserProfile {
-  const stored = readLocalProfile()
+export function loadLocalProfile(userId: string, email: string | null): PackUserProfile {
+  const stored = readLocalProfile(userId)
   if (stored) {
     return { ...stored, email: email ?? stored.email }
   }
   return { ...EMPTY_PROFILE, email }
 }
 
-export function saveLocalProfile(profile: PackUserProfile): PackUserProfile {
-  writeLocalProfile(profile)
+export function saveLocalProfile(userId: string, profile: PackUserProfile): PackUserProfile {
+  writeLocalProfile(userId, profile)
   return profile
 }
 

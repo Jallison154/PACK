@@ -276,6 +276,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isAuthenticated) {
       initialLoginSyncDone.current = null
+      setSyncStatus('disabled')
+      setSyncModeState('local')
+      unsubscribeFromRealtimeChanges()
+      cancelDebouncedSync()
     }
   }, [isAuthenticated])
 

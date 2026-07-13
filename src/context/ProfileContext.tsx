@@ -23,7 +23,7 @@ import {
   getProfileInitials,
   hasPersonalProfile,
 } from '../utils/profileDisplay'
-import { useAuthOptional } from './AuthContext'
+import { useAuth } from './AuthContext'
 
 interface ProfileContextValue {
   profile: PackUserProfile
@@ -40,31 +40,25 @@ interface ProfileContextValue {
 const ProfileContext = createContext<ProfileContextValue | null>(null)
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
-  const auth = useAuthOptional()
-  const user = auth?.user ?? null
-  const isAuthenticated = Boolean(user)
+  const { user } = useAuth()
 
   const [profile, setProfile] = useState<PackUserProfile>(EMPTY_PROFILE)
   const [loading, setLoading] = useState(true)
 
   const refreshProfile = useCallback(async () => {
+    if (!user?.id) return
     setLoading(true)
     try {
-      if (isAuthenticated && user) {
-        const cloud = await fetchCloudProfile(user.id, user.email ?? null)
-        const merged = mergeProfileWithEmail(cloud, user.email ?? null, user.id)
-        setProfile(merged)
-        saveLocalProfile(merged)
-        return
-      }
-
-      setProfile(loadLocalProfile(null))
+      const cloud = await fetchCloudProfile(user.id, user.email ?? null)
+      const merged = mergeProfileWithEmail(cloud, user.email ?? null, user.id)
+      setProfile(merged)
+      saveLocalProfile(user.id, merged)
     } catch {
-      setProfile(loadLocalProfile(user?.email ?? null))
+      setProfile(loadLocalProfile(user.id, user.email ?? null))
     } finally {
       setLoading(false)
     }
-  }, [isAuthenticated, user])
+  }, [user])
 
   useEffect(() => {
     void refreshProfile()
@@ -72,30 +66,18 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
   const updateProfile = useCallback(
     async (input: PackUserProfileInput) => {
+      if (!user?.id) return { error: 'Not signed in.' }
       try {
-        if (isAuthenticated && user) {
-          const updated = await updateCloudProfile(user.id, input)
-          const merged = mergeProfileWithEmail(updated, user.email ?? null, user.id)
-          setProfile(merged)
-          saveLocalProfile(merged)
-          return { error: null }
-        }
-
-        const next: PackUserProfile = {
-          ...profile,
-          firstName: input.firstName !== undefined ? input.firstName.trim() || null : profile.firstName,
-          lastName: input.lastName !== undefined ? input.lastName.trim() || null : profile.lastName,
-          displayName:
-            input.displayName !== undefined ? input.displayName.trim() || null : profile.displayName,
-          updatedAt: new Date().toISOString(),
-        }
-        setProfile(saveLocalProfile(next))
+        const updated = await updateCloudProfile(user.id, input)
+        const merged = mergeProfileWithEmail(updated, user.email ?? null, user.id)
+        setProfile(merged)
+        saveLocalProfile(user.id, merged)
         return { error: null }
       } catch (e) {
         return { error: e instanceof Error ? e.message : 'Failed to update profile.' }
       }
     },
-    [isAuthenticated, user, profile],
+    [user],
   )
 
   const value = useMemo<ProfileContextValue>(() => {
@@ -105,15 +87,15 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     return {
       profile,
       loading,
-      headerLabel: isAuthenticated ? getHeaderLabel(profile) : 'Local Mode',
+      headerLabel: getHeaderLabel(profile),
       displayName: effectiveName,
-      greetingName: isAuthenticated || personal ? effectiveName : null,
+      greetingName: personal ? effectiveName : null,
       fullName: getDropdownFullName(profile),
       initials: getProfileInitials(profile),
       updateProfile,
       refreshProfile,
     }
-  }, [profile, loading, isAuthenticated, updateProfile, refreshProfile])
+  }, [profile, loading, updateProfile, refreshProfile])
 
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>
 }

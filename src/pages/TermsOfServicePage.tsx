@@ -1,6 +1,7 @@
-import { MobilePageShell } from '../components/layout/MobilePageShell'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { PackLogo } from '../components/brand/PackLogo'
 import { Header } from '../components/layout/Header'
+import { MobilePageShell } from '../components/layout/MobilePageShell'
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -11,158 +12,100 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-export function TermsOfServicePage() {
+export function TermsOfServicePage({ publicMode = false }: { publicMode?: boolean }) {
   const navigate = useNavigate()
+
+  const body = (
+    <article className="page-px mx-auto max-w-lg space-y-8 pt-4">
+      <p className="text-pack-text-muted text-sm">
+        <span className="text-pack-text-secondary font-medium">Last Updated:</span> July 7, 2026
+      </p>
+
+      <Section title="Acceptance">
+        <p>By downloading, installing, or using Pack, you agree to these Terms of Service.</p>
+        <p>If you do not agree, please discontinue use of the application.</p>
+      </Section>
+
+      <Section title="Description of Service">
+        <p>
+          Pack is a personal relationship memory application developed by{' '}
+          <strong className="text-pack-text font-medium">Okami Designs</strong>.
+        </p>
+        <p>
+          Pack helps you remember people, places, and the context behind your connections. Features
+          may change over time as the product evolves.
+        </p>
+      </Section>
+
+      <Section title="Your Account">
+        <p>You are responsible for maintaining the confidentiality of your account credentials.</p>
+        <p>You are responsible for all activity that occurs under your account.</p>
+      </Section>
+
+      <Section title="Your Data">
+        <p>You retain ownership of the information you store in Pack.</p>
+        <p>
+          Okami Designs does not claim ownership of your contacts, notes, or personal relationship
+          data.
+        </p>
+      </Section>
+
+      <Section title="Acceptable Use">
+        <p>You agree not to misuse Pack, including attempting to access another user&apos;s data.</p>
+      </Section>
+
+      <Section title="Disclaimer">
+        <p>Pack is provided &ldquo;as is&rdquo; without warranties of any kind.</p>
+        <p>
+          Okami Designs is not responsible for lost, corrupted, or accidentally deleted information.
+        </p>
+      </Section>
+
+      <Section title="Contact">
+        <p className="font-medium text-pack-text">Okami Designs</p>
+        <p>
+          <a
+            href="mailto:contact@okamidesigns.com"
+            className="text-pack-text hover:text-pack-accent transition-colors"
+          >
+            contact@okamidesigns.com
+          </a>
+        </p>
+      </Section>
+    </article>
+  )
+
+  if (publicMode) {
+    return (
+      <div className="min-h-dvh bg-[var(--bg-primary)] pb-12">
+        <header className="page-nav-top page-px flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-2">
+            <PackLogo size="sm" />
+          </Link>
+        </header>
+        {body}
+        <div className="page-px mx-auto max-w-lg">
+          <Link to="/" className="text-pack-text-muted hover:text-pack-text-secondary text-sm">
+            Back to Pack
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <MobilePageShell top={false} padded={false}>
       <Header title="Terms of Service" showBack backTo="/settings/about" />
-
-      <article className="page-px mx-auto max-w-lg space-y-8 pt-6">
-        <p className="text-pack-text-muted text-sm">
-          <span className="text-pack-text-secondary font-medium">Last Updated:</span> July 7, 2026
-        </p>
-
-        <Section title="Acceptance">
-          <p>
-            By downloading, installing, or using Pack, you agree to these Terms of Service.
-          </p>
-          <p>If you do not agree, please discontinue use of the application.</p>
-        </Section>
-
-        <Section title="Purpose">
-          <p>
-            Pack is designed to help users organize and remember personal and professional
-            relationships.
-          </p>
-        </Section>
-
-        <Section title="Your Data">
-          <p>You retain ownership of all information you enter into Pack.</p>
-          <p>This includes:</p>
-          <ul className="list-disc space-y-1.5 pl-5">
-            <li>Contacts</li>
-            <li>Notes</li>
-            <li>Places</li>
-            <li>Companies</li>
-            <li>Photos</li>
-            <li>Follow-up reminders</li>
-            <li>Interaction history</li>
-          </ul>
-        </Section>
-
-        <Section title="Accounts and Sync">
-          <p>
-            Creating a Pack account is optional. If you enable cloud sync, your Pack data is stored
-            on secure infrastructure so you can access it from multiple devices signed into the same
-            account.
-          </p>
-          <p>
-            You are responsible for keeping your login credentials secure. You may export your data
-            or delete your account from Settings → Account.
-          </p>
-        </Section>
-
-        <Section title="Acceptable Use">
-          <p>You agree not to use Pack to:</p>
-          <ul className="list-disc space-y-1.5 pl-5">
-            <li>Break any laws</li>
-            <li>Harass or impersonate others</li>
-            <li>Store illegal material</li>
-            <li>Infringe intellectual property</li>
-            <li>Attempt unauthorized access to systems</li>
-          </ul>
-        </Section>
-
-        <Section title="Data Responsibility">
-          <p>
-            Although Pack includes backup features, you are responsible for maintaining your own
-            backups.
-          </p>
-          <p>
-            Okami Designs is not responsible for lost, corrupted, or accidentally deleted
-            information.
-          </p>
-        </Section>
-
-        <Section title="Availability">
-          <p>Pack may evolve over time.</p>
-          <p>Features may be added, changed, or removed without prior notice.</p>
-        </Section>
-
-        <Section title="Third-Party Services">
-          <p>Some features may rely on third-party providers.</p>
-          <p>
-            Okami Designs is not responsible for interruptions or issues caused by those services.
-          </p>
-        </Section>
-
-        <Section title="Disclaimer">
-          <p>Pack is provided &ldquo;AS IS&rdquo; without warranties of any kind.</p>
-          <p>Use of the application is at your own risk.</p>
-        </Section>
-
-        <Section title="Limitation of Liability">
-          <p>To the fullest extent permitted by law, Okami Designs shall not be liable for:</p>
-          <ul className="list-disc space-y-1.5 pl-5">
-            <li>Lost data</li>
-            <li>Lost profits</li>
-            <li>Business interruption</li>
-            <li>Indirect or consequential damages</li>
-          </ul>
-        </Section>
-
-        <Section title="Termination">
-          <p>You may stop using Pack at any time.</p>
-          <p>
-            Okami Designs reserves the right to suspend or terminate access for users who violate
-            these Terms.
-          </p>
-        </Section>
-
-        <Section title="Changes">
-          <p>These Terms may be updated periodically.</p>
-          <p>Continued use of Pack after updates constitutes acceptance of the revised Terms.</p>
-        </Section>
-
-        <Section title="Governing Law">
-          <p>
-            These Terms shall be governed by the laws of the State of Montana, United States.
-          </p>
-        </Section>
-
-        <Section title="Contact">
-          <p className="font-medium text-pack-text">Okami Designs</p>
-          <p>
-            Website:{' '}
-            <a
-              href="https://okamidesigns.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-pack-text hover:text-pack-accent transition-colors"
-            >
-              okamidesigns.com
-            </a>
-          </p>
-          <p>
-            Email:{' '}
-            <a
-              href="mailto:contact@okamidesigns.com"
-              className="text-pack-text hover:text-pack-accent transition-colors"
-            >
-              contact@okamidesigns.com
-            </a>
-          </p>
-        </Section>
-
+      <div className="pt-2">{body}</div>
+      <div className="page-px mx-auto max-w-lg pb-8">
         <button
           type="button"
           onClick={() => navigate('/settings/about')}
-          className="text-pack-text-muted hover:text-pack-text-secondary pt-2 text-sm transition-colors"
+          className="text-pack-text-muted hover:text-pack-text-secondary text-sm transition-colors"
         >
           Back to Settings
         </button>
-      </article>
+      </div>
     </MobilePageShell>
   )
 }

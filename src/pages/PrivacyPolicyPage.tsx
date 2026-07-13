@@ -1,6 +1,7 @@
-import { MobilePageShell } from '../components/layout/MobilePageShell'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { PackLogo } from '../components/brand/PackLogo'
 import { Header } from '../components/layout/Header'
+import { MobilePageShell } from '../components/layout/MobilePageShell'
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -11,14 +12,47 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-export function PrivacyPolicyPage() {
+export function PrivacyPolicyPage({ publicMode = false }: { publicMode?: boolean }) {
   const navigate = useNavigate()
+
+  if (publicMode) {
+    return (
+      <div className="min-h-dvh bg-[var(--bg-primary)]">
+        <header className="page-nav-top page-px flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-2">
+            <PackLogo size="sm" />
+          </Link>
+        </header>
+        <article className="page-px mx-auto max-w-lg space-y-8 pb-12 pt-4">
+          {policyContent}
+          <Link to="/" className="text-pack-text-muted hover:text-pack-text-secondary text-sm">
+            Back to Pack
+          </Link>
+        </article>
+      </div>
+    )
+  }
 
   return (
     <MobilePageShell top={false} padded={false}>
       <Header title="Privacy Policy" showBack backTo="/settings/about" />
 
       <article className="page-px mx-auto max-w-lg space-y-8 pt-6">
+        {policyContent}
+        <button
+          type="button"
+          onClick={() => navigate('/settings/about')}
+          className="text-pack-text-muted hover:text-pack-text-secondary pt-2 text-sm transition-colors"
+        >
+          Back to Settings
+        </button>
+      </article>
+    </MobilePageShell>
+  )
+}
+
+const policyContent = (
+  <>
         <p className="text-pack-text-muted text-sm">
           <span className="text-pack-text-secondary font-medium">Last Updated:</span> July 7, 2026
         </p>
@@ -181,15 +215,5 @@ export function PrivacyPolicyPage() {
             </a>
           </p>
         </Section>
-
-        <button
-          type="button"
-          onClick={() => navigate('/settings/about')}
-          className="text-pack-text-muted hover:text-pack-text-secondary pt-2 text-sm transition-colors"
-        >
-          Back to Settings
-        </button>
-      </article>
-    </MobilePageShell>
-  )
-}
+  </>
+)
