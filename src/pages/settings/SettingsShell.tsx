@@ -36,7 +36,7 @@ export function SettingsShell() {
   }
 
   const detailBody = section ? (
-    <div className={`mx-auto w-full max-w-lg space-y-4 ${isMobile ? 'page-px pt-4' : ''} pb-12`}>
+    <div className={`mx-auto w-full max-w-lg space-y-4 ${isMobile ? 'page-px pt-4' : 'pb-12'}`}>
       <SettingsSectionContent sectionId={section.id} />
     </div>
   ) : (
@@ -55,14 +55,14 @@ export function SettingsShell() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: '100%' }}
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            className="min-h-dvh"
+            className={isMobile ? undefined : 'min-h-dvh'}
           >
             <SettingsSubpageHeader title={section.title} onBack={() => navigate('/settings')} />
             {detailBody}
           </motion.div>
         </AnimatePresence>
       ) : (
-        <div className="page-px mx-auto w-full max-w-5xl pt-6 pb-12">
+        <div className={`page-px mx-auto w-full max-w-5xl pt-6 ${isMobile ? '' : 'pb-12'}`}>
           <div className={isMobile ? '' : 'md:grid md:grid-cols-[minmax(0,300px)_1fr] md:gap-10'}>
             <aside className={isMobile ? 'space-y-2' : 'md:sticky md:top-24'}>
               {!isMobile && (

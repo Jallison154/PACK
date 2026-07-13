@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { TabPanel, getActiveMainTab } from './TabPanel'
 import { HomePage } from '../../pages/HomePage'
@@ -9,6 +10,10 @@ import { SettingsPage } from '../../pages/SettingsPage'
 export function TabShell() {
   const { pathname } = useLocation()
   const activeTab = getActiveMainTab(pathname)
+
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [activeTab])
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

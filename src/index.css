@@ -8,19 +8,16 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
 
-  /* Mobile bottom tab bar */
-  --mobile-nav-base-height: 3.5rem;
-  --mobile-nav-padding-bottom: max(12px, var(--safe-bottom));
-  --mobile-nav-height: calc(var(--mobile-nav-base-height) + var(--mobile-nav-padding-bottom));
-  --page-scroll-bottom: calc(var(--mobile-nav-height) + 16px);
-  /* Usable viewport above the tab bar (safe-area counted once inside --mobile-nav-height) */
-  --home-usable-height: calc(100svh - var(--app-chrome-top, 0px) - var(--mobile-nav-height));
-  --home-usable-height: calc(100dvh - var(--app-chrome-top, 0px) - var(--mobile-nav-height));
+  /* Mobile bottom tab bar — safe-area counted once inside nav padding */
+  --mobile-nav-base-height: 4.25rem; /* 68px */
+  --app-content-bottom: calc(
+    var(--mobile-nav-base-height) + env(safe-area-inset-bottom, 0px) + 16px
+  );
 
   /* Full-screen form action bar (no tab nav) */
   --mobile-form-actions-height: 4.5rem;
   --mobile-form-page-bottom: calc(
-    var(--mobile-form-actions-height) + var(--mobile-nav-padding-bottom) + 16px
+    var(--mobile-form-actions-height) + env(safe-area-inset-bottom, 0px) + 16px
   );
 
   --okami-orange: #ff6a2d;
@@ -123,13 +120,11 @@ html {
 body {
   margin: 0;
   min-height: 100dvh;
-  min-height: 100svh;
   font-family: var(--font-sans);
   background-color: var(--bg-primary);
   overscroll-behavior-x: none;
   overflow-x: hidden;
   position: relative;
-  isolation: isolate;
 }
 
 /* Layer 1 — Base: vignette */
@@ -191,31 +186,17 @@ body::after {
 
 #root {
   min-height: 100dvh;
-  min-height: 100svh;
   position: relative;
-  z-index: 0;
-  isolation: isolate;
   overflow-x: hidden;
 }
 
-/* App shell — tab layout with fixed bottom navigation */
+/* App shell — shared mobile layout with fixed bottom navigation */
 .app-shell {
-  --app-chrome-top: 0px;
   min-height: 100dvh;
-  min-height: 100svh;
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
-}
-
-@media (max-width: 767px) {
-  .app-shell {
-    height: 100dvh;
-    height: 100svh;
-    max-height: 100dvh;
-    max-height: 100svh;
-    overflow: hidden;
-  }
+  background-color: var(--bg-primary);
 }
 
 .app-top-banners {
@@ -232,21 +213,25 @@ body::after {
   margin-top: 0.75rem;
 }
 
-.app-main {
+.app-content {
   flex: 1 1 auto;
   min-width: 0;
-  min-height: 0;
   width: 100%;
   display: flex;
   flex-direction: column;
 }
 
-/* Home — constrain main to usable viewport above fixed tab bar (no second full-height layer) */
-.app-main:has(.home-page) {
-  flex: 1 1 auto;
-  min-height: 0;
-  max-height: var(--home-usable-height);
-  overflow: hidden;
+@media (max-width: 767px) {
+  .app-content {
+    min-height: 100dvh;
+    padding-bottom: var(--app-content-bottom);
+  }
+}
+
+@media (min-width: 768px) {
+  .app-content {
+    padding-bottom: 2.5rem;
+  }
 }
 
 /* Layer 3 — Surface panels */
@@ -329,16 +314,6 @@ textarea::placeholder {
   padding-top: var(--safe-top);
 }
 
-.page-content-bottom {
-  padding-bottom: var(--page-scroll-bottom);
-}
-
-@media (min-width: 768px) {
-  .page-content-bottom {
-    padding-bottom: 2.5rem;
-  }
-}
-
 /* Page spacing system — inherit these instead of ad-hoc padding. */
 .page-top {
   padding-top: calc(var(--safe-top) + var(--page-top-spacing));
@@ -395,14 +370,17 @@ textarea::placeholder {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 50;
+  z-index: 1000;
   margin: 0;
-  padding-bottom: var(--mobile-nav-padding-bottom);
+  height: calc(var(--mobile-nav-base-height) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
+  box-sizing: border-box;
 }
 
 .mobile-bottom-nav__inner {
+  height: var(--mobile-nav-base-height);
   min-height: var(--mobile-nav-base-height);
 }
 
@@ -418,7 +396,7 @@ textarea::placeholder {
   padding: 1rem;
   padding-left: max(1rem, var(--safe-left));
   padding-right: max(1rem, var(--safe-right));
-  padding-bottom: max(1rem, var(--mobile-nav-padding-bottom));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
 }
 
 .mobile-form-page {
@@ -438,29 +416,21 @@ video {
     0 4px 20px color-mix(in srgb, var(--okami-orange) 18%, transparent);
 }
 
-/* Home — single in-flow scroll region; height from flex parent, not a second 100dvh layer */
+/* Home — window scroll; hero fade animates inner sections only */
 .home-page {
-  display: flex;
-  min-height: 0;
-  flex: 1 1 auto;
-  flex-direction: column;
   width: 100%;
 }
 
 .home-scroll {
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior-y: contain;
-  -webkit-overflow-scrolling: touch;
-  flex: 1 1 auto;
-  min-height: 0;
   width: 100%;
   max-width: 100%;
 }
 
 .home-hero-panel {
   display: flex;
-  min-height: 100%;
+  min-height: calc(
+    100dvh - var(--mobile-nav-base-height) - env(safe-area-inset-bottom, 0px)
+  );
   flex-direction: column;
   box-sizing: border-box;
 }
@@ -480,11 +450,6 @@ video {
   flex-shrink: 0;
 }
 
-.home-feed-bottom {
-  /* Scroll viewport already ends above the tab bar — only end breathing room. */
-  padding-bottom: 1rem;
-}
-
 /* Auth modal — safe areas for bottom sheet + home indicator */
 .auth-modal-overlay {
   padding: max(1rem, var(--safe-top)) max(1rem, var(--safe-right))
@@ -498,20 +463,16 @@ video {
 }
 
 @media (min-width: 1024px) {
-  .app-main:has(.home-page) {
-    max-height: none;
-    overflow: visible;
-  }
-
-  .home-scroll {
-    flex: none;
-    height: auto;
-    max-height: none;
-  }
-
   .home-hero-panel {
     min-height: 100dvh;
   }
+}
+
+html.standalone-pwa,
+html.standalone-pwa body,
+html.standalone-pwa #root,
+html.standalone-pwa .app-shell {
+  background-color: var(--bg-primary);
 }
 
 @media (display-mode: standalone) {

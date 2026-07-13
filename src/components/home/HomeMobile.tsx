@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, useMotionValueEvent, useScroll, useTransform } from 'framer-motion'
 import { PackLogo } from '../brand/PackLogo'
 import { QuickCapture } from './QuickCapture'
@@ -14,32 +14,23 @@ interface HomeMobileProps {
 
 export function HomeMobile({ data, onCreated }: HomeMobileProps) {
   const { greetingName } = useProfile()
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const [scrollAreaHeight, setScrollAreaHeight] = useState(600)
+  const [viewportHeight, setViewportHeight] = useState(
+    () => (typeof window !== 'undefined' ? window.innerHeight : 600),
+  )
   const [heroInteractive, setHeroInteractive] = useState(true)
   const [feedInteractive, setFeedInteractive] = useState(false)
 
   useEffect(() => {
-    const element = scrollRef.current
-    if (!element) return
-
-    const update = () => setScrollAreaHeight(element.clientHeight)
+    const update = () => setViewportHeight(window.innerHeight)
     update()
-
-    const observer = new ResizeObserver(update)
-    observer.observe(element)
     window.addEventListener('resize', update)
-
-    return () => {
-      observer.disconnect()
-      window.removeEventListener('resize', update)
-    }
+    return () => window.removeEventListener('resize', update)
   }, [])
 
-  const { scrollY } = useScroll({ container: scrollRef })
+  const { scrollY } = useScroll()
 
-  const fadeStart = scrollAreaHeight * 0.15
-  const fadeEnd = scrollAreaHeight * 0.55
+  const fadeStart = viewportHeight * 0.15
+  const fadeEnd = viewportHeight * 0.55
 
   const heroOpacity = useTransform(scrollY, [fadeStart, fadeEnd], [1, 0])
   const feedOpacity = useTransform(scrollY, [fadeStart, fadeEnd], [0, 1])
@@ -53,7 +44,7 @@ export function HomeMobile({ data, onCreated }: HomeMobileProps) {
 
   return (
     <div className="home-page">
-      <div ref={scrollRef} className="home-scroll mx-auto max-w-lg">
+      <div className="home-scroll mx-auto max-w-lg">
         <motion.section
           aria-label="Home"
           className="home-hero-section home-hero-panel page-px z-10 shrink-0"

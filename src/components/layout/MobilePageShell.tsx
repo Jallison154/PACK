@@ -7,8 +7,6 @@ export interface MobilePageShellProps {
   top?: boolean
   /** Horizontal page padding (default on). */
   padded?: boolean
-  /** Reserve space above the mobile tab bar (default on). */
-  bottomNavOffset?: boolean
   /** Inside AppLayout — safe-top is handled by .app-top-banners. */
   inShell?: boolean
   /** Use as the primary scroll container for the page. */
@@ -16,21 +14,19 @@ export interface MobilePageShellProps {
 }
 
 /**
- * Shared mobile page shell — safe areas, horizontal padding, and bottom-nav offset.
- * Use on tab pages and detail screens instead of ad-hoc padding.
+ * Shared mobile page wrapper — horizontal padding and top spacing only.
+ * Bottom nav clearance is owned by `.app-content` in AppLayout.
  */
 export function MobilePageShell({
   children,
   className = '',
   top = true,
   padded = true,
-  bottomNavOffset = true,
   inShell = true,
   scroll = false,
 }: MobilePageShellProps) {
   const shellClass = [
-    'min-h-dvh min-w-0 w-full max-w-full',
-    bottomNavOffset ? 'page-content-bottom' : '',
+    'min-w-0 w-full max-w-full',
     scroll ? 'overflow-x-hidden overflow-y-auto overscroll-y-contain' : '',
     className,
   ]

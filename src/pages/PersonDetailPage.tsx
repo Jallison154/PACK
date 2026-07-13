@@ -70,7 +70,7 @@ export function PersonDetailPage() {
 
   if (!person) {
     return (
-      <MobilePageShell inShell={false} bottomNavOffset={false} top={false} padded={false}>
+      <MobilePageShell inShell={false} top={false} padded={false}>
         <div className="page-nav-top page-px flex items-center">
           <button
             type="button"
@@ -96,7 +96,7 @@ export function PersonDetailPage() {
   const metAtLabel = whereMet ? `Met at ${whereMet}` : undefined
 
   return (
-    <MobilePageShell inShell={false} bottomNavOffset={false} top={false} padded={false}>
+    <MobilePageShell inShell={false} top={false} padded={false}>
       <div className="page-nav-top page-px flex items-center justify-between">
         <button
           type="button"
