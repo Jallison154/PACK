@@ -11,7 +11,7 @@ export function TabShell() {
   const activeTab = getActiveMainTab(pathname)
 
   return (
-    <>
+    <div className="flex min-h-0 flex-1 flex-col">
       <TabPanel active={activeTab === '/'} label="Home">
         <HomePage />
       </TabPanel>
@@ -27,6 +27,6 @@ export function TabShell() {
       <TabPanel active={activeTab === '/settings'} label="Settings">
         <SettingsPage />
       </TabPanel>
-    </>
+    </div>
   )
 }

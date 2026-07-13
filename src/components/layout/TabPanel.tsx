@@ -27,7 +27,7 @@ export function TabPanel({ active, children, label }: TabPanelProps) {
       role="tabpanel"
       aria-label={label}
       aria-hidden={!active}
-      className={active ? 'block' : 'hidden'}
+      className={active ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}
     >
       {children}
     </div>

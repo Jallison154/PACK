@@ -197,6 +197,7 @@ body::after {
 
 /* App shell — tab layout with fixed bottom navigation */
 .app-shell {
+  --app-chrome-top: 0px;
   min-height: 100dvh;
   min-height: 100svh;
   display: flex;
@@ -221,7 +222,10 @@ body::after {
 .app-main {
   flex: 1 1 auto;
   min-width: 0;
+  min-height: 0;
   width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Layer 3 — Surface panels */
@@ -412,26 +416,50 @@ video {
     0 4px 20px color-mix(in srgb, var(--okami-orange) 18%, transparent);
 }
 
-/* Home — scroll crossfade between hero and feed */
+/* Home — scroll crossfade between hero and feed (in-flow; does not move bottom nav) */
+.home-page {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: 100%;
+}
+
 .home-scroll {
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
+  height: calc(100dvh - var(--app-chrome-top) - var(--mobile-nav-height));
+  height: calc(100svh - var(--app-chrome-top) - var(--mobile-nav-height));
+  min-height: 0;
+  width: 100%;
 }
 
-.home-viewport-height {
-  height: calc(100dvh - var(--mobile-nav-height) - var(--safe-top));
-  min-height: calc(100dvh - var(--mobile-nav-height) - var(--safe-top));
-  min-height: calc(100svh - var(--mobile-nav-height) - var(--safe-top));
+.home-hero-panel {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+}
+
+.home-hero-center {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .home-fade-spacer {
   height: 12vh;
+  flex-shrink: 0;
 }
 
 .home-feed-bottom {
-  padding-bottom: var(--page-scroll-bottom);
+  /* Scroll viewport already ends above the tab bar — only end breathing room. */
+  padding-bottom: 1rem;
 }
 
 /* Auth modal — safe areas for bottom sheet + home indicator */
@@ -452,8 +480,12 @@ video {
 }
 
 @media (min-width: 1024px) {
-  .home-viewport-height {
-    height: 100dvh;
+  .home-scroll {
+    height: auto;
+    max-height: none;
+  }
+
+  .home-hero-panel {
     min-height: 100dvh;
   }
 }
