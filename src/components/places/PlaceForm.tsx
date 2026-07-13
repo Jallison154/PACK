@@ -3,7 +3,7 @@ import { MapPin, Navigation, Search } from 'lucide-react'
 import { Input, Select, Textarea } from '../ui/Input'
 import { Button } from '../ui/Button'
 import { useGeolocation } from '../../hooks/useGeolocation'
-import { searchPlacesNominatim, reverseGeocode } from '../../services/geocoding'
+import { searchPlacesMapbox, reverseGeocode } from '../../services/geocoding'
 import type { GeocodeResult } from '../../services/geocoding'
 import { PLACE_CATEGORIES } from '../../types'
 import type { PlaceCategory, PlaceInput } from '../../types'
@@ -14,10 +14,17 @@ export interface PlaceFormValues {
   address: string
   city: string
   state: string
+  postalCode: string
+  country: string
   latitude: string
   longitude: string
   category: PlaceCategory | ''
   notes: string
+  mapboxId: string
+  featureType: string
+  poiCategories: string[]
+  brand: string
+  source: Place['source'] | ''
 }
 
 export function emptyPlaceForm(): PlaceFormValues {
@@ -26,10 +33,17 @@ export function emptyPlaceForm(): PlaceFormValues {
     address: '',
     city: '',
     state: '',
+    postalCode: '',
+    country: '',
     latitude: '',
     longitude: '',
     category: '',
     notes: '',
+    mapboxId: '',
+    featureType: '',
+    poiCategories: [],
+    brand: '',
+    source: '',
   }
 }
 
@@ -39,10 +53,17 @@ export function placeFormFromInput(input: PlaceInput | Place): PlaceFormValues {
     address: input.address ?? '',
     city: input.city ?? '',
     state: input.state ?? '',
+    postalCode: input.postalCode ?? '',
+    country: input.country ?? '',
     latitude: input.latitude != null ? String(input.latitude) : '',
     longitude: input.longitude != null ? String(input.longitude) : '',
     category: input.category ?? '',
     notes: input.notes ?? '',
+    mapboxId: input.mapboxId ?? '',
+    featureType: input.featureType ?? '',
+    poiCategories: input.poiCategories ?? [],
+    brand: input.brand ?? '',
+    source: input.source ?? '',
   }
 }
 
@@ -52,10 +73,17 @@ export function placeFormToInput(form: PlaceFormValues, isFavorite = false): Pla
     address: form.address.trim() || undefined,
     city: form.city.trim() || undefined,
     state: form.state.trim() || undefined,
+    postalCode: form.postalCode.trim() || undefined,
+    country: form.country.trim() || undefined,
     latitude: form.latitude ? Number(form.latitude) : undefined,
     longitude: form.longitude ? Number(form.longitude) : undefined,
     category: form.category || undefined,
     notes: form.notes.trim() || undefined,
+    mapboxId: form.mapboxId.trim() || undefined,
+    featureType: form.featureType.trim() || undefined,
+    poiCategories: form.poiCategories.length ? form.poiCategories : undefined,
+    brand: form.brand.trim() || undefined,
+    source: form.source || undefined,
     isFavorite,
   }
 }
@@ -67,8 +95,15 @@ function applyGeocode(form: PlaceFormValues, result: GeocodeResult): PlaceFormVa
     address: result.address ?? form.address,
     city: result.city ?? form.city,
     state: result.state ?? form.state,
+    postalCode: result.postalCode ?? form.postalCode,
+    country: result.country ?? form.country,
     latitude: String(result.latitude),
     longitude: String(result.longitude),
+    mapboxId: result.mapboxId,
+    featureType: result.featureType ?? '',
+    poiCategories: result.poiCategories,
+    brand: result.brand ?? '',
+    source: 'mapbox',
   }
 }
 
@@ -94,7 +129,10 @@ export function PlaceForm({ form, onChange, showSearch = true }: PlaceFormProps)
     setSearching(true)
     setSearchError(null)
     try {
-      const found = await searchPlacesNominatim(searchQuery)
+      const found = await searchPlacesMapbox(
+        searchQuery,
+        position ? { latitude: position.latitude, longitude: position.longitude } : undefined,
+      )
       setResults(found)
       if (found.length === 0) setSearchError('No results. Try a business name or full address.')
     } catch (e) {
@@ -147,7 +185,7 @@ export function PlaceForm({ form, onChange, showSearch = true }: PlaceFormProps)
             <div className="mt-3 max-h-48 space-y-2 overflow-y-auto">
               {results.map((result) => (
                 <button
-                  key={result.osmId}
+                  key={result.mapboxId}
                   type="button"
                   onClick={() => {
                     onChange(applyGeocode(form, result))
@@ -165,7 +203,7 @@ export function PlaceForm({ form, onChange, showSearch = true }: PlaceFormProps)
               ))}
             </div>
           )}
-          <p className="text-pack-text-muted mt-2 text-xs">Powered by OpenStreetMap</p>
+          <p className="text-pack-text-muted mt-2 text-xs">Powered by Mapbox</p>
         </div>
       )}
 

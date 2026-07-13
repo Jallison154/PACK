@@ -86,6 +86,13 @@ export interface Person {
   state: string | null
   locationId: string | null
   whereMetPlaceId: string | null
+  whereMetLatitude: number | null
+  whereMetLongitude: number | null
+  whereMetLocationSource: EncounterLocationSource | null
+  whereMetLocationAccuracy: number | null
+  whereMetCapturedAt: string | null
+  whereMetIsApproximate: boolean
+  whereMetAreaLabel: string | null
   lastSeenPlaceId: string | null
   dateMet: string | null
   notes: string | null
@@ -179,9 +186,16 @@ export interface Place {
   address: string | null
   city: string | null
   state: string | null
+  postalCode: string | null
+  country: string | null
   latitude: number | null
   longitude: number | null
   category: PlaceCategory | null
+  poiCategories: string[]
+  brand: string | null
+  mapboxId: string | null
+  featureType: string | null
+  source: PlaceSource | null
   notes: string | null
   isFavorite: boolean
   createdAt: string
@@ -190,14 +204,23 @@ export interface Place {
   syncVersion: number
 }
 
+export type PlaceSource = 'manual' | 'mapbox' | 'legacy'
+
 export interface PlaceInput {
   name: string
   address?: string
   city?: string
   state?: string
+  postalCode?: string
+  country?: string
   latitude?: number
   longitude?: number
   category?: PlaceCategory
+  poiCategories?: string[]
+  brand?: string
+  mapboxId?: string
+  featureType?: string
+  source?: PlaceSource
   notes?: string
   isFavorite?: boolean
 }
@@ -227,6 +250,27 @@ export interface Tag {
   syncVersion: number
 }
 
+export type EncounterLocationSource = 'gps' | 'saved_place' | 'search_result'
+
+export type EncounterLocation =
+  | {
+      kind: 'approximate'
+      latitude: number
+      longitude: number
+      capturedAt: string
+      source: 'gps'
+      accuracy?: number
+      label?: string
+    }
+  | {
+      kind: 'exact'
+      placeId: string
+      placeName: string
+      latitude?: number
+      longitude?: number
+      source: 'saved_place' | 'search_result'
+    }
+
 export interface PersonInput {
   name: string
   workspace?: Workspace
@@ -236,6 +280,13 @@ export interface PersonInput {
   jobTitle?: string
   whereMet?: string
   whereMetPlaceId?: string | null
+  whereMetLatitude?: number | null
+  whereMetLongitude?: number | null
+  whereMetLocationSource?: EncounterLocationSource | null
+  whereMetLocationAccuracy?: number | null
+  whereMetCapturedAt?: string | null
+  whereMetIsApproximate?: boolean
+  whereMetAreaLabel?: string | null
   event?: string
   city?: string
   state?: string

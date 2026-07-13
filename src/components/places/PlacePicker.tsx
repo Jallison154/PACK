@@ -1,37 +1,63 @@
-import { useState, useEffect } from 'react'
-import { MapPin, Star, Navigation, Search, Plus, X, Globe } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { MapPin, Star, Navigation, Search, Plus, X, Globe, RefreshCw } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Input, Select, Textarea } from '../ui/Input'
 import { useGeolocation } from '../../hooks/useGeolocation'
 import {
-  getNearbyPlaces,
+  findOrCreatePlaceFromMapbox,
+  getSavedPlaces,
   getRecentPlaces,
-  getFavoritePlaces,
   searchPlaces,
   createPlace,
 } from '../../db/repositories/places'
-import { searchPlacesNominatim } from '../../services/geocoding'
-import type { GeocodeResult } from '../../services/geocoding'
+import {
+  clearNearbyCache,
+  fetchNearbyMapboxPois,
+  isMapboxConfigured,
+  resetMapboxSearchSession,
+  selectMapboxSuggestion,
+  suggestMapboxPlaces,
+} from '../../services/mapbox'
+import type { MapboxPlaceResult } from '../../services/mapbox/types'
 import { formatDistance } from '../../utils/geo'
 import { formatLocation } from '../../utils/format'
+import { getPlaceCategoryLabel } from '../../types'
 import { PLACE_CATEGORIES } from '../../types'
-import type { Place, PlaceSearchResult, PlaceCategory } from '../../types'
+import type { Place, PlaceCategory } from '../../types'
 
 interface PlacePickerProps {
   value: string | null
   onChange: (placeId: string | null, placeName: string) => void
   onClose: () => void
+  /** When provided, Nearby + search bias to these coordinates. */
+  proximity?: { latitude: number; longitude: number } | null
 }
 
-type Tab = 'nearby' | 'recent' | 'favorites' | 'search' | 'new'
+type Tab = 'nearby' | 'recent' | 'saved' | 'search' | 'new'
 
-export function PlacePicker({ value, onChange, onClose }: PlacePickerProps) {
-  const [tab, setTab] = useState<Tab>('recent')
-  const [places, setPlaces] = useState<PlaceSearchResult[]>([])
-  const [webResults, setWebResults] = useState<GeocodeResult[]>([])
+function formatPoiCategory(category: string | null): string {
+  if (!category) return 'Point of interest'
+  return category.replace(/_/g, ' ')
+}
+
+export function PlacePicker({ value, onChange, onClose, proximity }: PlacePickerProps) {
+  const [tab, setTab] = useState<Tab>(proximity ? 'nearby' : 'recent')
+  const [savedPlaces, setSavedPlaces] = useState<Place[]>([])
+  const [nearbyPois, setNearbyPois] = useState<MapboxPlaceResult[]>([])
+  const [searchResults, setSearchResults] = useState<MapboxPlaceResult[]>([])
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchingWeb, setSearchingWeb] = useState(false)
+  const [loadingNearby, setLoadingNearby] = useState(false)
+  const [loadingSearch, setLoadingSearch] = useState(false)
+  const [nearbyError, setNearbyError] = useState<string | null>(null)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
   const { position, error, loading, requestLocation } = useGeolocation()
+  const lastNearbyKeyRef = useRef<string | null>(null)
+
+  const activeProximity =
+    proximity ??
+    (position ? { latitude: position.latitude, longitude: position.longitude } : null)
+
   const [newPlace, setNewPlace] = useState({
     name: '',
     address: '',
@@ -40,59 +66,91 @@ export function PlacePicker({ value, onChange, onClose }: PlacePickerProps) {
     category: '' as PlaceCategory | '',
     notes: '',
   })
-  const [saving, setSaving] = useState(false)
+
+  const loadNearby = useCallback(async (latitude: number, longitude: number, force = false) => {
+    if (!isMapboxConfigured()) {
+      setNearbyError('Map services are not configured.')
+      setNearbyPois([])
+      return
+    }
+
+    const key = `${latitude.toFixed(4)},${longitude.toFixed(4)}`
+    if (!force && lastNearbyKeyRef.current === key && nearbyPois.length > 0) return
+
+    setLoadingNearby(true)
+    setNearbyError(null)
+    try {
+      if (force) clearNearbyCache()
+      const results = await fetchNearbyMapboxPois(latitude, longitude, 20)
+      setNearbyPois(results)
+      lastNearbyKeyRef.current = key
+    } catch {
+      setNearbyError('Could not load nearby places right now.')
+      setNearbyPois([])
+    } finally {
+      setLoadingNearby(false)
+    }
+  }, [nearbyPois.length])
 
   useEffect(() => {
-    if (tab === 'recent') getRecentPlaces(15).then(setPlaces)
-    if (tab === 'favorites') getFavoritePlaces().then(setPlaces)
-    if (tab === 'nearby' && position) {
-      getNearbyPlaces(position.latitude, position.longitude).then(setPlaces)
+    if (!proximity && !position) {
+      requestLocation()
     }
-    if (tab === 'nearby' && !position) setPlaces([])
-    if (tab === 'search' && !searchQuery) {
-      setPlaces([])
-      setWebResults([])
+  }, [proximity, position, requestLocation])
+
+  useEffect(() => {
+    if (tab === 'recent') getRecentPlaces(15).then(setSavedPlaces)
+    if (tab === 'saved') getSavedPlaces(30).then(setSavedPlaces)
+    if (tab === 'nearby' && activeProximity) {
+      void loadNearby(activeProximity.latitude, activeProximity.longitude)
     }
-  }, [tab, position, searchQuery])
+    if (tab === 'nearby' && !activeProximity) {
+      setNearbyPois([])
+    }
+    if (tab === 'search' && !searchQuery.trim()) {
+      setSearchResults([])
+      setSearchError(null)
+    }
+  }, [tab, activeProximity, searchQuery, loadNearby])
 
   useEffect(() => {
     if (tab !== 'search' || !searchQuery.trim()) return
-    const timer = setTimeout(async () => {
-      const local = await searchPlaces(searchQuery)
-      setPlaces(local)
-      if (searchQuery.trim().length >= 3) {
-        setSearchingWeb(true)
-        try {
-          const web = await searchPlacesNominatim(searchQuery)
-          setWebResults(web)
-        } catch {
-          setWebResults([])
-        } finally {
-          setSearchingWeb(false)
-        }
-      } else {
-        setWebResults([])
+
+    const timer = window.setTimeout(async () => {
+      if (!isMapboxConfigured()) {
+        setSearchError('Map services are not configured.')
+        setSearchResults([])
+        return
+      }
+
+      setLoadingSearch(true)
+      setSearchError(null)
+      try {
+        const local = await searchPlaces(searchQuery)
+        setSavedPlaces(local)
+        const web = await suggestMapboxPlaces(searchQuery, activeProximity ?? undefined)
+        setSearchResults(web)
+      } catch {
+        setSearchError('Search is temporarily unavailable.')
+        setSearchResults([])
+      } finally {
+        setLoadingSearch(false)
       }
     }, 300)
-    return () => clearTimeout(timer)
-  }, [tab, searchQuery])
+
+    return () => window.clearTimeout(timer)
+  }, [tab, searchQuery, activeProximity])
 
   const selectPlace = (place: Place) => {
     onChange(place.id, place.name)
     onClose()
   }
 
-  const selectWebResult = async (result: GeocodeResult) => {
+  const selectMapboxResult = async (result: MapboxPlaceResult) => {
     setSaving(true)
     try {
-      const place = await createPlace({
-        name: result.name,
-        address: result.address ?? undefined,
-        city: result.city ?? undefined,
-        state: result.state ?? undefined,
-        latitude: result.latitude,
-        longitude: result.longitude,
-      })
+      const resolved = await selectMapboxSuggestion(result)
+      const place = await findOrCreatePlaceFromMapbox(resolved)
       selectPlace(place)
     } finally {
       setSaving(false)
@@ -110,8 +168,9 @@ export function PlacePicker({ value, onChange, onClose }: PlacePickerProps) {
         state: newPlace.state || undefined,
         category: newPlace.category || undefined,
         notes: newPlace.notes || undefined,
-        latitude: position?.latitude,
-        longitude: position?.longitude,
+        latitude: activeProximity?.latitude,
+        longitude: activeProximity?.longitude,
+        source: 'manual',
       })
       selectPlace(place)
     } finally {
@@ -122,7 +181,7 @@ export function PlacePicker({ value, onChange, onClose }: PlacePickerProps) {
   const tabs: { id: Tab; label: string }[] = [
     { id: 'nearby', label: 'Nearby' },
     { id: 'recent', label: 'Recent' },
-    { id: 'favorites', label: 'Saved' },
+    { id: 'saved', label: 'Saved Places' },
     { id: 'search', label: 'Search' },
     { id: 'new', label: 'Add New' },
   ]
@@ -138,16 +197,16 @@ export function PlacePicker({ value, onChange, onClose }: PlacePickerProps) {
         </div>
 
         <div className="flex gap-1 overflow-x-auto px-4 py-2">
-          {tabs.map((t) => (
+          {tabs.map((item) => (
             <button
-              key={t.id}
+              key={item.id}
               type="button"
-              onClick={() => setTab(t.id)}
+              onClick={() => setTab(item.id)}
               className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium ${
-                tab === t.id ? 'bg-pack-accent text-black' : 'text-pack-text-secondary'
+                tab === item.id ? 'bg-pack-accent text-black' : 'text-pack-text-secondary'
               }`}
             >
-              {t.label}
+              {item.label}
             </button>
           ))}
         </div>
@@ -155,18 +214,40 @@ export function PlacePicker({ value, onChange, onClose }: PlacePickerProps) {
         <div className="flex-1 overflow-y-auto px-4 pb-4">
           {tab === 'nearby' && (
             <div className="mb-3 space-y-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={requestLocation}
-                loading={loading}
-                className="w-full"
-              >
-                <Navigation className="h-4 w-4" /> Use My Current Location
-              </Button>
-              {error && (
-                <p className="text-pack-text-muted text-xs">
-                  {error}. You can still search or add places manually.
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    requestLocation()
+                    if (position) {
+                      void loadNearby(position.latitude, position.longitude, true)
+                    }
+                  }}
+                  loading={loading}
+                  className="flex-1"
+                >
+                  <Navigation className="h-4 w-4" /> Use My Current Location
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={!activeProximity || loadingNearby}
+                  onClick={() => {
+                    if (!activeProximity) return
+                    void loadNearby(activeProximity.latitude, activeProximity.longitude, true)
+                  }}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-pack-text-muted text-xs leading-relaxed">
+                Nearby shows real points of interest around your current location — not your saved
+                Pack places.
+              </p>
+              {(error || nearbyError) && (
+                <p className="text-pack-text-muted text-xs leading-relaxed">
+                  {error ?? nearbyError} You can still search or add places manually.
                 </p>
               )}
             </div>
@@ -177,12 +258,17 @@ export function PlacePicker({ value, onChange, onClose }: PlacePickerProps) {
               <Search className="text-pack-text-muted absolute top-3 left-3 h-4 w-4" />
               <input
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Pub Station Billings MT, convention center..."
-                className="bg-pack-card border-pack-border w-full rounded-xl border py-2.5 pr-3 pl-10 text-sm outline-none"
+                onChange={(e) => {
+                  resetMapboxSearchSession()
+                  setSearchQuery(e.target.value)
+                }}
+                placeholder="Pub Station, hotel, convention center..."
+                className="bg-pack-card border-pack-border text-pack-text w-full rounded-xl border py-2.5 pr-3 pl-10 text-sm outline-none"
                 autoFocus
               />
-              <p className="text-pack-text-muted mt-1.5 text-xs">Search your Pack or OpenStreetMap</p>
+              <p className="text-pack-text-muted mt-1.5 text-xs">
+                Search Mapbox for businesses, venues, and addresses near you
+              </p>
             </div>
           )}
 
@@ -191,46 +277,46 @@ export function PlacePicker({ value, onChange, onClose }: PlacePickerProps) {
               <Input
                 label="Place Name *"
                 value={newPlace.name}
-                onChange={(e) => setNewPlace((f) => ({ ...f, name: e.target.value }))}
+                onChange={(e) => setNewPlace((form) => ({ ...form, name: e.target.value }))}
                 placeholder="DiA Events Shop"
               />
               <Input
                 label="Address"
                 value={newPlace.address}
-                onChange={(e) => setNewPlace((f) => ({ ...f, address: e.target.value }))}
+                onChange={(e) => setNewPlace((form) => ({ ...form, address: e.target.value }))}
               />
               <div className="grid grid-cols-2 gap-2">
                 <Input
                   label="City"
                   value={newPlace.city}
-                  onChange={(e) => setNewPlace((f) => ({ ...f, city: e.target.value }))}
+                  onChange={(e) => setNewPlace((form) => ({ ...form, city: e.target.value }))}
                 />
                 <Input
                   label="State"
                   value={newPlace.state}
-                  onChange={(e) => setNewPlace((f) => ({ ...f, state: e.target.value }))}
+                  onChange={(e) => setNewPlace((form) => ({ ...form, state: e.target.value }))}
                 />
               </div>
               <Select
                 label="Category"
                 value={newPlace.category}
                 onChange={(e) =>
-                  setNewPlace((f) => ({ ...f, category: e.target.value as PlaceCategory }))
+                  setNewPlace((form) => ({ ...form, category: e.target.value as PlaceCategory }))
                 }
                 options={PLACE_CATEGORIES}
               />
               <Textarea
                 label="Notes"
                 value={newPlace.notes}
-                onChange={(e) => setNewPlace((f) => ({ ...f, notes: e.target.value }))}
+                onChange={(e) => setNewPlace((form) => ({ ...form, notes: e.target.value }))}
                 rows={2}
               />
-              {!position && (
+              {!activeProximity && (
                 <Button variant="ghost" size="sm" onClick={requestLocation}>
                   <Navigation className="h-4 w-4" /> Add GPS from current location (optional)
                 </Button>
               )}
-              {position && (
+              {activeProximity && (
                 <p className="text-pack-success text-xs">GPS will be saved with this place</p>
               )}
               <Button
@@ -242,76 +328,144 @@ export function PlacePicker({ value, onChange, onClose }: PlacePickerProps) {
                 <Plus className="h-4 w-4" /> Create Place
               </Button>
             </div>
-          ) : (
+          ) : tab === 'nearby' ? (
             <div className="space-y-2">
-              {places.length === 0 && webResults.length === 0 ? (
+              {loadingNearby ? (
+                <p className="text-pack-text-muted py-8 text-center text-sm">Loading nearby places…</p>
+              ) : nearbyPois.length === 0 ? (
                 <p className="text-pack-text-muted py-8 text-center text-sm">
-                  {tab === 'nearby' && !position
-                    ? 'Enable location to see nearby places'
-                    : tab === 'search' && searchingWeb
-                      ? 'Searching...'
-                      : 'No places found'}
+                  {!activeProximity
+                    ? 'Enable location to see nearby points of interest'
+                    : 'No nearby places found — try search instead'}
                 </p>
               ) : (
-                <>
-                  {places.length > 0 && tab === 'search' && (
-                    <p className="text-pack-text-muted pt-1 text-xs font-medium uppercase">Your Places</p>
-                  )}
-                  {places.map((place) => (
-                    <button
-                      key={place.id}
-                      type="button"
-                      onClick={() => selectPlace(place)}
-                      className={`hover:bg-pack-card-hover flex w-full items-start gap-3 rounded-xl p-3 text-left transition-colors ${
-                        value === place.id ? 'bg-pack-accent-muted ring-pack-accent ring-1' : 'bg-pack-card'
-                      }`}
-                    >
-                      <MapPin className="text-pack-accent mt-0.5 h-5 w-5 shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium">{place.name}</p>
-                        {formatLocation(place.city, place.state) && (
-                          <p className="text-pack-text-muted text-sm">
-                            {formatLocation(place.city, place.state)}
-                          </p>
-                        )}
-                        {place.distanceKm != null && (
-                          <p className="text-pack-accent text-xs">
-                            {formatDistance(place.distanceKm)} away
-                          </p>
-                        )}
-                      </div>
-                      {place.isFavorite && (
-                        <Star className="text-pack-accent h-4 w-4 fill-current" />
+                nearbyPois.map((result) => (
+                  <button
+                    key={result.mapboxId}
+                    type="button"
+                    onClick={() => void selectMapboxResult(result)}
+                    disabled={saving}
+                    className="hover:bg-pack-card-hover bg-pack-card flex w-full items-start gap-3 rounded-xl p-3 text-left transition-colors"
+                  >
+                    <Globe className="text-pack-accent mt-0.5 h-5 w-5 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium">{result.name}</p>
+                      <p className="text-pack-text-muted text-sm">
+                        {formatPoiCategory(result.category)}
+                        {result.fullAddress ? ` · ${result.fullAddress}` : ''}
+                      </p>
+                      {result.distanceMeters != null && (
+                        <p className="text-pack-accent text-xs">
+                          {formatDistance(result.distanceMeters / 1000)} away
+                        </p>
                       )}
-                    </button>
-                  ))}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          ) : tab === 'search' ? (
+            <div className="space-y-2">
+              {loadingSearch ? (
+                <p className="text-pack-text-muted py-8 text-center text-sm">Searching…</p>
+              ) : (
+                <>
+                  {savedPlaces.length > 0 && (
+                    <>
+                      <p className="text-pack-text-muted pt-1 text-xs font-medium uppercase">
+                        Saved Places
+                      </p>
+                      {savedPlaces.map((place) => (
+                        <button
+                          key={place.id}
+                          type="button"
+                          onClick={() => selectPlace(place)}
+                          className={`hover:bg-pack-card-hover flex w-full items-start gap-3 rounded-xl p-3 text-left transition-colors ${
+                            value === place.id
+                              ? 'bg-pack-accent-muted ring-pack-accent ring-1'
+                              : 'bg-pack-card'
+                          }`}
+                        >
+                          <MapPin className="text-pack-text-muted mt-0.5 h-5 w-5 shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium">{place.name}</p>
+                            {formatLocation(place.city, place.state) && (
+                              <p className="text-pack-text-muted text-sm">
+                                {formatLocation(place.city, place.state)}
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </>
+                  )}
 
-                  {tab === 'search' && webResults.length > 0 && (
+                  {searchResults.length > 0 && (
                     <>
                       <p className="text-pack-text-muted pt-2 text-xs font-medium uppercase">
-                        <Globe className="mr-1 inline h-3 w-3" />
-                        OpenStreetMap
+                        Search Results
                       </p>
-                      {webResults.map((result) => (
+                      {searchResults.map((result) => (
                         <button
-                          key={result.osmId}
+                          key={result.mapboxId}
                           type="button"
-                          onClick={() => void selectWebResult(result)}
+                          onClick={() => void selectMapboxResult(result)}
                           disabled={saving}
                           className="hover:bg-pack-card-hover bg-pack-card flex w-full items-start gap-3 rounded-xl p-3 text-left"
                         >
-                          <Globe className="text-pack-text-muted mt-0.5 h-5 w-5 shrink-0" />
+                          <Globe className="text-pack-accent mt-0.5 h-5 w-5 shrink-0" />
                           <div className="min-w-0 flex-1">
                             <p className="font-medium">{result.name}</p>
                             <p className="text-pack-text-muted text-sm leading-relaxed">
-                              {result.displayName}
+                              {result.fullAddress ?? result.address ?? formatPoiCategory(result.category)}
                             </p>
                           </div>
                         </button>
                       ))}
                     </>
                   )}
+
+                  {savedPlaces.length === 0 && searchResults.length === 0 && (
+                    <p className="text-pack-text-muted py-8 text-center text-sm">
+                      {searchError ?? 'No places found'}
+                    </p>
+                  )}
                 </>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {savedPlaces.length === 0 ? (
+                <p className="text-pack-text-muted py-8 text-center text-sm">No places found</p>
+              ) : (
+                savedPlaces.map((place) => (
+                  <button
+                    key={place.id}
+                    type="button"
+                    onClick={() => selectPlace(place)}
+                    className={`hover:bg-pack-card-hover flex w-full items-start gap-3 rounded-xl p-3 text-left transition-colors ${
+                      value === place.id ? 'bg-pack-accent-muted ring-pack-accent ring-1' : 'bg-pack-card'
+                    }`}
+                  >
+                    <MapPin className="text-pack-accent mt-0.5 h-5 w-5 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium">{place.name}</p>
+                      {formatLocation(place.city, place.state) && (
+                        <p className="text-pack-text-muted text-sm">
+                          {formatLocation(place.city, place.state)}
+                        </p>
+                      )}
+                      {place.category && (
+                        <p className="text-pack-text-muted text-xs">
+                          {getPlaceCategoryLabel(place.category)}
+                        </p>
+                      )}
+                    </div>
+                    {place.isFavorite && (
+                      <Star className="text-pack-accent h-4 w-4 fill-current" />
+                    )}
+                  </button>
+                ))
               )}
             </div>
           )}

@@ -58,6 +58,15 @@ export function logCloudEnvStartupCheck(): void {
   )
 }
 
+export function getMapboxAccessToken(): string | undefined {
+  const token = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN
+  return token && token.length > 0 ? token : undefined
+}
+
+export function isMapboxAvailable(): boolean {
+  return Boolean(getMapboxAccessToken())
+}
+
 export function isCloudSyncAvailable(): boolean {
   return validateCloudEnv().configured
 }

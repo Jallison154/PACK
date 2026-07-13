@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useLayoutEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header } from '../components/layout/Header'
@@ -18,7 +18,8 @@ import { useWorkspace } from '../context/WorkspaceContext'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { todayISO } from '../utils/format'
 import { randomProfileColor } from '../utils/colors'
-import type { Workspace } from '../types'
+import { encounterLocationToPersonFields } from '../utils/encounterLocation'
+import type { EncounterLocation, Workspace } from '../types'
 
 export function AddPersonPage() {
   const navigate = useNavigate()
@@ -33,19 +34,29 @@ export function AddPersonPage() {
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [company, setCompany] = useState('')
-  const [whereMetPlaceId, setWhereMetPlaceId] = useState<string | null>(null)
-  const [whereMetPlaceName, setWhereMetPlaceName] = useState('')
+  const [encounterLocation, setEncounterLocation] = useState<EncounterLocation | null>(null)
   const [notes, setNotes] = useState('')
   const [matches, setMatches] = useState<DuplicateMatch[]>([])
   const [searching, setSearching] = useState(false)
   const [interactionTarget, setInteractionTarget] = useState<DuplicateMatch | null>(null)
   const [duplicateWarning, setDuplicateWarning] = useState<DuplicateMatch | null>(null)
 
-  const searchInput = useMemo(
-    () => ({ name, phone, email, company, whereMet: whereMetPlaceName, notes }),
-    [name, phone, email, company, whereMetPlaceName, notes],
-  )
+  const searchInput = useMemo(() => {
+    const whereMet =
+      encounterLocation?.kind === 'exact'
+        ? encounterLocation.placeName
+        : encounterLocation?.kind === 'approximate'
+          ? 'current location'
+          : ''
+    return { name, phone, email, company, whereMet, notes }
+  }, [name, phone, email, company, encounterLocation, notes])
+
   const debouncedSearch = useDebouncedValue(searchInput, 300)
+
+  useLayoutEffect(() => {
+    const input = document.getElementById('add-person-name') as HTMLInputElement | null
+    input?.focus()
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -64,22 +75,30 @@ export function AddPersonPage() {
     }
   }, [debouncedSearch])
 
+  const buildCreateInput = () => {
+    const locationFields = encounterLocationToPersonFields(encounterLocation)
+    const whereMet =
+      encounterLocation?.kind === 'exact' ? encounterLocation.placeName : undefined
+
+    return {
+      name: name.trim(),
+      workspace,
+      phone: phone || undefined,
+      email: email || undefined,
+      company: workspace === 'work' ? company || undefined : undefined,
+      whereMet,
+      notes: notes || undefined,
+      dateMet: todayISO(),
+      profileColor: randomProfileColor(),
+      ...locationFields,
+    }
+  }
+
   const createNewPerson = async () => {
     setSaving(true)
     try {
       setLastUsedWorkspace(workspace)
-      const person = await createPerson({
-        name: name.trim(),
-        workspace,
-        phone: phone || undefined,
-        email: email || undefined,
-        company: workspace === 'work' ? company || undefined : undefined,
-        whereMet: whereMetPlaceName || undefined,
-        whereMetPlaceId: whereMetPlaceId ?? undefined,
-        notes: notes || undefined,
-        dateMet: todayISO(),
-        profileColor: randomProfileColor(),
-      })
+      const person = await createPerson(buildCreateInput())
       navigate(`/person/${person.id}`, { replace: true })
     } finally {
       setSaving(false)
@@ -89,7 +108,7 @@ export function AddPersonPage() {
   const handleSave = async () => {
     if (!name.trim()) return
 
-    const duplicates = await findPossibleDuplicates({ name, phone, email, company, whereMet: whereMetPlaceName, notes })
+    const duplicates = await findPossibleDuplicates(searchInput)
     if (duplicates.length > 0) {
       setDuplicateWarning(duplicates[0])
       return
@@ -103,17 +122,7 @@ export function AddPersonPage() {
     setSaving(true)
     try {
       setLastUsedWorkspace(workspace)
-      await mergeDraftIntoPerson(duplicateWarning.person.id, {
-        name: name.trim(),
-        workspace,
-        phone: phone || undefined,
-        email: email || undefined,
-        company: workspace === 'work' ? company || undefined : undefined,
-        whereMet: whereMetPlaceName || undefined,
-        whereMetPlaceId: whereMetPlaceId ?? undefined,
-        notes: notes || undefined,
-        dateMet: todayISO(),
-      })
+      await mergeDraftIntoPerson(duplicateWarning.person.id, buildCreateInput())
       setDuplicateWarning(null)
       navigate(`/person/${duplicateWarning.person.id}`, { replace: true })
     } finally {
@@ -151,8 +160,11 @@ export function AddPersonPage() {
     phone.trim().length >= 3 ||
     email.includes('@') ||
     company.trim().length >= 2 ||
-    whereMetPlaceName.trim().length >= 2 ||
+    encounterLocation != null ||
     notes.trim().length >= 3
+
+  const initialPlaceName =
+    encounterLocation?.kind === 'exact' ? encounterLocation.placeName : ''
 
   return (
     <motion.div
@@ -206,11 +218,11 @@ export function AddPersonPage() {
         </div>
 
         <Input
+          id="add-person-name"
           label="Name *"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Who did you meet?"
-          autoFocus
           autoComplete="name"
         />
 
@@ -244,13 +256,10 @@ export function AddPersonPage() {
 
         <PlaceField
           label="Where Met"
-          description="Where did you meet them? Search your places, add a new one, or use your current location."
-          placeId={whereMetPlaceId}
-          placeName={whereMetPlaceName}
-          onChange={(id, name) => {
-            setWhereMetPlaceId(id)
-            setWhereMetPlaceName(name)
-          }}
+          description="Where did you meet them? Your current location is used by default until you choose an exact place."
+          value={encounterLocation}
+          onChange={setEncounterLocation}
+          autoCaptureGps
         />
 
         <Textarea
@@ -285,7 +294,7 @@ export function AddPersonPage() {
           onClose={() => setInteractionTarget(null)}
           onSaved={(id) => navigate(`/person/${id}`, { replace: true })}
           initialNotes={notes}
-          initialPlaceName={whereMetPlaceName}
+          initialPlaceName={initialPlaceName}
         />
       )}
 

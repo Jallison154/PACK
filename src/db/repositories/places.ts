@@ -1,6 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import { db, rowToPerson, rowToInteraction } from '../database'
 import { distanceKm } from '../../utils/geo'
+import type { MapboxPlaceResult } from '../../services/mapbox/types'
 import type {
   Place,
   PlaceInput,
@@ -10,6 +11,25 @@ import type {
   InteractionWithPerson,
   PlaceCategory,
 } from '../../types'
+
+function normalizePlaceName(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+function serializePoiCategories(categories?: string[]): string | null {
+  if (!categories?.length) return null
+  return JSON.stringify(categories)
+}
+
+function parsePoiCategories(raw: unknown): string[] {
+  if (!raw || typeof raw !== 'string') return []
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    return Array.isArray(parsed) ? parsed.filter((item) => typeof item === 'string') : []
+  } catch {
+    return []
+  }
+}
 
 async function enrichPersonRow(row: Record<string, unknown>): Promise<PersonWithTags> {
   const person = rowToPerson(row)
@@ -27,9 +47,16 @@ export function rowToPlace(row: Record<string, unknown>): Place {
     address: (row.address as string) || null,
     city: (row.city as string) || null,
     state: (row.state as string) || null,
+    postalCode: (row.postal_code as string) || null,
+    country: (row.country as string) || null,
     latitude: row.latitude != null ? Number(row.latitude) : null,
     longitude: row.longitude != null ? Number(row.longitude) : null,
     category: (row.category as PlaceCategory) || null,
+    poiCategories: parsePoiCategories(row.poi_categories),
+    brand: (row.brand as string) || null,
+    mapboxId: (row.mapbox_id as string) || null,
+    featureType: (row.feature_type as string) || null,
+    source: (row.source as Place['source']) || 'manual',
     notes: (row.notes as string) || null,
     isFavorite: Boolean(row.is_favorite),
     createdAt: row.created_at as string,
@@ -39,23 +66,104 @@ export function rowToPlace(row: Record<string, unknown>): Place {
   }
 }
 
+function mapboxResultToInput(result: MapboxPlaceResult): PlaceInput {
+  return {
+    name: result.name,
+    address: result.address ?? result.fullAddress ?? undefined,
+    city: result.city ?? undefined,
+    state: result.region ?? undefined,
+    postalCode: result.postalCode ?? undefined,
+    country: result.country ?? undefined,
+    latitude: result.latitude,
+    longitude: result.longitude,
+    category: (result.category as PlaceCategory) || undefined,
+    poiCategories: result.poiCategories,
+    brand: result.brand ?? undefined,
+    mapboxId: result.mapboxId,
+    featureType: result.featureType,
+    source: 'mapbox',
+  }
+}
+
 const ACTIVE_PLACES = 'deleted_at IS NULL'
+
+export async function findPlaceByMapboxId(mapboxId: string): Promise<Place | null> {
+  const rows = await db.query(
+    `SELECT * FROM places WHERE mapbox_id = ? AND ${ACTIVE_PLACES} LIMIT 1`,
+    [mapboxId],
+  )
+  return rows[0] ? rowToPlace(rows[0]) : null
+}
+
+export async function findPlaceByProximityAndName(
+  latitude: number,
+  longitude: number,
+  name: string,
+  maxMeters = 75,
+): Promise<Place | null> {
+  const rows = await db.query(
+    `SELECT * FROM places WHERE ${ACTIVE_PLACES} AND latitude IS NOT NULL AND longitude IS NOT NULL`,
+  )
+
+  const normalized = normalizePlaceName(name)
+  for (const row of rows) {
+    const place = rowToPlace(row)
+    if (normalizePlaceName(place.name) !== normalized) continue
+    const km = distanceKm(latitude, longitude, place.latitude!, place.longitude!)
+    if (km * 1000 <= maxMeters) return place
+  }
+
+  return null
+}
+
+export async function findOrCreatePlaceFromMapbox(result: MapboxPlaceResult): Promise<Place> {
+  const byId = await findPlaceByMapboxId(result.mapboxId)
+  if (byId) return byId
+
+  const byProximity = await findPlaceByProximityAndName(
+    result.latitude,
+    result.longitude,
+    result.name,
+  )
+  if (byProximity) {
+    if (!byProximity.mapboxId) {
+      return updatePlace(byProximity.id, {
+        ...mapboxResultToInput(result),
+        isFavorite: byProximity.isFavorite,
+        notes: byProximity.notes ?? undefined,
+      })
+    }
+    return byProximity
+  }
+
+  return createPlace(mapboxResultToInput(result))
+}
 
 export async function createPlace(input: PlaceInput): Promise<Place> {
   const id = uuid()
   const now = new Date().toISOString()
   await db.run(
-    `INSERT INTO places (id, name, address, city, state, latitude, longitude, category, notes, is_favorite, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO places (
+      id, name, address, city, state, postal_code, country, latitude, longitude,
+      category, poi_categories, brand, mapbox_id, feature_type, source,
+      notes, is_favorite, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.name,
       input.address ?? null,
       input.city ?? null,
       input.state ?? null,
+      input.postalCode ?? null,
+      input.country ?? null,
       input.latitude ?? null,
       input.longitude ?? null,
       input.category ?? null,
+      serializePoiCategories(input.poiCategories),
+      input.brand ?? null,
+      input.mapboxId ?? null,
+      input.featureType ?? null,
+      input.source ?? 'manual',
       input.notes ?? null,
       input.isFavorite ? 1 : 0,
       now,
@@ -69,16 +177,26 @@ export async function createPlace(input: PlaceInput): Promise<Place> {
 export async function updatePlace(id: string, input: PlaceInput): Promise<Place> {
   const now = new Date().toISOString()
   await db.run(
-    `UPDATE places SET name = ?, address = ?, city = ?, state = ?, latitude = ?, longitude = ?,
-     category = ?, notes = ?, is_favorite = ?, updated_at = ? WHERE id = ? AND ${ACTIVE_PLACES}`,
+    `UPDATE places SET
+      name = ?, address = ?, city = ?, state = ?, postal_code = ?, country = ?,
+      latitude = ?, longitude = ?, category = ?, poi_categories = ?, brand = ?,
+      mapbox_id = ?, feature_type = ?, source = ?, notes = ?, is_favorite = ?, updated_at = ?
+     WHERE id = ? AND ${ACTIVE_PLACES}`,
     [
       input.name,
       input.address ?? null,
       input.city ?? null,
       input.state ?? null,
+      input.postalCode ?? null,
+      input.country ?? null,
       input.latitude ?? null,
       input.longitude ?? null,
       input.category ?? null,
+      serializePoiCategories(input.poiCategories),
+      input.brand ?? null,
+      input.mapboxId ?? null,
+      input.featureType ?? null,
+      input.source ?? 'manual',
       input.notes ?? null,
       input.isFavorite ? 1 : 0,
       now,
@@ -112,7 +230,7 @@ export async function upsertPlaceByName(
   )
   if (existing.length > 0) return existing[0].id
 
-  const place = await createPlace({ name, city, state, category })
+  const place = await createPlace({ name, city, state, category, source: 'legacy' })
   return place.id
 }
 
@@ -198,6 +316,14 @@ export async function getRecentPlaces(limit = 10): Promise<Place[]> {
   return rows.map(rowToPlace)
 }
 
+export async function getSavedPlaces(limit = 30): Promise<Place[]> {
+  const rows = await db.query(
+    `SELECT * FROM places WHERE ${ACTIVE_PLACES} ORDER BY updated_at DESC, name ASC LIMIT ?`,
+    [limit],
+  )
+  return rows.map(rowToPlace)
+}
+
 export async function searchPlaces(query: string): Promise<PlaceSearchResult[]> {
   const like = `%${query.trim()}%`
   if (!query.trim()) {
@@ -218,7 +344,8 @@ export async function searchPlaces(query: string): Promise<PlaceSearchResult[]> 
   return rows.map(rowToPlace)
 }
 
-export async function getNearbyPlaces(
+/** Saved Pack places sorted by distance — for map overlays, not the Nearby picker tab. */
+export async function getNearbySavedPlaces(
   lat: number,
   lng: number,
   limit = 10,
@@ -239,6 +366,9 @@ export async function getNearbyPlaces(
 
   return withDistance
 }
+
+/** @deprecated Nearby tab now uses Mapbox POIs — use getNearbySavedPlaces for saved-place distance. */
+export const getNearbyPlaces = getNearbySavedPlaces
 
 export async function getPeopleMetAtPlace(placeId: string): Promise<PersonWithTags[]> {
   const rows = await db.query(

@@ -15,7 +15,8 @@ import {
 } from '../db/repositories/duplicates'
 import { getHouseholdNames, createHousehold } from '../db/repositories/households'
 import { getRelationshipTypes } from '../types'
-import type { Workspace } from '../types'
+import { personToEncounterLocation, encounterLocationToPersonFields } from '../utils/encounterLocation'
+import type { EncounterLocation, Workspace } from '../types'
 
 export function EditPersonPage() {
   const { id } = useParams<{ id: string }>()
@@ -25,10 +26,8 @@ export function EditPersonPage() {
   const [duplicateWarning, setDuplicateWarning] = useState<DuplicateMatch | null>(null)
   const [tagInput, setTagInput] = useState('')
   const [tags, setTags] = useState<string[]>([])
-  const [whereMetPlaceId, setWhereMetPlaceId] = useState<string | null>(null)
-  const [whereMetPlaceName, setWhereMetPlaceName] = useState('')
-  const [lastSeenPlaceId, setLastSeenPlaceId] = useState<string | null>(null)
-  const [lastSeenPlaceName, setLastSeenPlaceName] = useState('')
+  const [whereMetLocation, setWhereMetLocation] = useState<EncounterLocation | null>(null)
+  const [lastSeenLocation, setLastSeenLocation] = useState<EncounterLocation | null>(null)
   const [households, setHouseholds] = useState<{ id: string; name: string }[]>([])
   const [newHouseholdName, setNewHouseholdName] = useState('')
   const [workspace, setWorkspace] = useState<Workspace>('work')
@@ -83,10 +82,17 @@ export function EditPersonPage() {
         lastInteractionNotes: person.lastInteractionNotes ?? '',
       })
       setTags(person.tags)
-      setWhereMetPlaceId(person.whereMetPlaceId)
-      setWhereMetPlaceName(person.whereMetPlaceName || person.whereMet || '')
-      setLastSeenPlaceId(person.lastSeenPlaceId)
-      setLastSeenPlaceName(person.lastSeenPlaceName || person.lastSeenAt || '')
+      setWhereMetLocation(personToEncounterLocation(person, person.whereMetPlaceName))
+      setLastSeenLocation(
+        person.lastSeenPlaceId
+          ? {
+              kind: 'exact',
+              placeId: person.lastSeenPlaceId,
+              placeName: person.lastSeenPlaceName || person.lastSeenAt || 'Selected place',
+              source: 'saved_place',
+            }
+          : null,
+      )
       setLoaded(true)
     })
   }, [id])
@@ -111,30 +117,40 @@ export function EditPersonPage() {
     setNewHouseholdName('')
   }
 
-  const buildPersonInput = () => ({
-    name: form.name.trim(),
-    workspace,
-    phone: form.phone || undefined,
-    email: form.email || undefined,
-    company: form.company || undefined,
-    jobTitle: form.jobTitle || undefined,
-    whereMet: whereMetPlaceName || undefined,
-    whereMetPlaceId,
-    event: form.event || undefined,
-    city: form.city || undefined,
-    state: form.state || undefined,
-    dateMet: form.dateMet || undefined,
-    notes: form.notes || undefined,
-    relationshipType: (form.relationshipType || undefined) as never,
-    householdId: form.householdId || undefined,
-    homeAddress: form.homeAddress || undefined,
-    workLocation: form.workLocation || undefined,
-    lastSeenAt: lastSeenPlaceName || undefined,
-    lastSeenPlaceId,
-    lastSeenDate: form.lastSeenDate || undefined,
-    lastInteractionNotes: form.lastInteractionNotes || undefined,
-    tags,
-  })
+  const buildPersonInput = () => {
+    const whereMetFields = encounterLocationToPersonFields(whereMetLocation)
+    if (!whereMetLocation && form.whereMet.trim()) {
+      whereMetFields.whereMet = form.whereMet.trim()
+    }
+    const lastSeenPlaceId =
+      lastSeenLocation?.kind === 'exact' ? lastSeenLocation.placeId : null
+    const lastSeenAt =
+      lastSeenLocation?.kind === 'exact' ? lastSeenLocation.placeName : undefined
+
+    return {
+      name: form.name.trim(),
+      workspace,
+      phone: form.phone || undefined,
+      email: form.email || undefined,
+      company: form.company || undefined,
+      jobTitle: form.jobTitle || undefined,
+      ...whereMetFields,
+      event: form.event || undefined,
+      city: form.city || undefined,
+      state: form.state || undefined,
+      dateMet: form.dateMet || undefined,
+      notes: form.notes || undefined,
+      relationshipType: (form.relationshipType || undefined) as never,
+      householdId: form.householdId || undefined,
+      homeAddress: form.homeAddress || undefined,
+      workLocation: form.workLocation || undefined,
+      lastSeenAt,
+      lastSeenPlaceId,
+      lastSeenDate: form.lastSeenDate || undefined,
+      lastInteractionNotes: form.lastInteractionNotes || undefined,
+      tags,
+    }
+  }
 
   const saveUpdate = async () => {
     if (!id) return
@@ -151,7 +167,12 @@ export function EditPersonPage() {
         phone: form.phone,
         email: form.email,
         company: form.company,
-        whereMet: whereMetPlaceName,
+        whereMet:
+          whereMetLocation?.kind === 'exact'
+            ? whereMetLocation.placeName
+            : whereMetLocation?.kind === 'approximate'
+              ? 'current location'
+              : '',
         notes: form.notes,
         tags,
       },
@@ -258,12 +279,8 @@ export function EditPersonPage() {
         <PlaceField
           label="Where Met"
           description="Where you first met — not the same as Last Seen At."
-          placeId={whereMetPlaceId}
-          placeName={whereMetPlaceName}
-          onChange={(id, name) => {
-            setWhereMetPlaceId(id)
-            setWhereMetPlaceName(name)
-          }}
+          value={whereMetLocation}
+          onChange={setWhereMetLocation}
         />
         <Input label="Event" value={form.event} onChange={(e) => update('event', e.target.value)} />
         <div className="grid grid-cols-2 gap-3">
@@ -281,12 +298,9 @@ export function EditPersonPage() {
             <PlaceField
               label="Last Seen At"
               description="Where you last saw them. Also updated automatically from trail entries."
-              placeId={lastSeenPlaceId}
-              placeName={lastSeenPlaceName}
-              onChange={(id, name) => {
-                setLastSeenPlaceId(id)
-                setLastSeenPlaceName(name)
-              }}
+              value={lastSeenLocation}
+              onChange={setLastSeenLocation}
+              mode="exact"
             />
             <Input label="Last Seen Date" type="date" value={form.lastSeenDate} onChange={(e) => update('lastSeenDate', e.target.value)} />
             <Textarea label="Latest Trail Notes" value={form.lastInteractionNotes} onChange={(e) => update('lastInteractionNotes', e.target.value)} rows={2} />

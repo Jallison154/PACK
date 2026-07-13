@@ -7,6 +7,7 @@ import { Button } from '../components/ui/Button'
 import { EmptyState } from '../components/ui/EmptyState'
 import { useGeolocation } from '../hooks/useGeolocation'
 import { usePackDataRefresh } from '../hooks/usePackDataRefresh'
+import { isMapboxAvailable } from '../lib/env'
 import { getAllPlaces, getPlacesWithCoordinates } from '../db/repositories/places'
 import { formatLocation } from '../utils/format'
 import type { PlaceWithStats } from '../types'
@@ -18,6 +19,7 @@ export function PlacesPage() {
   const [mapPlaces, setMapPlaces] = useState<PlaceWithStats[]>([])
   const [selected, setSelected] = useState<PlaceWithStats | null>(null)
   const { position, loading: geoLoading, requestLocation } = useGeolocation()
+  const mapConfigured = isMapboxAvailable()
 
   const reload = useCallback(async () => {
     const [all, mapped] = await Promise.all([getAllPlaces(), getPlacesWithCoordinates()])
@@ -27,7 +29,8 @@ export function PlacesPage() {
 
   useEffect(() => {
     void reload()
-  }, [reload])
+    requestLocation()
+  }, [reload, requestLocation])
 
   usePackDataRefresh(reload)
 
@@ -81,19 +84,25 @@ export function PlacesPage() {
           />
         ) : view === 'map' ? (
           <div className="space-y-4">
+            {!mapConfigured && (
+              <p className="text-pack-text-muted rounded-xl border border-[#2a2a2a] bg-[#171717] px-4 py-3 text-sm">
+                Map services are not configured. You can still add and manage places manually.
+              </p>
+            )}
             <div className="pack-surface overflow-hidden">
               <PlaceMap
                 places={mapPlaces}
                 height="min(50vh, 400px)"
                 userLocation={position}
-                onPlaceClick={(p) => {
-                  const full = places.find((pl) => pl.id === p.id)
-                  setSelected(full ?? (p as PlaceWithStats))
+                selectedPlaceId={selected?.id ?? null}
+                onPlaceClick={(place) => {
+                  const full = places.find((item) => item.id === place.id)
+                  setSelected(full ?? (place as PlaceWithStats))
                 }}
                 onOpenPlace={(placeId) => navigate(`/places/${placeId}`)}
                 emptyMessage={
                   mapPlaces.length === 0
-                    ? 'Your places need coordinates to appear as pins. Add GPS when creating a place or search by address.'
+                    ? 'Your saved places need coordinates to appear as pins. Add GPS when creating a place or search by address.'
                     : undefined
                 }
               />

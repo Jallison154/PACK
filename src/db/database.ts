@@ -287,7 +287,7 @@ class DatabaseService {
 
 export const db = new DatabaseService()
 
-import type { InteractionType, RelationshipType, Workspace } from '../types'
+import type { EncounterLocationSource, InteractionType, RelationshipType, Workspace } from '../types'
 
 function rowToPerson(row: Record<string, unknown>) {
   return {
@@ -305,6 +305,14 @@ function rowToPerson(row: Record<string, unknown>) {
     state: (row.state as string) || null,
     locationId: (row.location_id as string) || null,
     whereMetPlaceId: (row.where_met_place_id as string) || null,
+    whereMetLatitude: row.where_met_latitude != null ? Number(row.where_met_latitude) : null,
+    whereMetLongitude: row.where_met_longitude != null ? Number(row.where_met_longitude) : null,
+    whereMetLocationSource: (row.where_met_location_source as EncounterLocationSource) || null,
+    whereMetLocationAccuracy:
+      row.where_met_location_accuracy != null ? Number(row.where_met_location_accuracy) : null,
+    whereMetCapturedAt: (row.where_met_captured_at as string) || null,
+    whereMetIsApproximate: Boolean(row.where_met_is_approximate),
+    whereMetAreaLabel: (row.where_met_area_label as string) || null,
     lastSeenPlaceId: (row.last_seen_place_id as string) || null,
     dateMet: (row.date_met as string) || null,
     notes: (row.notes as string) || null,

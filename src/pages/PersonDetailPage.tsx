@@ -27,6 +27,7 @@ import {
   type InteractionWithPlaceName,
 } from '../db/repositories/interactions'
 import { getPlaceById } from '../db/repositories/places'
+import { formatWhereMetDisplay } from '../utils/encounterLocation'
 import type { PersonWithTags, Place } from '../types'
 
 export function PersonDetailPage() {
@@ -88,12 +89,16 @@ export function PersonDetailPage() {
     )
   }
 
-  const whereMet = person.whereMetPlaceName || person.whereMet || person.event
+  const whereMetDisplay = formatWhereMetDisplay(person, person.whereMetPlaceName)
   const lastSeen = person.lastSeenPlaceName || person.lastSeenAt
-  const contextLine = [whereMet && `Met at ${whereMet}`, lastSeen && `Last seen ${lastSeen}`]
+  const contextLine = [
+    whereMetDisplay && `Where met: ${whereMetDisplay}`,
+    lastSeen && `Last seen ${lastSeen}`,
+  ]
     .filter(Boolean)
     .join(' · ')
-  const metAtLabel = whereMet ? `Met at ${whereMet}` : undefined
+  const metAtLabel = whereMetDisplay ? `Where met: ${whereMetDisplay}` : undefined
+  const hasApproximateWhereMet = person.whereMetIsApproximate && !person.whereMetPlaceId
 
   return (
     <MobilePageShell inShell={false} top={false} padded={false}>
@@ -133,6 +138,16 @@ export function PersonDetailPage() {
           )}
           {contextLine && (
             <p className="text-pack-text-muted mt-2 text-sm leading-relaxed">{contextLine}</p>
+          )}
+          {hasApproximateWhereMet && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="mt-4"
+              onClick={() => navigate(`/edit/${person.id}`)}
+            >
+              Choose exact place
+            </Button>
           )}
         </div>
 

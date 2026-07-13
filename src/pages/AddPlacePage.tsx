@@ -7,8 +7,31 @@ import {
   PlaceForm,
   emptyPlaceForm,
   placeFormToInput,
+  type PlaceFormValues,
 } from '../components/places/PlaceForm'
-import { createPlace } from '../db/repositories/places'
+import { createPlace, findOrCreatePlaceFromMapbox } from '../db/repositories/places'
+import type { MapboxPlaceResult } from '../services/mapbox/types'
+
+function mapboxResultFromForm(form: PlaceFormValues): MapboxPlaceResult {
+  return {
+    mapboxId: form.mapboxId,
+    name: form.name.trim(),
+    featureType: form.featureType || 'poi',
+    address: form.address.trim() || null,
+    fullAddress: [form.address, form.city, form.state, form.postalCode, form.country]
+      .filter(Boolean)
+      .join(', ') || null,
+    city: form.city.trim() || null,
+    region: form.state.trim() || null,
+    postalCode: form.postalCode.trim() || null,
+    country: form.country.trim() || null,
+    latitude: Number(form.latitude),
+    longitude: Number(form.longitude),
+    category: form.category || null,
+    poiCategories: form.poiCategories,
+    brand: form.brand.trim() || null,
+  }
+}
 
 export function AddPlacePage() {
   const navigate = useNavigate()
@@ -27,7 +50,9 @@ export function AddPlacePage() {
     if (!form.name.trim()) return
     setSaving(true)
     try {
-      const place = await createPlace(placeFormToInput(form))
+      const place = form.mapboxId
+        ? await findOrCreatePlaceFromMapbox(mapboxResultFromForm(form))
+        : await createPlace(placeFormToInput(form))
       navigate(`/places/${place.id}`, { replace: true })
     } finally {
       setSaving(false)

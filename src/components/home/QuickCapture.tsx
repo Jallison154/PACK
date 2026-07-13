@@ -16,7 +16,9 @@ import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { todayISO } from '../../utils/format'
 import { getRecognizedLabels, parseMemoryNotes } from '../../utils/parseMemoryNotes'
 import { findPossibleDuplicates } from '../../db/repositories/duplicates'
-import type { PersonWithTags } from '../../types'
+import { applyQuickCaptureNameChange } from '../../utils/quickCaptureName'
+import { encounterLocationToPersonFields } from '../../utils/encounterLocation'
+import type { EncounterLocation, PersonWithTags } from '../../types'
 
 function dismissMatchesSoon(setFocused: (v: boolean) => void) {
   window.setTimeout(() => setFocused(false), 150)
@@ -38,8 +40,7 @@ export function QuickCapture({ onCreated, size = 'default' }: QuickCaptureProps)
   const [saving, setSaving] = useState(false)
   const [companies, setCompanies] = useState<string[]>([])
   const [places, setPlaces] = useState<string[]>([])
-  const [whereMetPlaceId, setWhereMetPlaceId] = useState<string | null>(null)
-  const [whereMetPlaceName, setWhereMetPlaceName] = useState('')
+  const [encounterLocation, setEncounterLocation] = useState<EncounterLocation | null>(null)
 
   const debouncedName = useDebouncedValue(name, 180)
   const trimmedName = name.trim()
@@ -74,9 +75,10 @@ export function QuickCapture({ onCreated, size = 'default' }: QuickCaptureProps)
     }
   }, [debouncedName])
 
-  const openExpanded = (initialName = '') => {
-    setExpanded(true)
-    if (initialName) setName(initialName)
+  const handleNameChange = (nextValue: string) => {
+    const next = applyQuickCaptureNameChange(nextValue, expanded)
+    setName(next.name)
+    setExpanded(next.expanded)
   }
 
   const reset = () => {
@@ -85,20 +87,27 @@ export function QuickCapture({ onCreated, size = 'default' }: QuickCaptureProps)
     setExpanded(false)
     setFocused(false)
     setMatches([])
-    setWhereMetPlaceId(null)
-    setWhereMetPlaceName('')
+    setEncounterLocation(null)
   }
 
   const addToPack = async () => {
     if (!trimmedName) return
     setSaving(true)
     try {
+      const locationFields = encounterLocationToPersonFields(encounterLocation)
+      const whereMetLabel =
+        encounterLocation?.kind === 'exact'
+          ? encounterLocation.placeName
+          : encounterLocation?.kind === 'approximate'
+            ? undefined
+            : parsedMemory.whereMet
+
       const duplicates = await findPossibleDuplicates({
         name: trimmedName,
         phone: parsedMemory.phone,
         email: parsedMemory.email,
         company: parsedMemory.company,
-        whereMet: whereMetPlaceName || parsedMemory.whereMet,
+        whereMet: whereMetLabel || (encounterLocation?.kind === 'approximate' ? 'current location' : undefined),
         notes: memory,
       })
       const strong = duplicates.find((d) => d.strength === 'strong')
@@ -118,10 +127,10 @@ export function QuickCapture({ onCreated, size = 'default' }: QuickCaptureProps)
         phone: parsedMemory.phone,
         email: parsedMemory.email,
         company: lastUsedWorkspace === 'work' ? parsedMemory.company : undefined,
-        whereMet: whereMetPlaceName || parsedMemory.whereMet,
-        whereMetPlaceId: whereMetPlaceId ?? undefined,
+        whereMet: whereMetLabel,
         notes: [parsedMemory.notes, parsedMemory.url].filter(Boolean).join('\n'),
         dateMet: parsedMemory.dateMet ?? todayISO(),
+        ...locationFields,
       })
       setLastUsedWorkspace(lastUsedWorkspace)
       reset()
@@ -146,64 +155,42 @@ export function QuickCapture({ onCreated, size = 'default' }: QuickCaptureProps)
   return (
     <div className="relative w-full">
       <div className={shellClass}>
-        <AnimatePresence initial={false} mode="wait">
-          {!expanded ? (
-            <motion.div
-              key="collapsed"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2 }}
+        <div className="relative">
+          <Search
+            className={`text-pack-accent absolute top-1/2 -translate-y-1/2 ${isHero ? 'left-5 h-5 w-5' : 'left-4 h-4 w-4'}`}
+          />
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => handleNameChange(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => dismissMatchesSoon(setFocused)}
+            placeholder={expanded ? 'Their name' : 'Who comes to mind?'}
+            className={`${inputClass} ${expanded ? 'pr-12' : ''}`}
+            autoComplete="name"
+          />
+          {expanded && (
+            <button
+              type="button"
+              onClick={reset}
+              className="text-pack-text-muted hover:text-pack-text absolute top-1/2 right-3 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full"
+              aria-label="Clear"
             >
-              <div className="relative">
-                <Search
-                  className={`text-pack-accent absolute top-1/2 -translate-y-1/2 ${isHero ? 'left-5 h-5 w-5' : 'left-4 h-4 w-4'}`}
-                />
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => {
-                    openExpanded(e.target.value)
-                  }}
-                  onFocus={() => setFocused(true)}
-                  onBlur={() => dismissMatchesSoon(setFocused)}
-                  placeholder="Who comes to mind?"
-                  className={inputClass}
-                />
-              </div>
-            </motion.div>
-          ) : (
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        <AnimatePresence initial={false}>
+          {expanded && (
             <motion.div
-              key="expanded"
+              key="expanded-fields"
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-              className="space-y-3 overflow-hidden px-1 py-1"
+              className="space-y-3 overflow-hidden px-1 pt-3 pb-1"
             >
-              <div>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    onFocus={() => setFocused(true)}
-                    onBlur={() => dismissMatchesSoon(setFocused)}
-                    autoFocus
-                    placeholder="Their name"
-                    className="pack-inset text-pack-text placeholder:text-pack-text-muted w-full px-4 py-3.5 text-lg"
-                  />
-                  <button
-                    type="button"
-                    onClick={reset}
-                    className="text-pack-text-muted hover:text-pack-text absolute top-1/2 right-3 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full"
-                    aria-label="Clear"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-
               <div>
                 <textarea
                   value={memory}
@@ -222,12 +209,9 @@ export function QuickCapture({ onCreated, size = 'default' }: QuickCaptureProps)
 
               <PlaceField
                 label="Where did you meet?"
-                placeId={whereMetPlaceId}
-                placeName={whereMetPlaceName}
-                onChange={(id, name) => {
-                  setWhereMetPlaceId(id)
-                  setWhereMetPlaceName(name)
-                }}
+                value={encounterLocation}
+                onChange={setEncounterLocation}
+                autoCaptureGps
               />
 
               {canAdd && (

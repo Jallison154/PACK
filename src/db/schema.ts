@@ -1,5 +1,5 @@
 export const DB_NAME = 'pack_db'
-export const DB_VERSION = 7
+export const DB_VERSION = 9
 
 export const MIGRATIONS = [
   `CREATE TABLE IF NOT EXISTS people (
@@ -164,4 +164,23 @@ export const MIGRATIONS = [
   `ALTER TABLE places ADD COLUMN updated_at TEXT`,
   `ALTER TABLE places ADD COLUMN deleted_at TEXT`,
   `UPDATE places SET updated_at = created_at WHERE updated_at IS NULL`,
+
+  // v8 — approximate where-met GPS (no auto-created place)
+  `ALTER TABLE people ADD COLUMN where_met_latitude REAL`,
+  `ALTER TABLE people ADD COLUMN where_met_longitude REAL`,
+  `ALTER TABLE people ADD COLUMN where_met_location_source TEXT`,
+  `ALTER TABLE people ADD COLUMN where_met_location_accuracy REAL`,
+  `ALTER TABLE people ADD COLUMN where_met_captured_at TEXT`,
+  `ALTER TABLE people ADD COLUMN where_met_is_approximate INTEGER DEFAULT 0`,
+  `ALTER TABLE people ADD COLUMN where_met_area_label TEXT`,
+
+  // v9 — Mapbox place metadata
+  `ALTER TABLE places ADD COLUMN mapbox_id TEXT`,
+  `ALTER TABLE places ADD COLUMN postal_code TEXT`,
+  `ALTER TABLE places ADD COLUMN country TEXT`,
+  `ALTER TABLE places ADD COLUMN poi_categories TEXT`,
+  `ALTER TABLE places ADD COLUMN brand TEXT`,
+  `ALTER TABLE places ADD COLUMN source TEXT DEFAULT 'manual'`,
+  `ALTER TABLE places ADD COLUMN feature_type TEXT`,
+  `CREATE INDEX IF NOT EXISTS idx_places_mapbox_id ON places(mapbox_id)`,
 ]

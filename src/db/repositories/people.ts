@@ -53,6 +53,83 @@ async function resolvePlaceId(
   return null
 }
 
+interface ResolvedWhereMet {
+  whereMetPlaceId: string | null
+  locationId: string | null
+  whereMetText: string | null
+  whereMetLatitude: number | null
+  whereMetLongitude: number | null
+  whereMetLocationSource: string | null
+  whereMetLocationAccuracy: number | null
+  whereMetCapturedAt: string | null
+  whereMetIsApproximate: number
+  whereMetAreaLabel: string | null
+}
+
+async function resolveWhereMetFields(input: PersonInput): Promise<ResolvedWhereMet> {
+  const hasApproximate =
+    input.whereMetIsApproximate === true &&
+    input.whereMetLatitude != null &&
+    input.whereMetLongitude != null &&
+    !input.whereMetPlaceId
+
+  if (input.whereMetPlaceId) {
+    const whereMetPlaceId = await resolvePlaceId(
+      input.whereMetPlaceId,
+      input.whereMet || input.event,
+      input.city,
+      input.state,
+    )
+    return {
+      whereMetPlaceId,
+      locationId: whereMetPlaceId,
+      whereMetText: input.whereMet ?? null,
+      whereMetLatitude: input.whereMetLatitude ?? null,
+      whereMetLongitude: input.whereMetLongitude ?? null,
+      whereMetLocationSource: input.whereMetLocationSource ?? 'saved_place',
+      whereMetLocationAccuracy: null,
+      whereMetCapturedAt: null,
+      whereMetIsApproximate: 0,
+      whereMetAreaLabel: null,
+    }
+  }
+
+  if (hasApproximate) {
+    return {
+      whereMetPlaceId: null,
+      locationId: null,
+      whereMetText: null,
+      whereMetLatitude: input.whereMetLatitude ?? null,
+      whereMetLongitude: input.whereMetLongitude ?? null,
+      whereMetLocationSource: input.whereMetLocationSource ?? 'gps',
+      whereMetLocationAccuracy: input.whereMetLocationAccuracy ?? null,
+      whereMetCapturedAt: input.whereMetCapturedAt ?? null,
+      whereMetIsApproximate: 1,
+      whereMetAreaLabel: input.whereMetAreaLabel ?? null,
+    }
+  }
+
+  const whereMetPlaceId = await resolvePlaceId(
+    undefined,
+    input.whereMet || input.event,
+    input.city,
+    input.state,
+  )
+
+  return {
+    whereMetPlaceId,
+    locationId: whereMetPlaceId,
+    whereMetText: input.whereMet ?? null,
+    whereMetLatitude: null,
+    whereMetLongitude: null,
+    whereMetLocationSource: null,
+    whereMetLocationAccuracy: null,
+    whereMetCapturedAt: null,
+    whereMetIsApproximate: 0,
+    whereMetAreaLabel: null,
+  }
+}
+
 async function getPlaceName(id: string | null): Promise<string | null> {
   if (!id) return null
   const rows = await db.query<{ name: string }>(
@@ -166,31 +243,25 @@ export async function createPerson(input: PersonInput): Promise<Person> {
   }
 
   let companyId: string | null = null
-  let whereMetPlaceId: string | null = null
-  let locationId: string | null = null
 
   if (input.company) {
     companyId = await upsertCompany(input.company)
   }
 
-  whereMetPlaceId = await resolvePlaceId(
-    input.whereMetPlaceId,
-    input.whereMet || input.event,
-    input.city,
-    input.state,
-  )
-  locationId = whereMetPlaceId
-
+  const whereMet = await resolveWhereMetFields(input)
   const lastSeenPlaceId = await resolvePlaceId(input.lastSeenPlaceId)
 
   await db.run(
     `INSERT INTO people (
       id, name, workspace, phone, email, company, company_id, job_title,
       where_met, event, city, state, location_id, where_met_place_id,
+      where_met_latitude, where_met_longitude, where_met_location_source,
+      where_met_location_accuracy, where_met_captured_at, where_met_is_approximate,
+      where_met_area_label,
       date_met, notes, relationship_type, household_id, home_address, work_location,
       last_seen_at, last_seen_place_id, last_seen_date, last_interaction_notes,
       profile_color, is_favorite, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
     [
       id,
       input.name,
@@ -200,12 +271,19 @@ export async function createPerson(input: PersonInput): Promise<Person> {
       input.company ?? null,
       companyId,
       input.jobTitle ?? null,
-      input.whereMet ?? null,
+      whereMet.whereMetText,
       input.event ?? null,
       input.city ?? null,
       input.state ?? null,
-      locationId,
-      whereMetPlaceId,
+      whereMet.locationId,
+      whereMet.whereMetPlaceId,
+      whereMet.whereMetLatitude,
+      whereMet.whereMetLongitude,
+      whereMet.whereMetLocationSource,
+      whereMet.whereMetLocationAccuracy,
+      whereMet.whereMetCapturedAt,
+      whereMet.whereMetIsApproximate,
+      whereMet.whereMetAreaLabel,
       input.dateMet ?? now.split('T')[0],
       input.notes ?? null,
       input.relationshipType ?? null,
@@ -250,27 +328,23 @@ export async function updatePerson(id: string, input: PersonInput): Promise<Pers
   const countBefore = await countPackMembers()
   const now = new Date().toISOString()
   let companyId: string | null = existing.companyId
-  let whereMetPlaceId: string | null = existing.whereMetPlaceId
-  let locationId: string | null = existing.locationId
 
   if (input.company) {
     companyId = await upsertCompany(input.company)
   }
 
-  whereMetPlaceId = await resolvePlaceId(
-    input.whereMetPlaceId,
-    input.whereMet || input.event,
-    input.city,
-    input.state,
-  )
-  locationId = whereMetPlaceId
+  const whereMet = await resolveWhereMetFields(input)
   const lastSeenPlaceId = await resolvePlaceId(input.lastSeenPlaceId)
 
   const changes = await db.run(
     `UPDATE people SET
       name = ?, workspace = ?, phone = ?, email = ?, company = ?, company_id = ?,
       job_title = ?, where_met = ?, event = ?, city = ?, state = ?,
-      location_id = ?, where_met_place_id = ?, date_met = ?, notes = ?, relationship_type = ?,
+      location_id = ?, where_met_place_id = ?,
+      where_met_latitude = ?, where_met_longitude = ?, where_met_location_source = ?,
+      where_met_location_accuracy = ?, where_met_captured_at = ?, where_met_is_approximate = ?,
+      where_met_area_label = ?,
+      date_met = ?, notes = ?, relationship_type = ?,
       household_id = ?, home_address = ?, work_location = ?,
       last_seen_at = ?, last_seen_place_id = ?, last_seen_date = ?, last_interaction_notes = ?,
       updated_at = ?
@@ -283,12 +357,19 @@ export async function updatePerson(id: string, input: PersonInput): Promise<Pers
       input.company ?? null,
       companyId,
       input.jobTitle ?? null,
-      input.whereMet ?? null,
+      whereMet.whereMetText,
       input.event ?? null,
       input.city ?? null,
       input.state ?? null,
-      locationId,
-      whereMetPlaceId,
+      whereMet.locationId,
+      whereMet.whereMetPlaceId,
+      whereMet.whereMetLatitude,
+      whereMet.whereMetLongitude,
+      whereMet.whereMetLocationSource,
+      whereMet.whereMetLocationAccuracy,
+      whereMet.whereMetCapturedAt,
+      whereMet.whereMetIsApproximate,
+      whereMet.whereMetAreaLabel,
       input.dateMet ?? null,
       input.notes ?? null,
       input.relationshipType ?? null,
@@ -372,6 +453,19 @@ export async function mergeDraftIntoPerson(
     company: preferString(keep.company, draft.company),
     jobTitle: preferString(keep.jobTitle, draft.jobTitle),
     whereMet: preferString(keep.whereMet, draft.whereMet),
+    whereMetPlaceId: draft.whereMetPlaceId !== undefined ? draft.whereMetPlaceId : keep.whereMetPlaceId,
+    whereMetLatitude:
+      draft.whereMetLatitude !== undefined ? draft.whereMetLatitude : keep.whereMetLatitude,
+    whereMetLongitude:
+      draft.whereMetLongitude !== undefined ? draft.whereMetLongitude : keep.whereMetLongitude,
+    whereMetLocationSource: draft.whereMetLocationSource ?? keep.whereMetLocationSource,
+    whereMetLocationAccuracy:
+      draft.whereMetLocationAccuracy !== undefined
+        ? draft.whereMetLocationAccuracy
+        : keep.whereMetLocationAccuracy,
+    whereMetCapturedAt: draft.whereMetCapturedAt ?? keep.whereMetCapturedAt,
+    whereMetIsApproximate: draft.whereMetIsApproximate ?? keep.whereMetIsApproximate,
+    whereMetAreaLabel: draft.whereMetAreaLabel ?? keep.whereMetAreaLabel,
     event: preferString(keep.event, draft.event),
     city: preferString(keep.city, draft.city),
     state: preferString(keep.state, draft.state),
