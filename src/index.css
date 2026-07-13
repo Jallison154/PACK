@@ -10,9 +10,6 @@
 
   /* Mobile bottom tab bar — safe-area counted once inside nav padding */
   --mobile-nav-base-height: 4.25rem; /* 68px */
-  --app-content-bottom: calc(
-    var(--mobile-nav-base-height) + env(safe-area-inset-bottom, 0px) + 16px
-  );
 
   /* Full-screen form action bar (no tab nav) */
   --mobile-form-actions-height: 4.5rem;
@@ -224,7 +221,9 @@ body::after {
 @media (max-width: 767px) {
   .app-content {
     min-height: 100dvh;
-    padding-bottom: var(--app-content-bottom);
+    padding-bottom: calc(
+      var(--mobile-nav-base-height) + env(safe-area-inset-bottom, 0px) + 16px
+    );
   }
 }
 
@@ -377,6 +376,11 @@ textarea::placeholder {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
   box-sizing: border-box;
+  background-color: var(--bg-layer-elevated);
+  border-top: 1px solid var(--border-layer);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 -4px 24px rgba(0, 0, 0, 0.35);
 }
 
 .mobile-bottom-nav__inner {
@@ -466,6 +470,13 @@ video {
   .home-hero-panel {
     min-height: 100dvh;
   }
+}
+
+html,
+body,
+#root,
+.app-shell {
+  background-color: var(--bg-primary);
 }
 
 html.standalone-pwa,

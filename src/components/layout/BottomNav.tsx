@@ -30,7 +30,7 @@ export function BottomNav() {
   if (isDesktop || shouldHideBottomNav(pathname)) return null
 
   return (
-    <nav className="pack-nav mobile-bottom-nav md:hidden" aria-label="Main">
+    <nav className="mobile-bottom-nav md:hidden" aria-label="Main">
       <div className="mobile-bottom-nav__inner mx-auto flex max-w-lg items-center justify-around px-1 pt-1">
         {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink key={to} to={to} end={navLinkEnd(to)} replace>

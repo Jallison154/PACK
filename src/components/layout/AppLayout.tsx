@@ -8,11 +8,11 @@ export function AppLayout() {
   return (
     <div className="app-shell">
       <DesktopNav />
-      <div className="app-top-banners">
-        <PwaUpdatePrompt />
-        <SyncNoticeBanner />
-      </div>
       <main className="app-content mx-auto w-full max-w-lg md:max-w-5xl">
+        <div className="app-top-banners">
+          <PwaUpdatePrompt />
+          <SyncNoticeBanner />
+        </div>
         <Outlet />
       </main>
       <BottomNav />
