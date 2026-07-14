@@ -149,7 +149,6 @@ export function HomeDesktop({ data, nearby, onCreated, onOpenPerson }: HomeDeskt
               geoError={nearby.geoError}
               onOpenPerson={onOpenPerson}
               onRetry={nearby.retry}
-              variant="card"
             />
           </SectionCard>
 

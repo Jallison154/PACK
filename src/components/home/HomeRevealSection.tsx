@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 
 interface HomeRevealSectionProps {
-  title: string
+  title: ReactNode
   subtitle?: string
   action?: ReactNode
   children: ReactNode

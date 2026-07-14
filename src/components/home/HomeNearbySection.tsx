@@ -1,7 +1,9 @@
 import { useNavigate } from 'react-router-dom'
+import { MapPin, Navigation } from 'lucide-react'
+import { Avatar } from '../ui/Avatar'
 import { HomeRevealSection } from './HomeRevealSection'
-import { HomePersonRow } from './HomePersonRow'
 import { formatDistance } from '../../utils/geo'
+import { formatRelative } from '../../utils/format'
 import type { NearbyPersonResult } from '../../db/repositories/places'
 import type { GeoStatus } from '../../hooks/useGeolocation'
 
@@ -12,11 +14,90 @@ interface HomeNearbySectionProps {
   geoError: string | null
   onOpenPerson: (personId: string) => void
   onRetry: () => void
-  variant?: 'feed' | 'card'
 }
 
 function EmptyLine({ children }: { children: string }) {
   return <p className="text-pack-text-muted/60 px-1 text-sm">{children}</p>
+}
+
+function matchVerb(kind: NearbyPersonResult['matchKind']): string {
+  if (kind === 'last_seen_at_place') return 'Last seen'
+  if (kind === 'approximate_gps') return 'Met near here'
+  return 'Met here'
+}
+
+function placeLabel(item: NearbyPersonResult): string | null {
+  if (item.place?.name) return item.place.name
+  const area = item.person.whereMetAreaLabel || item.person.whereMet
+  return area || null
+}
+
+function NearbyPersonCard({
+  item,
+  onOpenPerson,
+}: {
+  item: NearbyPersonResult
+  onOpenPerson: (personId: string) => void
+}) {
+  const navigate = useNavigate()
+  const when = formatRelative(item.occurredAt)
+  const distance = formatDistance(item.distanceMeters / 1000)
+  const place = placeLabel(item)
+  const eventName = item.eventName
+  const verb = matchVerb(item.matchKind)
+
+  return (
+    <div className="pack-surface overflow-hidden rounded-2xl">
+      <button
+        type="button"
+        onClick={() => onOpenPerson(item.person.id)}
+        className="hover:bg-pack-card-hover/40 flex w-full items-start gap-3 px-3.5 py-3 text-left transition-colors"
+      >
+        <Avatar name={item.person.name} color={item.person.profileColor} size="md" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-pack-text truncate text-[15px] font-medium leading-snug">
+              {item.person.name}
+            </p>
+            <span className="bg-pack-accent-muted text-pack-accent shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium tabular-nums">
+              {distance}
+            </span>
+          </div>
+
+          {eventName && (
+            <p className="text-pack-text-secondary mt-1 truncate text-sm leading-snug">
+              {eventName}
+            </p>
+          )}
+
+          <p className="text-pack-text-muted mt-1.5 text-xs leading-snug">
+            {verb}
+            {when ? ` · ${when}` : ''}
+          </p>
+        </div>
+      </button>
+
+      {place && (
+        <div className="border-pack-border/60 border-t px-3.5 py-2">
+          {item.place ? (
+            <button
+              type="button"
+              onClick={() => navigate(`/places/${item.place!.id}`)}
+              className="text-pack-text-muted hover:text-pack-accent flex w-full min-w-0 items-center gap-2 text-left text-xs transition-colors"
+            >
+              <MapPin className="text-pack-accent/80 h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{place}</span>
+            </button>
+          ) : (
+            <p className="text-pack-text-muted flex min-w-0 items-center gap-2 text-xs">
+              <MapPin className="h-3.5 w-3.5 shrink-0 opacity-60" />
+              <span className="truncate">{place}</span>
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function HomeNearbySection({
@@ -26,7 +107,6 @@ export function HomeNearbySection({
   geoError,
   onOpenPerson,
   onRetry,
-  variant = 'feed',
 }: HomeNearbySectionProps) {
   const navigate = useNavigate()
 
@@ -77,36 +157,14 @@ export function HomeNearbySection({
     }
 
     return (
-      <div className="space-y-1">
+      <div className="space-y-2.5">
         {people.map((item) => (
-          <div key={item.person.id} className="min-w-0">
-            <HomePersonRow person={item.person} onOpenPerson={onOpenPerson} compact />
-            <p className="text-pack-text-muted -mt-1 mb-1 px-2 pl-[3.25rem] text-[11px] leading-snug">
-              <span className="line-clamp-2">
-                {item.contextLabel}
-                {' · '}
-                {formatDistance(item.distanceMeters / 1000)}
-              </span>
-              {item.place && (
-                <>
-                  {' · '}
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/places/${item.place!.id}`)}
-                    className="text-pack-accent hover:underline"
-                  >
-                    View place
-                  </button>
-                </>
-              )}
-            </p>
-          </div>
+          <NearbyPersonCard key={item.person.id} item={item} onOpenPerson={onOpenPerson} />
         ))}
       </div>
     )
   })()
 
-  // Keep the section visible so location permission UX isn’t buried
   const show =
     loading ||
     people.length > 0 ||
@@ -119,16 +177,16 @@ export function HomeNearbySection({
 
   if (!show) return null
 
-  if (variant === 'card') {
-    return (
-      <HomeRevealSection title="Near You" subtitle={subtitle}>
-        {body}
-      </HomeRevealSection>
-    )
-  }
-
   return (
-    <HomeRevealSection title="Near You" subtitle={subtitle}>
+    <HomeRevealSection
+      title={
+        <span className="inline-flex items-center gap-1.5">
+          <Navigation className="text-pack-accent h-3.5 w-3.5" aria-hidden />
+          Near You
+        </span>
+      }
+      subtitle={subtitle}
+    >
       {body}
     </HomeRevealSection>
   )
