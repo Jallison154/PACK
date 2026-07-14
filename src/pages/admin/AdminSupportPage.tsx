@@ -32,6 +32,7 @@ export function AdminSupportPage() {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [displayName, setDisplayName] = useState('')
+  const [editingProfile, setEditingProfile] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const map = getMapRuntimeDiagnostics()
@@ -68,6 +69,7 @@ export function AdminSupportPage() {
 
   const loadDetail = async (user: AdminDirectoryUser) => {
     setSelected(user)
+    setEditingProfile(false)
     setFirstName(user.first_name ?? '')
     setLastName(user.last_name ?? '')
     setDisplayName(user.display_name ?? '')
@@ -99,6 +101,7 @@ export function AdminSupportPage() {
       return
     }
     setMessage('Profile updated.')
+    setEditingProfile(false)
     await loadDetail(selected)
   }
 
@@ -174,48 +177,75 @@ export function AdminSupportPage() {
           </div>
 
           <div className="space-y-3">
-            <h3 className="text-pack-text text-sm font-medium">Adjust account data</h3>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block">
-                <span className="text-pack-text-muted text-xs uppercase tracking-wide">
-                  First name
-                </span>
-                <input
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
-                />
-              </label>
-              <label className="block">
-                <span className="text-pack-text-muted text-xs uppercase tracking-wide">
-                  Last name
-                </span>
-                <input
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
-                />
-              </label>
-              <label className="block sm:col-span-2">
-                <span className="text-pack-text-muted text-xs uppercase tracking-wide">
-                  Display name
-                </span>
-                <input
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
-                />
-              </label>
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-pack-text text-sm font-medium">Account data</h3>
+              {!editingProfile ? (
+                <AdminButton onClick={() => setEditingProfile(true)}>Edit</AdminButton>
+              ) : (
+                <AdminButton
+                  onClick={() => {
+                    setEditingProfile(false)
+                    setFirstName(selected.first_name ?? '')
+                    setLastName(selected.last_name ?? '')
+                    setDisplayName(selected.display_name ?? '')
+                  }}
+                >
+                  Cancel
+                </AdminButton>
+              )}
             </div>
-            <AdminButton disabled={busy} onClick={() => void saveProfile()}>
-              Save profile
-            </AdminButton>
+
+            {!editingProfile ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Meta label="First name" value={firstName || '—'} />
+                <Meta label="Last name" value={lastName || '—'} />
+                <Meta label="Display name" value={displayName || '—'} />
+                <Meta label="Email" value={selected.email ?? '—'} />
+              </div>
+            ) : (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-pack-text-muted text-xs uppercase tracking-wide">
+                      First name
+                    </span>
+                    <input
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-pack-text-muted text-xs uppercase tracking-wide">
+                      Last name
+                    </span>
+                    <input
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+                    />
+                  </label>
+                  <label className="block sm:col-span-2">
+                    <span className="text-pack-text-muted text-xs uppercase tracking-wide">
+                      Display name
+                    </span>
+                    <input
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+                    />
+                  </label>
+                </div>
+                <AdminButton disabled={busy} onClick={() => void saveProfile()}>
+                  Save profile
+                </AdminButton>
+              </>
+            )}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Meta label="Auth / account" value={selected.account_status} />
             <Meta label="Role" value={selected.role} />
-            <Meta label="Email" value={selected.email ?? '—'} />
             <Meta label="Last sync" value={selected.last_sync_at ?? '—'} />
             <Meta label="Last error" value={selected.last_sync_error ?? 'None'} />
             <Meta label="Pending ops" value={String(selected.pending_sync_count)} />

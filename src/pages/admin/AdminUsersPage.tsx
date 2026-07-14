@@ -470,11 +470,20 @@ function UserDetailPanel({
   const [reason, setReason] = useState('')
   const [role, setRole] = useState<AdminRole>(user.role)
   const [note, setNote] = useState('')
+  const [editingProfile, setEditingProfile] = useState(false)
   const [firstName, setFirstName] = useState(user.first_name ?? '')
   const [lastName, setLastName] = useState(user.last_name ?? '')
   const [displayName, setDisplayName] = useState(user.display_name ?? '')
   const [email, setEmail] = useState(user.email ?? '')
   const [tempPassword, setTempPassword] = useState('')
+
+  const resetEditFields = () => {
+    setFirstName(user.first_name ?? '')
+    setLastName(user.last_name ?? '')
+    setDisplayName(user.display_name ?? '')
+    setEmail(user.email ?? '')
+    setTempPassword('')
+  }
 
   const reloadDetail = async () => {
     const result = await fetchAdminUser(user.user_id)
@@ -488,11 +497,8 @@ function UserDetailPanel({
   }
 
   useEffect(() => {
-    setFirstName(user.first_name ?? '')
-    setLastName(user.last_name ?? '')
-    setDisplayName(user.display_name ?? '')
-    setEmail(user.email ?? '')
-    setTempPassword('')
+    setEditingProfile(false)
+    resetEditFields()
     void reloadDetail()
   }, [user.user_id])
 
@@ -523,6 +529,7 @@ function UserDetailPanel({
       return
     }
     onMessage('Profile updated.')
+    setEditingProfile(false)
     await reloadDetail()
   }
 
@@ -601,74 +608,107 @@ function UserDetailPanel({
       </div>
 
       <div className="space-y-3">
-        <h3 className="text-pack-text text-sm font-medium">Account data</h3>
-        <p className="text-pack-text-muted text-xs">
-          Edit account profile fields for support. Pack Member names, notes, and private place
-          history stay private and are not editable here.
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block">
-            <span className="text-pack-text-muted text-xs uppercase tracking-wide">First name</span>
-            <input
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="block">
-            <span className="text-pack-text-muted text-xs uppercase tracking-wide">Last name</span>
-            <input
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="block sm:col-span-2">
-            <span className="text-pack-text-muted text-xs uppercase tracking-wide">
-              Display name
-            </span>
-            <input
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
-            />
-          </label>
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-pack-text text-sm font-medium">Account data</h3>
+          {!editingProfile ? (
+            <AdminButton onClick={() => setEditingProfile(true)}>Edit</AdminButton>
+          ) : (
+            <AdminButton
+              onClick={() => {
+                setEditingProfile(false)
+                resetEditFields()
+              }}
+            >
+              Cancel
+            </AdminButton>
+          )}
         </div>
-        <AdminButton disabled={busy} onClick={() => void saveProfile()}>
-          Save profile
-        </AdminButton>
 
-        {canManageUsers && (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block sm:col-span-2">
-              <span className="text-pack-text-muted text-xs uppercase tracking-wide">Email</span>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
-              />
-            </label>
-            <AdminButton disabled={busy} onClick={() => void saveEmail()}>
-              Save email
-            </AdminButton>
-            <label className="block sm:col-span-2">
-              <span className="text-pack-text-muted text-xs uppercase tracking-wide">
-                Set temporary password
-              </span>
-              <input
-                type="text"
-                value={tempPassword}
-                onChange={(e) => setTempPassword(e.target.value)}
-                className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
-                placeholder="At least 8 characters"
-                autoComplete="new-password"
-              />
-            </label>
-            <AdminButton disabled={busy || tempPassword.length < 8} onClick={() => void savePassword()}>
-              Set password
-            </AdminButton>
+        {!editingProfile ? (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <Info label="First name" value={firstName || '—'} />
+            <Info label="Last name" value={lastName || '—'} />
+            <Info label="Display name" value={displayName || '—'} />
+            <Info label="Email" value={email || '—'} />
           </div>
+        ) : (
+          <>
+            <p className="text-pack-text-muted text-xs">
+              Pack Member names, notes, and private place history stay private and are not editable
+              here.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-pack-text-muted text-xs uppercase tracking-wide">
+                  First name
+                </span>
+                <input
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block">
+                <span className="text-pack-text-muted text-xs uppercase tracking-wide">
+                  Last name
+                </span>
+                <input
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="text-pack-text-muted text-xs uppercase tracking-wide">
+                  Display name
+                </span>
+                <input
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+                />
+              </label>
+            </div>
+            <AdminButton disabled={busy} onClick={() => void saveProfile()}>
+              Save profile
+            </AdminButton>
+
+            {canManageUsers && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block sm:col-span-2">
+                  <span className="text-pack-text-muted text-xs uppercase tracking-wide">Email</span>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+                  />
+                </label>
+                <AdminButton disabled={busy} onClick={() => void saveEmail()}>
+                  Save email
+                </AdminButton>
+                <label className="block sm:col-span-2">
+                  <span className="text-pack-text-muted text-xs uppercase tracking-wide">
+                    Set temporary password
+                  </span>
+                  <input
+                    type="text"
+                    value={tempPassword}
+                    onChange={(e) => setTempPassword(e.target.value)}
+                    className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+                    placeholder="At least 8 characters"
+                    autoComplete="new-password"
+                  />
+                </label>
+                <AdminButton
+                  disabled={busy || tempPassword.length < 8}
+                  onClick={() => void savePassword()}
+                >
+                  Set password
+                </AdminButton>
+              </div>
+            )}
+          </>
         )}
       </div>
 
