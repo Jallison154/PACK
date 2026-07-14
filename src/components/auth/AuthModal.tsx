@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import { Button } from '../ui/Button'
@@ -23,6 +23,13 @@ export function AuthModal({ open, onClose, initialView = 'login', onSuccess }: A
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    setView(initialView)
+    setError(null)
+    setMessage(null)
+  }, [open, initialView])
 
   if (!open) return null
 

@@ -11,6 +11,7 @@ export function SyncPromptBanner() {
     () => localStorage.getItem(SYNC_STORAGE_KEYS.promptDismissed) === 'true',
   )
   const [authOpen, setAuthOpen] = useState(false)
+  const [authView, setAuthView] = useState<'login' | 'signup'>('login')
 
   if (!isCloudSyncAvailable() || !cloudAvailable || isAuthenticated || dismissed) {
     return null
@@ -31,14 +32,20 @@ export function SyncPromptBanner() {
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => setAuthOpen(true)}
+                onClick={() => {
+                  setAuthView('signup')
+                  setAuthOpen(true)
+                }}
                 className="bg-pack-accent rounded-xl px-3 py-2 text-sm font-medium text-black"
               >
                 Create account
               </button>
               <button
                 type="button"
-                onClick={() => setAuthOpen(true)}
+                onClick={() => {
+                  setAuthView('login')
+                  setAuthOpen(true)
+                }}
                 className="text-pack-text-secondary hover:text-pack-text rounded-xl px-3 py-2 text-sm"
               >
                 Sign in
@@ -58,7 +65,11 @@ export function SyncPromptBanner() {
         </div>
       </div>
 
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+      <AuthModal
+        open={authOpen}
+        onClose={() => setAuthOpen(false)}
+        initialView={authView}
+      />
     </>
   )
 }
