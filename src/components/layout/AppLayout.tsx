@@ -2,6 +2,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { BottomNav } from './BottomNav'
 import { DesktopNav } from './DesktopNav'
 import { PwaUpdatePrompt } from '../auth/PwaUpdatePrompt'
+import { PwaInstallPrompt } from '../auth/PwaInstallPrompt'
 import { SyncNoticeBanner } from '../auth/SyncNoticeBanner'
 
 function shouldHideBottomNav(pathname: string): boolean {
@@ -24,6 +25,7 @@ export function AppLayout() {
       <main className="app-content mx-auto w-full max-w-lg md:max-w-5xl xl:max-w-[1500px]">
         <div className="app-notices">
           <PwaUpdatePrompt />
+          <PwaInstallPrompt />
           <SyncNoticeBanner />
         </div>
         <Outlet />

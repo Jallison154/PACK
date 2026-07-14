@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import { HomeRevealSection } from './HomeRevealSection'
+import { HomeNearbySection } from './HomeNearbySection'
 import { HomePersonRow } from './HomePersonRow'
 import { HomePackMapCard } from './HomePackMapCard'
 import { QuickCapture } from './QuickCapture'
@@ -13,13 +14,14 @@ import { getGreeting } from '../../utils/greeting'
 import { formatDate } from '../../utils/format'
 import { getRelationshipLabel } from '../../types'
 import { getSyncStatusLabel } from '../../services/sync/engine'
-import type { HomeScrollData } from './HomeScrollContent'
+import type { HomeScrollData, HomeNearbyState } from './HomeScrollContent'
 import type { MemoryItem } from '../../utils/memoryFeed'
 import type { PersonWithTags } from '../../types'
 import type { ReactNode } from 'react'
 
 interface HomeDesktopProps {
   data: HomeScrollData
+  nearby: HomeNearbyState
   onCreated: () => void
   onOpenPerson: (personId: string) => void
 }
@@ -88,7 +90,7 @@ function coreLabel(person: PersonWithTags): string {
   return person.company || getRelationshipLabel(person.relationshipType) || 'Core'
 }
 
-export function HomeDesktop({ data, onCreated, onOpenPerson }: HomeDesktopProps) {
+export function HomeDesktop({ data, nearby, onCreated, onOpenPerson }: HomeDesktopProps) {
   const navigate = useNavigate()
   const { greetingName } = useProfile()
   const { isAuthenticated } = useAuth()
@@ -139,6 +141,18 @@ export function HomeDesktop({ data, onCreated, onOpenPerson }: HomeDesktopProps)
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(340px,420px)] xl:grid-cols-[minmax(0,1fr)_minmax(380px,460px)]">
         <div className="space-y-6">
+          <SectionCard>
+            <HomeNearbySection
+              people={nearby.people}
+              loading={nearby.loading}
+              geoStatus={nearby.geoStatus}
+              geoError={nearby.geoError}
+              onOpenPerson={onOpenPerson}
+              onRetry={nearby.retry}
+              variant="card"
+            />
+          </SectionCard>
+
           <SectionCard>
             <HomeRevealSection
               title="Recent Pack Members"

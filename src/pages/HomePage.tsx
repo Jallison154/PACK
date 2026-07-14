@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { usePackDataRefresh } from '../hooks/usePackDataRefresh'
+import { useHomeNearbyPeople } from '../hooks/useHomeNearbyPeople'
 import { useIsMobile, DESKTOP_BREAKPOINT } from '../components/ui/WorkspaceToggle'
 import { HomeMobile } from '../components/home/HomeMobile'
 import { HomeDesktop } from '../components/home/HomeDesktop'
@@ -29,6 +30,7 @@ export function HomePage() {
   const isMobile = useIsMobile(DESKTOP_BREAKPOINT)
   const [scrollData, setScrollData] = useState<HomeScrollData>(emptyScrollData)
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null)
+  const nearby = useHomeNearbyPeople()
 
   const load = useCallback(async () => {
     const [interactions, recent, followUps, places, mapPlaces, corePack, recentMembers, stats] =
@@ -72,6 +74,14 @@ export function HomePage() {
     setSelectedPersonId(personId)
   }, [])
 
+  const nearbyState = {
+    people: nearby.people,
+    loading: nearby.loading,
+    geoStatus: nearby.geoStatus,
+    geoError: nearby.geoError,
+    retry: nearby.retry,
+  }
+
   const sheet = (
     <PersonDetailSheet
       personId={selectedPersonId}
@@ -88,7 +98,12 @@ export function HomePage() {
   if (isMobile) {
     return (
       <>
-        <HomeMobile data={scrollData} onCreated={load} onOpenPerson={openPerson} />
+        <HomeMobile
+          data={scrollData}
+          nearby={nearbyState}
+          onCreated={load}
+          onOpenPerson={openPerson}
+        />
         {sheet}
       </>
     )
@@ -96,7 +111,12 @@ export function HomePage() {
 
   return (
     <>
-      <HomeDesktop data={scrollData} onCreated={load} onOpenPerson={openPerson} />
+      <HomeDesktop
+        data={scrollData}
+        nearby={nearbyState}
+        onCreated={load}
+        onOpenPerson={openPerson}
+      />
       {sheet}
     </>
   )

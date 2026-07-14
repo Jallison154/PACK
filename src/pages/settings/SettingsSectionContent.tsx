@@ -25,6 +25,7 @@ import {
   getMapRuntimeDiagnostics,
   subscribeMapRuntimeDiagnostics,
 } from '../../services/mapbox/mapRuntimeDiagnostics'
+import { useStandalonePwa } from '../../hooks/useStandalonePwa'
 
 const APP_VERSION = '1.0.0'
 
@@ -128,12 +129,17 @@ function AdvancedSettings() {
     getMapRuntimeDiagnostics,
     getMapRuntimeDiagnostics,
   )
+  const isStandalone = useStandalonePwa()
 
   return (
     <SettingsDetailCard>
       <InfoRow label="Database version" value={String(DB_VERSION)} />
       <InfoRow label="App build version" value={mapDiagnostics.appBuildVersion} />
       <InfoRow label="Build ID" value={mapDiagnostics.buildId} />
+      <InfoRow
+        label="Launch mode"
+        value={isStandalone ? 'Home Screen app' : 'Browser'}
+      />
 
       <div className="border-pack-border border-t px-4 py-3">
         <p className="text-pack-text text-sm font-medium">Map Diagnostics</p>

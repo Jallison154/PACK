@@ -399,6 +399,113 @@ export async function getPeopleLastSeenAtPlace(placeId: string): Promise<PersonW
   return people
 }
 
+export type NearbyPersonMatchKind = 'met_at_place' | 'last_seen_at_place' | 'approximate_gps'
+
+export interface NearbyPersonResult {
+  person: PersonWithTags
+  matchKind: NearbyPersonMatchKind
+  place: Place | null
+  distanceMeters: number
+  contextLabel: string
+}
+
+const NEARBY_RADIUS_METERS_DEFAULT = 200
+
+/**
+ * People you've met (or last seen) near the current GPS position.
+ * Matches saved places within radius, plus approximate GPS "where met" points.
+ */
+export async function getPeopleNearLocation(
+  lat: number,
+  lng: number,
+  options?: { radiusMeters?: number; includeLastSeen?: boolean; limit?: number },
+): Promise<NearbyPersonResult[]> {
+  const radiusMeters = options?.radiusMeters ?? NEARBY_RADIUS_METERS_DEFAULT
+  const includeLastSeen = options?.includeLastSeen ?? true
+  const limit = options?.limit ?? 12
+  const radiusKm = radiusMeters / 1000
+
+  const byPersonId = new Map<string, NearbyPersonResult>()
+
+  const rank: Record<NearbyPersonMatchKind, number> = {
+    met_at_place: 0,
+    last_seen_at_place: 1,
+    approximate_gps: 2,
+  }
+
+  const consider = (next: NearbyPersonResult) => {
+    const existing = byPersonId.get(next.person.id)
+    if (!existing) {
+      byPersonId.set(next.person.id, next)
+      return
+    }
+    const betterKind = rank[next.matchKind] < rank[existing.matchKind]
+    const closer =
+      rank[next.matchKind] === rank[existing.matchKind] &&
+      next.distanceMeters < existing.distanceMeters
+    if (betterKind || closer) byPersonId.set(next.person.id, next)
+  }
+
+  const nearbyPlaces = (await getNearbySavedPlaces(lat, lng, 40)).filter(
+    (place) => (place.distanceKm ?? Infinity) <= radiusKm,
+  )
+
+  for (const place of nearbyPlaces) {
+    const distanceMeters = Math.round((place.distanceKm ?? 0) * 1000)
+    const met = await getPeopleMetAtPlace(place.id)
+    for (const person of met) {
+      consider({
+        person,
+        matchKind: 'met_at_place',
+        place,
+        distanceMeters,
+        contextLabel: `Met at ${place.name}`,
+      })
+    }
+    if (includeLastSeen) {
+      const seen = await getPeopleLastSeenAtPlace(place.id)
+      for (const person of seen) {
+        consider({
+          person,
+          matchKind: 'last_seen_at_place',
+          place,
+          distanceMeters,
+          contextLabel: `Last seen at ${place.name}`,
+        })
+      }
+    }
+  }
+
+  const approxRows = await db.query(
+    `SELECT * FROM people
+     WHERE deleted_at IS NULL
+       AND where_met_is_approximate = 1
+       AND where_met_latitude IS NOT NULL
+       AND where_met_longitude IS NOT NULL`,
+  )
+
+  for (const row of approxRows) {
+    const personLat = Number(row.where_met_latitude)
+    const personLng = Number(row.where_met_longitude)
+    if (!Number.isFinite(personLat) || !Number.isFinite(personLng)) continue
+    const km = distanceKm(lat, lng, personLat, personLng)
+    if (km > radiusKm) continue
+    const person = await enrichPersonRow(row)
+    const area = (row.where_met_area_label as string | null) || person.whereMet || 'nearby'
+    consider({
+      person,
+      matchKind: 'approximate_gps',
+      place: null,
+      distanceMeters: Math.round(km * 1000),
+      contextLabel: `Met near ${area}`,
+    })
+  }
+
+  return [...byPersonId.values()]
+    .sort((a, b) => a.distanceMeters - b.distanceMeters || a.person.name.localeCompare(b.person.name))
+    .slice(0, limit)
+}
+
 export async function getInteractionsAtPlace(placeId: string): Promise<InteractionWithPerson[]> {
   const rows = await db.query(
     `SELECT i.*, pe.name as person_name, pe.workspace, pl.name as place_name

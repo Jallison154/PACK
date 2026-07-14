@@ -3,17 +3,18 @@ import { motion, useMotionValueEvent, useScroll, useTransform } from 'framer-mot
 import { PackLogo } from '../brand/PackLogo'
 import { QuickCapture } from './QuickCapture'
 import { HomeExploreIndicator } from './HomeExploreIndicator'
-import { HomeScrollContent, type HomeScrollData } from './HomeScrollContent'
+import { HomeScrollContent, type HomeScrollData, type HomeNearbyState } from './HomeScrollContent'
 import { getGreeting } from '../../utils/greeting'
 import { useProfile } from '../../context/ProfileContext'
 
 interface HomeMobileProps {
   data: HomeScrollData
+  nearby: HomeNearbyState
   onCreated: () => void
   onOpenPerson: (personId: string) => void
 }
 
-export function HomeMobile({ data, onCreated, onOpenPerson }: HomeMobileProps) {
+export function HomeMobile({ data, nearby, onCreated, onOpenPerson }: HomeMobileProps) {
   const { greetingName } = useProfile()
   const [viewportHeight, setViewportHeight] = useState(
     () => (typeof window !== 'undefined' ? window.innerHeight : 600),
@@ -87,7 +88,7 @@ export function HomeMobile({ data, onCreated, onOpenPerson }: HomeMobileProps) {
             </div>
           </header>
 
-          <HomeScrollContent data={data} onOpenPerson={onOpenPerson} />
+          <HomeScrollContent data={data} nearby={nearby} onOpenPerson={onOpenPerson} />
         </motion.section>
       </div>
     </div>

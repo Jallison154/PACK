@@ -1,11 +1,22 @@
 import { useNavigate } from 'react-router-dom'
 import { MapPin } from 'lucide-react'
 import { HomeRevealSection } from './HomeRevealSection'
+import { HomeNearbySection } from './HomeNearbySection'
 import { MemoryFeed } from './MemoryFeed'
 import { MemoryPersonCard } from './MemoryPersonCard'
 import { formatDate } from '../../utils/format'
 import type { MemoryItem } from '../../utils/memoryFeed'
 import type { InteractionWithPerson, PersonWithTags, Place, PlaceWithStats } from '../../types'
+import type { NearbyPersonResult } from '../../db/repositories/places'
+import type { GeoStatus } from '../../hooks/useGeolocation'
+
+export interface HomeNearbyState {
+  people: NearbyPersonResult[]
+  loading: boolean
+  geoStatus: GeoStatus
+  geoError: string | null
+  retry: () => void
+}
 
 export interface HomeScrollData {
   todayTrail: MemoryItem[]
@@ -25,6 +36,7 @@ export interface HomeScrollData {
 
 interface HomeScrollContentProps {
   data: HomeScrollData
+  nearby: HomeNearbyState
   onOpenPerson: (personId: string) => void
 }
 
@@ -32,12 +44,21 @@ function EmptyLine({ children }: { children: string }) {
   return <p className="text-pack-text-muted/60 px-1 text-sm">{children}</p>
 }
 
-export function HomeScrollContent({ data, onOpenPerson }: HomeScrollContentProps) {
+export function HomeScrollContent({ data, nearby, onOpenPerson }: HomeScrollContentProps) {
   const navigate = useNavigate()
   const { todayTrail, followUps, recentPlaces, corePack, insights } = data
 
   return (
     <div className="page-px mx-auto w-full max-w-sm space-y-16 pt-4">
+      <HomeNearbySection
+        people={nearby.people}
+        loading={nearby.loading}
+        geoStatus={nearby.geoStatus}
+        geoError={nearby.geoError}
+        onOpenPerson={onOpenPerson}
+        onRetry={nearby.retry}
+      />
+
       <HomeRevealSection title="Today's Trail">
         {todayTrail.length > 0 ? (
           <MemoryFeed items={todayTrail} flat onOpenPerson={onOpenPerson} />

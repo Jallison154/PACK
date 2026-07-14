@@ -4,6 +4,7 @@ import { Users, MapPin, Briefcase, Cloud } from 'lucide-react'
 import { PackLogo } from '../components/brand/PackLogo'
 import { Button } from '../components/ui/Button'
 import { AuthModal } from '../components/auth/AuthModal'
+import { PwaInstallPrompt } from '../components/auth/PwaInstallPrompt'
 import { isCloudSyncAvailable } from '../lib/env'
 
 const FEATURES = [
@@ -46,6 +47,9 @@ export function PublicLandingPage() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-[var(--bg-primary)]">
+      <div className="app-notices !bottom-4">
+        <PwaInstallPrompt />
+      </div>
       <main className="page-px mx-auto flex w-full max-w-lg flex-1 flex-col justify-center py-10">
         <div className="text-center">
           <PackLogo size="md" className="mx-auto" />
