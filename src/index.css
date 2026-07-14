@@ -538,7 +538,8 @@ video {
 }
 
 .home-fade-spacer {
-  height: 12vh;
+  display: none;
+  height: 0;
   flex-shrink: 0;
 }
 
