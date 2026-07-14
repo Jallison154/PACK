@@ -1,15 +1,14 @@
 import { Star } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 import { Avatar } from '../ui/Avatar'
 import type { PersonWithTags } from '../../types'
 
 interface PackMemberRowProps {
   person: PersonWithTags
   showDivider?: boolean
+  onSelect?: (person: PersonWithTags) => void
 }
 
-export function PackMemberRow({ person, showDivider = true }: PackMemberRowProps) {
-  const navigate = useNavigate()
+export function PackMemberRow({ person, showDivider = true, onSelect }: PackMemberRowProps) {
   const subtitle =
     person.company ||
     person.whereMetPlaceName ||
@@ -21,7 +20,7 @@ export function PackMemberRow({ person, showDivider = true }: PackMemberRowProps
   return (
     <button
       type="button"
-      onClick={() => navigate(`/person/${person.id}`)}
+      onClick={() => onSelect?.(person)}
       className={`hover:bg-pack-card-hover/50 flex w-full items-center gap-3 px-4 py-3 text-left transition-colors ${
         showDivider ? 'border-pack-border/20 border-b' : ''
       }`}

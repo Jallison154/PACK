@@ -3,6 +3,7 @@ import { MobilePageShell } from '../components/layout/MobilePageShell'
 import { Search, Users, SlidersHorizontal, X } from 'lucide-react'
 import { PackMemberRow } from '../components/pack/PackMemberRow'
 import { AlphabetIndex } from '../components/pack/AlphabetIndex'
+import { PersonDetailSheet } from '../components/person/PersonDetailSheet'
 import { EmptyState } from '../components/ui/EmptyState'
 import {
   listPackMembers,
@@ -41,6 +42,7 @@ export function MyPackPage() {
   const [showOptions, setShowOptions] = useState(false)
   const [people, setPeople] = useState<PersonWithTags[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null)
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({})
 
   const debouncedQuery = useDebouncedValue(query, 200)
@@ -205,6 +207,7 @@ export function MyPackPage() {
                     key={person.id}
                     person={person}
                     showDivider={i < group.people.length - 1}
+                    onSelect={(member) => setSelectedPersonId(member.id)}
                   />
                 ))}
               </section>
@@ -218,11 +221,23 @@ export function MyPackPage() {
                 key={person.id}
                 person={person}
                 showDivider={i < people.length - 1}
+                onSelect={(member) => setSelectedPersonId(member.id)}
               />
             ))}
           </div>
         )}
       </div>
+
+      <PersonDetailSheet
+        personId={selectedPersonId}
+        open={Boolean(selectedPersonId)}
+        onClose={() => setSelectedPersonId(null)}
+        onChanged={() => void load()}
+        onDeleted={() => {
+          setSelectedPersonId(null)
+          void load()
+        }}
+      />
     </MobilePageShell>
   )
 }
