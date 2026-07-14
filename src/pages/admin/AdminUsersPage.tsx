@@ -265,7 +265,7 @@ function UserDetailPanel({
         <Info label="Pending sync" value={String(user.pending_sync_count)} />
         <Info label="Pack Members" value={String(user.people_count)} />
         <Info label="Places" value={String(user.places_count)} />
-        <Info label="Storage" value={formatBytes(user.storage_bytes)} />
+        <Info label="Cloud storage (est.)" value={formatBytes(user.storage_bytes)} />
         <Info label="Email verified" value={user.email_verified ? 'Yes' : 'Unknown / No'} />
         <Info label="Last sync error" value={user.last_sync_error ?? 'None'} />
       </div>
