@@ -107,6 +107,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSyncMode('cloud')
       }
 
+      // Fresh login / signup session — offer Home Screen shortcut after auth (not on restore).
+      if (event === 'SIGNED_IN' && nextSession?.user) {
+        void import('../services/pwa/installPrompt').then(({ armPwaInstallOffer }) => {
+          armPwaInstallOffer()
+        })
+      }
+
       if (event === 'SIGNED_OUT') {
         void clearAuthenticatedSession(nextSession?.user?.id ?? null)
         setSyncMode('local')

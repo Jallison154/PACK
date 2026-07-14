@@ -4,6 +4,7 @@ import { X } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { useAuth } from '../../context/AuthContext'
+import { armPwaInstallOffer } from '../../services/pwa/installPrompt'
 
 type AuthView = 'login' | 'signup' | 'forgot'
 
@@ -47,6 +48,7 @@ export function AuthModal({ open, onClose, initialView = 'login', onSuccess }: A
       setError(result.error)
       return
     }
+    armPwaInstallOffer()
     onSuccess?.()
     onClose()
   }
@@ -60,6 +62,9 @@ export function AuthModal({ open, onClose, initialView = 'login', onSuccess }: A
       setError(result.error)
       return
     }
+    // If email confirmation is off, SIGNED_IN also arms the offer; if confirmation is required,
+    // the offer arms on the next successful sign-in.
+    armPwaInstallOffer()
     setMessage('Check your email to confirm your account, then sign in.')
     setView('login')
   }

@@ -26,6 +26,8 @@ import {
   subscribeMapRuntimeDiagnostics,
 } from '../../services/mapbox/mapRuntimeDiagnostics'
 import { useStandalonePwa } from '../../hooks/useStandalonePwa'
+import { usePwaInstallPrompt } from '../../hooks/usePwaInstallPrompt'
+import { PwaInstallHelpDialog } from '../../components/auth/PwaInstallPrompt'
 
 const APP_VERSION = '1.0.0'
 
@@ -167,66 +169,102 @@ function AdvancedSettings() {
 function AboutSettings() {
   const navigate = useNavigate()
   const admin = useAdminOptional()
+  const {
+    isStandalone,
+    canManualInstall,
+    canNativeInstall,
+    isIos,
+    showIosHelp,
+    setShowIosHelp,
+    install,
+  } = usePwaInstallPrompt()
 
   return (
-    <SettingsDetailCard>
-      <div className="flex flex-col items-center gap-4 px-4 py-8">
-        <img
-          src={packLogoSrc}
-          alt="Pack"
-          className="h-auto w-full max-w-[180px] object-contain"
-          draggable={false}
-        />
-        <div className="text-center">
-          <p className="text-pack-text-muted text-sm">Version {APP_VERSION}</p>
-          <p className="text-pack-text-muted mt-1 text-sm">Okami Designs</p>
+    <>
+      <SettingsDetailCard>
+        <div className="flex flex-col items-center gap-4 px-4 py-8">
+          <img
+            src={packLogoSrc}
+            alt="Pack"
+            className="h-auto w-full max-w-[180px] object-contain"
+            draggable={false}
+          />
+          <div className="text-center">
+            <p className="text-pack-text-muted text-sm">Version {APP_VERSION}</p>
+            <p className="text-pack-text-muted mt-1 text-sm">Okami Designs</p>
+          </div>
         </div>
-      </div>
-      {admin?.isStaff && (
+        {admin?.isStaff && (
+          <ActionRow
+            label="Admin Portal"
+            description="Staff tools — not shown to regular users"
+            action={<LinkButton onClick={() => navigate('/admin')}>Open</LinkButton>}
+          />
+        )}
         <ActionRow
-          label="Admin Portal"
-          description="Staff tools — not shown to regular users"
-          action={<LinkButton onClick={() => navigate('/admin')}>Open</LinkButton>}
+          label="Add to Home Screen"
+          description={
+            isStandalone
+              ? 'Pack is already open as a Home Screen app'
+              : canManualInstall
+                ? 'Install Pack for quick fullscreen access'
+                : 'Available when you open Pack on a phone'
+          }
+          action={
+            isStandalone ? (
+              <span className="text-pack-text-muted text-sm">Installed</span>
+            ) : canManualInstall ? (
+              <SettingsButton onClick={() => void install()}>
+                {canNativeInstall ? 'Add' : 'How'}
+              </SettingsButton>
+            ) : (
+              <span className="text-pack-text-muted text-sm">Phone only</span>
+            )
+          }
         />
+        <ActionRow
+          label="Website"
+          action={
+            <LinkButton href="https://okamidesigns.com" external>
+              Visit
+            </LinkButton>
+          }
+        />
+        <ActionRow
+          label="Privacy Policy"
+          action={<LinkButton onClick={() => navigate('/privacy')}>View</LinkButton>}
+        />
+        <ActionRow
+          label="Terms"
+          action={<LinkButton onClick={() => navigate('/terms')}>View</LinkButton>}
+        />
+        <ActionRow
+          label="Send Feedback"
+          action={
+            <LinkButton onClick={() => openPackFeedbackEmail(APP_VERSION)}>Email</LinkButton>
+          }
+        />
+        <ActionRow
+          label="Feature Request"
+          description="Suggest something you'd like Pack to do"
+          action={
+            <LinkButton onClick={() => openPackFeatureRequestEmail(APP_VERSION)}>Email</LinkButton>
+          }
+        />
+        <ActionRow
+          label="Support Pack"
+          description="Help fund future Pack features"
+          action={
+            <LinkButton href="https://ko-fi.com/okamidesigns" external>
+              Support
+            </LinkButton>
+          }
+        />
+      </SettingsDetailCard>
+
+      {showIosHelp && (
+        <PwaInstallHelpDialog isIos={isIos} onClose={() => setShowIosHelp(false)} />
       )}
-      <ActionRow
-        label="Website"
-        action={
-          <LinkButton href="https://okamidesigns.com" external>
-            Visit
-          </LinkButton>
-        }
-      />
-      <ActionRow
-        label="Privacy Policy"
-        action={<LinkButton onClick={() => navigate('/privacy')}>View</LinkButton>}
-      />
-      <ActionRow
-        label="Terms"
-        action={<LinkButton onClick={() => navigate('/terms')}>View</LinkButton>}
-      />
-      <ActionRow
-        label="Send Feedback"
-        action={
-          <LinkButton onClick={() => openPackFeedbackEmail(APP_VERSION)}>Email</LinkButton>
-        }
-      />
-      <ActionRow
-        label="Feature Request"
-        description="Suggest something you'd like Pack to do"
-        action={
-          <LinkButton onClick={() => openPackFeatureRequestEmail(APP_VERSION)}>Email</LinkButton>
-        }
-      />
-      <ActionRow
-        label="Support Pack"
-        description="Help fund future Pack features"
-        action={
-          <LinkButton href="https://ko-fi.com/okamidesigns" external>
-            Support
-          </LinkButton>
-        }
-      />
-    </SettingsDetailCard>
+    </>
   )
 }

@@ -81,10 +81,12 @@ export function HomeNearbySection({
         {people.map((item) => (
           <div key={item.person.id} className="min-w-0">
             <HomePersonRow person={item.person} onOpenPerson={onOpenPerson} compact />
-            <p className="text-pack-text-muted -mt-1 mb-1 truncate px-2 pl-[3.25rem] text-[11px]">
-              {item.contextLabel}
-              {' · '}
-              {formatDistance(item.distanceMeters / 1000)}
+            <p className="text-pack-text-muted -mt-1 mb-1 px-2 pl-[3.25rem] text-[11px] leading-snug">
+              <span className="line-clamp-2">
+                {item.contextLabel}
+                {' · '}
+                {formatDistance(item.distanceMeters / 1000)}
+              </span>
               {item.place && (
                 <>
                   {' · '}

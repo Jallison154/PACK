@@ -1,23 +1,28 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useAuth } from '../context/AuthContext'
 import { useStandalonePwa } from './useStandalonePwa'
 import {
   isIosDevice,
   isMobileDevice,
 } from '../utils/standalonePwa'
 import {
+  clearPwaInstallOffer,
   getDeferredInstallPrompt,
+  isPwaInstallOfferPending,
   promptPwaInstall,
   subscribePwaInstallPrompt,
   PWA_INSTALL_STORAGE_KEYS,
 } from '../services/pwa/installPrompt'
 
 export function usePwaInstallPrompt() {
+  const { isAuthenticated, sessionRestored } = useAuth()
   const isStandalone = useStandalonePwa()
   const [isMobile, setIsMobile] = useState(() => isMobileDevice())
   const [isIos, setIsIos] = useState(() => isIosDevice())
   const [canNativeInstall, setCanNativeInstall] = useState(
     () => getDeferredInstallPrompt() != null,
   )
+  const [offerPending, setOfferPending] = useState(() => isPwaInstallOfferPending())
   const [dismissed, setDismissed] = useState(() => {
     try {
       return localStorage.getItem(PWA_INSTALL_STORAGE_KEYS.dismissed) === 'true'
@@ -32,6 +37,7 @@ export function usePwaInstallPrompt() {
       setIsMobile(isMobileDevice())
       setIsIos(isIosDevice())
       setCanNativeInstall(getDeferredInstallPrompt() != null)
+      setOfferPending(isPwaInstallOfferPending())
     }
     sync()
     return subscribePwaInstallPrompt(sync)
@@ -43,7 +49,9 @@ export function usePwaInstallPrompt() {
     } catch {
       // ignore
     }
+    clearPwaInstallOffer()
     setDismissed(true)
+    setOfferPending(false)
     setShowIosHelp(false)
   }, [])
 
@@ -61,13 +69,23 @@ export function usePwaInstallPrompt() {
     return 'manual-help' as const
   }, [canNativeInstall, dismiss])
 
-  const shouldPrompt = !isStandalone && isMobile && !dismissed
+  const shouldPrompt =
+    sessionRestored &&
+    isAuthenticated &&
+    offerPending &&
+    !isStandalone &&
+    isMobile &&
+    !dismissed
+
+  /** Settings (and other manual entry points) — available anytime in a mobile browser. */
+  const canManualInstall = !isStandalone && isMobile
 
   return {
     isStandalone,
     isMobile,
     isIos,
     canNativeInstall,
+    canManualInstall,
     shouldPrompt,
     showIosHelp,
     setShowIosHelp,

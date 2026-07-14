@@ -1,6 +1,12 @@
 import { v4 as uuid } from 'uuid'
 import { db, rowToPerson, rowToInteraction } from '../database'
 import { distanceKm } from '../../utils/geo'
+import {
+  buildNearbyContextLabel,
+  nearbyEventName,
+  nearbyOccurredAt,
+  type NearbyPersonMatchKind,
+} from '../../utils/nearbyPersonContext'
 import type { MapboxPlaceResult } from '../../services/mapbox/types'
 import type {
   Place,
@@ -11,6 +17,8 @@ import type {
   InteractionWithPerson,
   PlaceCategory,
 } from '../../types'
+
+export type { NearbyPersonMatchKind } from '../../utils/nearbyPersonContext'
 
 function normalizePlaceName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, ' ')
@@ -399,17 +407,67 @@ export async function getPeopleLastSeenAtPlace(placeId: string): Promise<PersonW
   return people
 }
 
-export type NearbyPersonMatchKind = 'met_at_place' | 'last_seen_at_place' | 'approximate_gps'
-
 export interface NearbyPersonResult {
   person: PersonWithTags
   matchKind: NearbyPersonMatchKind
   place: Place | null
   distanceMeters: number
+  /** Place / event / relative time, e.g. "Met at Pub Station · SXSW · 3 months ago" */
   contextLabel: string
+  eventName: string | null
+  occurredAt: string | null
 }
 
 const NEARBY_RADIUS_METERS_DEFAULT = 200
+
+async function latestInteractionAtPlace(
+  placeId: string,
+): Promise<Map<string, { date: string | null; event: string | null }>> {
+  const rows = await db.query(
+    `SELECT person_id, date, event FROM interactions
+     WHERE place_id = ?
+     ORDER BY date DESC`,
+    [placeId],
+  )
+  const byPerson = new Map<string, { date: string | null; event: string | null }>()
+  for (const row of rows) {
+    const personId = row.person_id as string
+    if (byPerson.has(personId)) continue
+    byPerson.set(personId, {
+      date: (row.date as string) || null,
+      event: (row.event as string) || null,
+    })
+  }
+  return byPerson
+}
+
+function toNearbyResult(input: {
+  person: PersonWithTags
+  matchKind: NearbyPersonMatchKind
+  place: Place | null
+  distanceMeters: number
+  areaLabel?: string | null
+  interactionDate?: string | null
+  interactionEvent?: string | null
+}): NearbyPersonResult {
+  const eventName = nearbyEventName(input.person, input.interactionEvent)
+  const occurredAt = nearbyOccurredAt(input.person, input.matchKind, input.interactionDate)
+  return {
+    person: input.person,
+    matchKind: input.matchKind,
+    place: input.place,
+    distanceMeters: input.distanceMeters,
+    eventName,
+    occurredAt,
+    contextLabel: buildNearbyContextLabel({
+      matchKind: input.matchKind,
+      placeName: input.place?.name,
+      areaLabel: input.areaLabel,
+      eventName,
+      occurredAt,
+    }),
+  }
+}
 
 /**
  * People you've met (or last seen) near the current GPS position.
@@ -452,26 +510,35 @@ export async function getPeopleNearLocation(
 
   for (const place of nearbyPlaces) {
     const distanceMeters = Math.round((place.distanceKm ?? 0) * 1000)
+    const interactionsByPerson = await latestInteractionAtPlace(place.id)
     const met = await getPeopleMetAtPlace(place.id)
     for (const person of met) {
-      consider({
-        person,
-        matchKind: 'met_at_place',
-        place,
-        distanceMeters,
-        contextLabel: `Met at ${place.name}`,
-      })
+      const interaction = interactionsByPerson.get(person.id)
+      consider(
+        toNearbyResult({
+          person,
+          matchKind: 'met_at_place',
+          place,
+          distanceMeters,
+          interactionDate: interaction?.date,
+          interactionEvent: interaction?.event,
+        }),
+      )
     }
     if (includeLastSeen) {
       const seen = await getPeopleLastSeenAtPlace(place.id)
       for (const person of seen) {
-        consider({
-          person,
-          matchKind: 'last_seen_at_place',
-          place,
-          distanceMeters,
-          contextLabel: `Last seen at ${place.name}`,
-        })
+        const interaction = interactionsByPerson.get(person.id)
+        consider(
+          toNearbyResult({
+            person,
+            matchKind: 'last_seen_at_place',
+            place,
+            distanceMeters,
+            interactionDate: interaction?.date,
+            interactionEvent: interaction?.event,
+          }),
+        )
       }
     }
   }
@@ -492,13 +559,15 @@ export async function getPeopleNearLocation(
     if (km > radiusKm) continue
     const person = await enrichPersonRow(row)
     const area = (row.where_met_area_label as string | null) || person.whereMet || 'nearby'
-    consider({
-      person,
-      matchKind: 'approximate_gps',
-      place: null,
-      distanceMeters: Math.round(km * 1000),
-      contextLabel: `Met near ${area}`,
-    })
+    consider(
+      toNearbyResult({
+        person,
+        matchKind: 'approximate_gps',
+        place: null,
+        distanceMeters: Math.round(km * 1000),
+        areaLabel: area,
+      }),
+    )
   }
 
   return [...byPersonId.values()]

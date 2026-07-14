@@ -517,8 +517,11 @@ video {
 
 .home-hero-panel {
   display: flex;
+  /* Match .app-content mobile padding so the explore cue stays above the tab bar
+     (especially important in standalone / Home Screen PWA). */
   min-height: calc(
-    100dvh - var(--mobile-nav-base-height) - env(safe-area-inset-bottom, 0px)
+    100dvh - var(--safe-top) - var(--mobile-nav-base-height) -
+      env(safe-area-inset-bottom, 0px) - 16px
   );
   flex-direction: column;
   box-sizing: border-box;
@@ -591,6 +594,21 @@ html.standalone-pwa .app-shell {
 
 .home-explore-indicator {
   animation: home-explore-pulse 2.2s ease-in-out infinite;
+  /* Keep clear of the fixed tab bar + home indicator */
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+html.standalone-pwa .home-explore-indicator {
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+}
+
+@media (display-mode: standalone) {
+  .home-explore-indicator {
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

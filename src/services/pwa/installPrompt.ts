@@ -1,6 +1,8 @@
 export const PWA_INSTALL_STORAGE_KEYS = {
   dismissed: 'pack_pwa_install_dismissed',
   installed: 'pack_pwa_installed',
+  /** sessionStorage — armed after login/signup so we ask once that session */
+  offerPending: 'pack_pwa_offer_pending',
 } as const
 
 export type BeforeInstallPromptEvent = Event & {
@@ -61,4 +63,31 @@ export async function promptPwaInstall(): Promise<'accepted' | 'dismissed' | 'un
   await promptEvent.prompt()
   const choice = await promptEvent.userChoice
   return choice.outcome
+}
+
+/** Call after login / account creation so the Home Screen banner can appear. */
+export function armPwaInstallOffer(): void {
+  try {
+    sessionStorage.setItem(PWA_INSTALL_STORAGE_KEYS.offerPending, 'true')
+  } catch {
+    // ignore quota / private mode
+  }
+  emit()
+}
+
+export function isPwaInstallOfferPending(): boolean {
+  try {
+    return sessionStorage.getItem(PWA_INSTALL_STORAGE_KEYS.offerPending) === 'true'
+  } catch {
+    return false
+  }
+}
+
+export function clearPwaInstallOffer(): void {
+  try {
+    sessionStorage.removeItem(PWA_INSTALL_STORAGE_KEYS.offerPending)
+  } catch {
+    // ignore
+  }
+  emit()
 }
