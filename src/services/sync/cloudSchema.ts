@@ -114,6 +114,31 @@ export type CloudSchemaTable = keyof typeof CLOUD_TABLE_COLUMNS
 
 const SOFT_DELETE_TABLES = new Set<CloudSchemaTable>(['people', 'places'])
 
+/** UUID / FK columns — empty strings from SQLite must become null for PostgREST. */
+const UUID_LIKE_COLUMNS = new Set([
+  'id',
+  'user_id',
+  'company_id',
+  'household_id',
+  'location_id',
+  'where_met_place_id',
+  'last_seen_place_id',
+  'person_id',
+  'tag_id',
+  'place_id',
+])
+
+const BOOLEAN_COLUMNS = new Set(['is_favorite', 'where_met_is_approximate'])
+
+const NUMERIC_COLUMNS = new Set([
+  'latitude',
+  'longitude',
+  'where_met_latitude',
+  'where_met_longitude',
+  'where_met_location_accuracy',
+  'sync_version',
+])
+
 export function isSoftDeleteTable(table: string): table is 'people' | 'places' {
   return SOFT_DELETE_TABLES.has(table as CloudSchemaTable)
 }
@@ -125,7 +150,31 @@ export function cloudColumnsFor(table: string): readonly string[] | null {
   return null
 }
 
-/** Strip unknown keys and omit null soft-delete tombstones unless explicitly set. */
+function coerceCloudValue(key: string, value: unknown): unknown {
+  if (value === undefined) return undefined
+
+  if (UUID_LIKE_COLUMNS.has(key)) {
+    if (value === null || value === '') return null
+    return value
+  }
+
+  if (BOOLEAN_COLUMNS.has(key)) {
+    if (value === null || value === '') return null
+    return value === true || value === 1 || value === '1'
+  }
+
+  if (NUMERIC_COLUMNS.has(key)) {
+    if (value === null || value === '') return null
+    if (typeof value === 'number') return value
+    const n = Number(value)
+    return Number.isFinite(n) ? n : null
+  }
+
+  if (value === '') return null
+  return value
+}
+
+/** Strip unknown keys and coerce SQLite values for PostgREST. */
 export function sanitizeCloudRow(
   table: string,
   row: Record<string, unknown>,
@@ -136,11 +185,26 @@ export function sanitizeCloudRow(
   const out: Record<string, unknown> = {}
   for (const key of allowed) {
     if (!(key in row)) continue
-    const value = row[key]
-    if (key === 'deleted_at' && (value === null || value === undefined || value === '')) {
-      continue
-    }
+    const value = coerceCloudValue(key, row[key])
+    if (value === undefined) continue
+    if (key === 'deleted_at' && (value === null || value === '')) continue
+    // Prefer omitting null FKs over sending null when column may be optional
     out[key] = value
   }
   return out
+}
+
+/** Parse PostgREST PGRST204 "Could not find the 'col' column of 'table'" messages. */
+export function parseMissingCloudColumn(error: unknown): string | null {
+  if (typeof error !== 'object' || error === null) return null
+  const e = error as { code?: unknown; message?: unknown }
+  const code = e.code != null ? String(e.code) : ''
+  const message = e.message != null ? String(e.message) : ''
+  if (code !== 'PGRST204' && !(message.includes('Could not find') && message.includes('column'))) {
+    return null
+  }
+  const match =
+    message.match(/Could not find the '([^']+)' column/i) ??
+    message.match(/column ["`']([^"`']+)["`']/i)
+  return match?.[1] ?? null
 }

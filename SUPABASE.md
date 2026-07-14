@@ -19,6 +19,9 @@ In **Supabase → SQL Editor**, run these files **in order**:
 5. `supabase/migrations/005_column_audit.sql`
 6. `supabase/migrations/006_where_met_gps.sql`
 7. `supabase/migrations/007_mapbox_places.sql`
+8. `supabase/migrations/008_pending_mapbox_gps.sql` (same as 006+007 combined — safe if already applied)
+
+If Pack Sync upserts fail with HTTP **400** / **PGRST204** (“Could not find the '…' column”), run migration **008** in the SQL Editor, then Sync Now.
 
 This creates all Pack tables with **Row Level Security (RLS)**, profile name fields, place soft-delete, explicit per-operation policies, and **Realtime** publication for synced tables.
 

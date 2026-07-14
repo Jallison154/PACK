@@ -87,14 +87,6 @@ export function PublicLandingPage() {
         </div>
 
         <p className="text-pack-text-muted mt-6 text-center text-sm">
-          <button
-            type="button"
-            onClick={openSignIn}
-            className="hover:text-pack-text-secondary underline-offset-2 transition-colors hover:underline"
-          >
-            Learn more
-          </button>
-          {' · '}
           <Link to="/privacy" className="hover:text-pack-text-secondary transition-colors">
             Privacy
           </Link>

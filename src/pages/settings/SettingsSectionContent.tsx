@@ -16,7 +16,7 @@ import {
   useDataActions,
   usePasscodeLock,
 } from '../../hooks/useSettingsData'
-import { openPackFeedbackEmail } from '../../utils/feedback'
+import { openPackFeedbackEmail, openPackFeatureRequestEmail } from '../../utils/feedback'
 import type { SettingsSectionId } from '../../settings/sections'
 import { AccountSettings } from './AccountSettings'
 import {
@@ -125,7 +125,7 @@ function AdvancedSettings() {
 
   return (
     <SettingsDetailCard>
-      <InfoRow label="Database version" value={DB_VERSION} />
+      <InfoRow label="Database version" value={String(DB_VERSION)} />
       <InfoRow label="App build version" value={mapDiagnostics.appBuildVersion} />
       <InfoRow label="Build ID" value={mapDiagnostics.buildId} />
 
@@ -139,7 +139,7 @@ function AdvancedSettings() {
       <InfoRow label="Mapbox GL JS installed" value={mapDiagnostics.mapboxGlJsInstalled ? 'Yes' : 'No'} />
       <InfoRow label="Mapbox token configured" value={mapDiagnostics.mapboxTokenConfigured ? 'Yes' : 'No'} />
       <InfoRow label="Token prefix valid" value={mapDiagnostics.tokenPrefixValid ? 'Yes' : 'No'} />
-      <InfoRow label="Token length" value={mapDiagnostics.tokenLength} />
+      <InfoRow label="Token length" value={String(mapDiagnostics.tokenLength)} />
       <InfoRow label="Active map component" value={mapDiagnostics.activeMapComponentName} />
       <InfoRow label="Map style URL" value={mapDiagnostics.mapStyleUrl} />
       <InfoRow label="Map initialized" value={mapDiagnostics.mapInitialized ? 'Yes' : 'No'} />
@@ -189,6 +189,13 @@ function AboutSettings() {
         label="Send Feedback"
         action={
           <LinkButton onClick={() => openPackFeedbackEmail(APP_VERSION)}>Email</LinkButton>
+        }
+      />
+      <ActionRow
+        label="Feature Request"
+        description="Suggest something you'd like Pack to do"
+        action={
+          <LinkButton onClick={() => openPackFeatureRequestEmail(APP_VERSION)}>Email</LinkButton>
         }
       />
       <ActionRow

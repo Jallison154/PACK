@@ -49,7 +49,7 @@ const listeners = new Set<Listener>()
 
 let mapboxGlJsInstalled = false
 
-let state: MapRuntimeDiagnostics = {
+const baseState: MapRuntimeDiagnostics = {
   mapProviderRequested: MAP_PROVIDER_REQUESTED,
   mapboxGlJsInstalled: false,
   mapboxTokenConfigured: mapboxConfigured,
@@ -68,7 +68,24 @@ let state: MapRuntimeDiagnostics = {
   buildId: typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : __BUILD_TIME__,
 }
 
+/** Stable snapshot for useSyncExternalStore — must keep identity until an emit. */
+let snapshot: MapRuntimeDiagnostics = baseState
+let state: MapRuntimeDiagnostics = baseState
+
+function rebuildSnapshot(): MapRuntimeDiagnostics {
+  return {
+    ...state,
+    mapboxTokenConfigured: mapboxConfigured,
+    tokenPrefixValid: getMapboxTokenPrefixValid(),
+    tokenLength: getMapboxTokenLength(),
+    tokenState: describeMapboxTokenState(),
+    mapboxGlJsInstalled,
+  }
+}
+
 function emit() {
+  snapshot = rebuildSnapshot()
+  state = snapshot
   for (const listener of listeners) listener()
 }
 
@@ -137,14 +154,7 @@ export function httpStatusCategory(status?: number): MapHttpStatusCategory {
 }
 
 export function getMapRuntimeDiagnostics(): MapRuntimeDiagnostics {
-  return {
-    ...state,
-    mapboxTokenConfigured: mapboxConfigured,
-    tokenPrefixValid: getMapboxTokenPrefixValid(),
-    tokenLength: getMapboxTokenLength(),
-    tokenState: describeMapboxTokenState(),
-    mapboxGlJsInstalled,
-  }
+  return snapshot
 }
 
 export function subscribeMapRuntimeDiagnostics(listener: Listener): () => void {

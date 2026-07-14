@@ -7,7 +7,7 @@ import {
   localPlaceToCloud,
   withUserId,
 } from './mappers'
-import { isSoftDeleteTable, sanitizeCloudRow } from './cloudSchema'
+import { isSoftDeleteTable, parseMissingCloudColumn, sanitizeCloudRow } from './cloudSchema'
 import {
   clearSyncQueue,
   listSyncQueue,
@@ -180,6 +180,53 @@ function extractErrorFields(error: unknown) {
   return { message: String(error) }
 }
 
+/**
+ * Upsert and, on PGRST204 missing-column errors, strip the column and retry.
+ * Lets sync keep working when remote migrations (006/007) lag behind the client.
+ */
+async function upsertCloudRow(
+  table: string,
+  payload: Record<string, unknown> | Record<string, unknown>[],
+  onConflict: string,
+): Promise<void> {
+  const supabase = getSupabase()
+  if (!supabase) throw new Error('Cloud sync is not configured')
+
+  const isBatch = Array.isArray(payload)
+  let current: Record<string, unknown> | Record<string, unknown>[] = payload
+
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const { error } = await supabase.from(table).upsert(current, { onConflict })
+    if (!error) return
+
+    const missing = parseMissingCloudColumn(error)
+    if (!missing) throw error
+
+    if (isBatch) {
+      const rows = current as Record<string, unknown>[]
+      if (!rows.some((row) => missing in row)) throw error
+      current = rows.map((row) => {
+        if (!(missing in row)) return row
+        const next = { ...row }
+        delete next[missing]
+        return next
+      })
+    } else {
+      const row = current as Record<string, unknown>
+      if (!(missing in row)) throw error
+      const next = { ...row }
+      delete next[missing]
+      current = next
+    }
+
+    console.warn(
+      `[Pack Sync] Remote schema missing ${table}.${missing} — stripped and retrying. Apply supabase/migrations 006 + 007.`,
+    )
+  }
+
+  throw new Error(`Remote schema for ${table} is missing too many columns`)
+}
+
 async function softDeleteRemoteRow(
   userId: string,
   table: 'people' | 'places',
@@ -229,11 +276,7 @@ async function pushPersonTagsForPerson(userId: string, personId: string): Promis
     }),
   )
 
-  const { error } = await supabase.from('person_tags').upsert(payload, {
-    onConflict: upsertConflictKey('person_tags'),
-  })
-
-  if (error) throw error
+  await upsertCloudRow('person_tags', payload, upsertConflictKey('person_tags'))
 }
 
 export async function enqueuePersonTagsCloudSync(personId: string): Promise<void> {
@@ -293,10 +336,7 @@ export async function pushSyncQueue(userId: string): Promise<number> {
               ? payload
               : ((await loadRowPayload(item.tableName, item.recordId)) ?? payload)
           const upsert = rowToUpsertPayload(userId, item.tableName, row)
-          const { error } = await supabase.from('person_tags').upsert(upsert, {
-            onConflict: upsertConflictKey('person_tags'),
-          })
-          if (error) throw error
+          await upsertCloudRow('person_tags', upsert, upsertConflictKey('person_tags'))
           logSyncUpdate(item.tableName, item.recordId, 'pushed')
         }
       } else {
@@ -312,11 +352,7 @@ export async function pushSyncQueue(userId: string): Promise<number> {
           throw new Error(`Missing record id for ${item.tableName}.${item.recordId}`)
         }
 
-        const { error } = await supabase.from(cloudTable).upsert(upsert, {
-          onConflict: upsertConflictKey(item.tableName),
-        })
-
-        if (error) throw error
+        await upsertCloudRow(cloudTable, upsert, upsertConflictKey(item.tableName))
 
         if (item.operation === 'insert') {
           logSyncCreate(item.tableName, item.recordId, 'pushed')
@@ -514,18 +550,7 @@ export async function uploadLocalDatabaseToCloud(userId: string): Promise<number
       rowToUpsertPayload(userId, table, row as Record<string, unknown>),
     )
 
-    const { error } = await supabase.from(table).upsert(payload, {
-      onConflict: upsertConflictKey(table),
-    })
-    if (error) {
-      logSupabaseError({
-        operation: 'migration upload',
-        table,
-        userId,
-        ...extractErrorFields(error),
-      })
-      throw error
-    }
+    await upsertCloudRow(table, payload, upsertConflictKey(table))
     uploaded += payload.length
   }
 

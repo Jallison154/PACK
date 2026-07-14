@@ -2,10 +2,6 @@
 
 import { sanitizeCloudRow } from './cloudSchema'
 
-function boolToDb(v: unknown): boolean {
-  return Boolean(v)
-}
-
 function boolFromDb(v: unknown): number {
   return v === true || v === 1 || v === '1' ? 1 : 0
 }
@@ -15,56 +11,25 @@ export function withUserId(
   row: Record<string, unknown>,
   table?: string,
 ): Record<string, unknown> {
-  const out: Record<string, unknown> = { user_id: userId }
-
-  for (const [key, value] of Object.entries(row)) {
-    if (key === 'user_id') continue
-    if (key === 'sync_version') {
-      out.sync_version = value ?? 1
-      continue
-    }
-    if (key === 'is_favorite') {
-      out.is_favorite = boolToDb(value)
-      continue
-    }
-    if (key === 'deleted_at') {
-      if (value) out.deleted_at = value
-      continue
-    }
-    out[key] = value ?? null
-  }
-
-  return table ? sanitizeCloudRow(table, out) : out
+  const merged: Record<string, unknown> = { ...row, user_id: userId }
+  return table ? sanitizeCloudRow(table, merged) : merged
 }
 
 export function localPersonToCloud(userId: string, row: Record<string, unknown>) {
-  return withUserId(
-    userId,
-    {
-      ...row,
-      is_favorite: boolToDb(row.is_favorite),
-    },
-    'people',
-  )
+  return withUserId(userId, row, 'people')
 }
 
 export function cloudPersonToLocal(row: Record<string, unknown>): Record<string, unknown> {
   return {
     ...row,
     is_favorite: boolFromDb(row.is_favorite),
+    where_met_is_approximate: boolFromDb(row.where_met_is_approximate),
     user_id: undefined,
   }
 }
 
 export function localPlaceToCloud(userId: string, row: Record<string, unknown>) {
-  return withUserId(
-    userId,
-    {
-      ...row,
-      is_favorite: boolToDb(row.is_favorite),
-    },
-    'places',
-  )
+  return withUserId(userId, row, 'places')
 }
 
 export function cloudPlaceToLocal(row: Record<string, unknown>): Record<string, unknown> {
