@@ -187,6 +187,7 @@ export function PackMap({
   const [popup, setPopup] = useState<PopupState | null>(null)
   const [mapError, setMapError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
+  const [containerReady, setContainerReady] = useState(false)
 
   const mappable = useMemo(
     () => places.filter((place) => place.latitude != null && place.longitude != null),
@@ -217,6 +218,22 @@ export function PackMap({
   }, [])
 
   useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    const checkSize = () => {
+      const sized = el.clientWidth > 0 && el.clientHeight > 0
+      setContainerReady(sized)
+      if (sized && mapRef.current) mapRef.current.resize()
+    }
+
+    checkSize()
+    const observer = new ResizeObserver(checkSize)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [height, mapboxConfigured])
+
+  useEffect(() => {
     const tokenState = describeMapboxTokenState()
     if (tokenState === 'token_missing') {
       setMapError('Mapbox is not configured.')
@@ -234,7 +251,7 @@ export function PackMap({
       })
       return
     }
-    if (!mapboxConfigured || !containerRef.current) return
+    if (!mapboxConfigured || !containerRef.current || !containerReady) return
 
     resetMapSessionFlags()
     clearMapboxRuntimeError()
@@ -271,6 +288,7 @@ export function PackMap({
 
     mapRef.current = map
     markMapInitialized(ACTIVE_MAP_COMPONENT)
+    map.resize()
 
     map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right')
 
@@ -296,6 +314,7 @@ export function PackMap({
     map.on('load', () => {
       markMapLoadFired()
       recordMapboxHttpStatus(200)
+      map.resize()
       setReady(true)
       onMapReady?.(map)
 
@@ -323,9 +342,9 @@ export function PackMap({
       setReady(false)
       resetMapSessionFlags()
     }
-    // Mount once per token/container; position updates handled separately.
+    // Mount once token/container are ready; position updates handled separately.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapboxConfigured])
+  }, [mapboxConfigured, containerReady])
 
   useEffect(() => {
     const map = mapRef.current

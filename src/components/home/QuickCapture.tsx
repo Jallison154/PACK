@@ -27,9 +27,14 @@ function dismissMatchesSoon(setFocused: (v: boolean) => void) {
 interface QuickCaptureProps {
   onCreated?: () => void
   size?: 'hero' | 'default'
+  placeholder?: string
 }
 
-export function QuickCapture({ onCreated, size = 'default' }: QuickCaptureProps) {
+export function QuickCapture({
+  onCreated,
+  size = 'default',
+  placeholder,
+}: QuickCaptureProps) {
   const navigate = useNavigate()
   const { lastUsedWorkspace, setLastUsedWorkspace } = useWorkspace()
   const [name, setName] = useState('')
@@ -165,7 +170,9 @@ export function QuickCapture({ onCreated, size = 'default' }: QuickCaptureProps)
             onChange={(e) => handleNameChange(e.target.value)}
             onFocus={() => setFocused(true)}
             onBlur={() => dismissMatchesSoon(setFocused)}
-            placeholder={expanded ? 'Their name' : 'Who comes to mind?'}
+            placeholder={
+              expanded ? 'Their name' : (placeholder ?? 'Who comes to mind?')
+            }
             className={`${inputClass} ${expanded ? 'pr-12' : ''}`}
             autoComplete="name"
           />

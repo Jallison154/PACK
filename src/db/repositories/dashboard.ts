@@ -1,4 +1,4 @@
-import { startOfWeek, endOfWeek, format } from 'date-fns'
+import { startOfWeek, endOfWeek, format, subDays } from 'date-fns'
 import { db, rowToPerson, rowToInteraction } from '../database'
 import type {
   Workspace,
@@ -217,9 +217,11 @@ export async function getHomeStats(): Promise<{
   companies: number
   followUps: number
   places: number
+  addedThisWeek: number
 }> {
   const today = format(new Date(), 'yyyy-MM-dd')
-  const [people, companies, followUps, places] = await Promise.all([
+  const weekAgo = format(subDays(new Date(), 7), "yyyy-MM-dd'T'HH:mm:ss")
+  const [people, companies, followUps, places, addedThisWeek] = await Promise.all([
     db.query<{ count: number }>(
       `SELECT COUNT(*) as count FROM people WHERE deleted_at IS NULL`,
     ),
@@ -234,7 +236,12 @@ export async function getHomeStats(): Promise<{
        AND i.next_follow_up IS NOT NULL AND i.next_follow_up >= ?`,
       [today],
     ),
-    db.query<{ count: number }>(`SELECT COUNT(*) as count FROM places`),
+    db.query<{ count: number }>(`SELECT COUNT(*) as count FROM places WHERE deleted_at IS NULL`),
+    db.query<{ count: number }>(
+      `SELECT COUNT(*) as count FROM people
+       WHERE deleted_at IS NULL AND created_at >= ?`,
+      [weekAgo],
+    ),
   ])
 
   return {
@@ -242,6 +249,7 @@ export async function getHomeStats(): Promise<{
     companies: companies[0]?.count ?? 0,
     followUps: followUps[0]?.count ?? 0,
     places: places[0]?.count ?? 0,
+    addedThisWeek: addedThisWeek[0]?.count ?? 0,
   }
 }
 

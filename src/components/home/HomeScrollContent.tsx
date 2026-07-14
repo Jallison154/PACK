@@ -5,7 +5,7 @@ import { MemoryFeed } from './MemoryFeed'
 import { MemoryPersonCard } from './MemoryPersonCard'
 import { formatDate } from '../../utils/format'
 import type { MemoryItem } from '../../utils/memoryFeed'
-import type { InteractionWithPerson, PersonWithTags, Place } from '../../types'
+import type { InteractionWithPerson, PersonWithTags, Place, PlaceWithStats } from '../../types'
 
 export interface HomeScrollData {
   todayTrail: MemoryItem[]
@@ -13,7 +13,14 @@ export interface HomeScrollData {
   recentPlaces: Place[]
   corePack: PersonWithTags[]
   recentPackMembers: PersonWithTags[]
-  insights: { people: number; places: number; companies: number; followUps: number }
+  mapPlaces: PlaceWithStats[]
+  insights: {
+    people: number
+    places: number
+    companies: number
+    followUps: number
+    addedThisWeek: number
+  }
 }
 
 interface HomeScrollContentProps {
@@ -34,7 +41,7 @@ export function HomeScrollContent({ data }: HomeScrollContentProps) {
         {todayTrail.length > 0 ? (
           <MemoryFeed items={todayTrail} flat />
         ) : (
-          <EmptyLine>Nothing on the trail today.</EmptyLine>
+          <EmptyLine>No new trails yet.</EmptyLine>
         )}
       </HomeRevealSection>
 
@@ -61,7 +68,7 @@ export function HomeScrollContent({ data }: HomeScrollContentProps) {
             ))}
           </div>
         ) : (
-          <EmptyLine>No one to reconnect with right now.</EmptyLine>
+          <EmptyLine>Your Pack is all caught up.</EmptyLine>
         )}
       </HomeRevealSection>
 

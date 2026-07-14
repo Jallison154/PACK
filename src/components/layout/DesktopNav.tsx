@@ -23,7 +23,7 @@ export function DesktopNav() {
 
   return (
     <nav className="pack-nav sticky top-0 z-30 safe-top">
-      <div className="mx-auto flex max-w-5xl items-center gap-0.5 px-5 py-3">
+      <div className="mx-auto flex max-w-5xl items-center gap-0.5 px-5 py-3 xl:max-w-[1500px]">
         <PackLogo href="/" size="sm" className="mr-8" />
         <div className="flex flex-1 items-center gap-0.5">
           {items.map(({ to, icon: Icon, label }) => (

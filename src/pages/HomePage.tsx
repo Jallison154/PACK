@@ -10,7 +10,7 @@ import {
   getUpcomingFollowUps,
   getHomeStats,
 } from '../db/repositories/dashboard'
-import { getRecentPlaces } from '../db/repositories/places'
+import { getRecentPlaces, getPlacesWithCoordinates } from '../db/repositories/places'
 import { listPackMembers } from '../db/repositories/people'
 import { buildMemoryFeed, filterTodayTrail } from '../utils/memoryFeed'
 
@@ -20,7 +20,8 @@ const emptyScrollData: HomeScrollData = {
   recentPlaces: [],
   corePack: [],
   recentPackMembers: [],
-  insights: { people: 0, places: 0, companies: 0, followUps: 0 },
+  mapPlaces: [],
+  insights: { people: 0, places: 0, companies: 0, followUps: 0, addedThisWeek: 0 },
 }
 
 export function HomePage() {
@@ -28,12 +29,13 @@ export function HomePage() {
   const [scrollData, setScrollData] = useState<HomeScrollData>(emptyScrollData)
 
   const load = useCallback(async () => {
-    const [interactions, recent, followUps, places, corePack, recentMembers, stats] =
+    const [interactions, recent, followUps, places, mapPlaces, corePack, recentMembers, stats] =
       await Promise.all([
         getRecentInteractions(undefined, 20),
         getRecentlyAdded(),
         getUpcomingFollowUps(),
         getRecentPlaces(5),
+        getPlacesWithCoordinates(),
         listPackMembers({ view: 'core', sort: 'name' }),
         listPackMembers({ sort: 'recently_added' }),
         getHomeStats(),
@@ -47,17 +49,19 @@ export function HomePage() {
       recentPlaces: places,
       corePack: corePack.slice(0, 6),
       recentPackMembers: recentMembers.slice(0, 8),
+      mapPlaces,
       insights: {
         people: stats.people,
         places: stats.places,
         companies: stats.companies,
         followUps: stats.followUps,
+        addedThisWeek: stats.addedThisWeek,
       },
     })
   }, [])
 
   useEffect(() => {
-    load()
+    void load()
   }, [load])
 
   usePackDataRefresh(load)
