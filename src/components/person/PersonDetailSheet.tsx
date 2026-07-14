@@ -56,21 +56,25 @@ export function PersonDetailSheet({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-            className="auth-modal-sheet pack-elevated w-full max-w-lg rounded-t-3xl sm:rounded-3xl"
+            className="auth-modal-sheet pack-elevated flex w-full max-w-lg flex-col overflow-hidden rounded-t-3xl sm:rounded-3xl"
+            style={{
+              maxHeight: 'min(92dvh, 720px)',
+            }}
             onClick={(event) => event.stopPropagation()}
             role="dialog"
             aria-modal="true"
             aria-label="Pack member details"
           >
-            <div className="mx-auto mt-3 mb-1 h-1 w-10 rounded-full bg-white/15 sm:hidden" aria-hidden />
-            <PersonDetailContent
-              personId={personId}
-              showClose
-              onClose={onClose}
-              onChanged={onChanged}
-              onDeleted={onDeleted}
-              className="px-5 pt-1 pb-6"
-            />
+            <div className="mx-auto mt-3 mb-1 h-1 w-10 shrink-0 rounded-full bg-white/15 sm:hidden" aria-hidden />
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-1 pb-6 [-webkit-overflow-scrolling:touch]">
+              <PersonDetailContent
+                personId={personId}
+                showClose
+                onClose={onClose}
+                onChanged={onChanged}
+                onDeleted={onDeleted}
+              />
+            </div>
           </motion.div>
         </motion.div>
       )}

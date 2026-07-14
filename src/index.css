@@ -547,7 +547,6 @@ video {
 
 .auth-modal-sheet {
   max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 2rem);
-  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
 

@@ -44,6 +44,8 @@ export interface PackMapProps {
   onMapReady?: (map: MapboxMap) => void
   fitBounds?: boolean
   scrollWheelZoom?: boolean
+  /** When false, map is a static preview (no pan/zoom; touches pass through for parent scroll). */
+  interactive?: boolean
   emptyMessage?: string
   showClustering?: boolean
 }
@@ -175,6 +177,7 @@ export function PackMap({
   onMapReady,
   fitBounds = false,
   scrollWheelZoom = true,
+  interactive = true,
   emptyMessage,
   showClustering = true,
 }: PackMapProps) {
@@ -274,7 +277,15 @@ export function PackMap({
         center: initialCenter,
         zoom: initialZoom,
         attributionControl: true,
-        scrollZoom: scrollWheelZoom,
+        interactive,
+        scrollZoom: interactive && scrollWheelZoom,
+        boxZoom: interactive,
+        dragRotate: interactive,
+        dragPan: interactive,
+        keyboard: interactive,
+        doubleClickZoom: interactive,
+        touchZoomRotate: interactive,
+        touchPitch: interactive,
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Mapbox constructor failed.'
@@ -290,7 +301,9 @@ export function PackMap({
     markMapInitialized(ACTIVE_MAP_COMPONENT)
     map.resize()
 
-    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right')
+    if (interactive) {
+      map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right')
+    }
 
     const onError = (event: { error?: Error & { status?: number; url?: string } }) => {
       const err = event.error
@@ -344,7 +357,7 @@ export function PackMap({
     }
     // Mount once token/container are ready; position updates handled separately.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapboxConfigured, containerReady])
+  }, [mapboxConfigured, containerReady, interactive, scrollWheelZoom])
 
   useEffect(() => {
     const map = mapRef.current
@@ -466,7 +479,13 @@ export function PackMap({
   const hasPins = mappable.length > 0
 
   return (
-    <div className="pack-map-shell relative overflow-hidden rounded-2xl" style={{ height }}>
+    <div
+      className={`pack-map-shell relative overflow-hidden rounded-2xl ${
+        interactive ? '' : 'pointer-events-none'
+      }`}
+      style={{ height }}
+      aria-hidden={!interactive}
+    >
       <div ref={containerRef} className="h-full w-full" />
 
       {import.meta.env.DEV && (
@@ -549,6 +568,7 @@ export function PackMapPreview({
       zoom={MAPBOX_USER_ZOOM}
       singlePlaceId={place.id}
       scrollWheelZoom={false}
+      interactive={false}
       showClustering={false}
     />
   )
