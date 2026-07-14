@@ -5,8 +5,8 @@ export function SyncNoticeBanner() {
   if (!sync?.localNotice) return null
 
   return (
-    <div className="w-full max-w-lg md:max-w-5xl">
-      <div className="flex min-w-0 items-center justify-between gap-3 rounded-2xl bg-pack-accent/10 px-4 py-3 text-sm text-pack-accent">
+    <div className="app-notice">
+      <div className="app-notice-panel flex min-w-0 items-center justify-between gap-3 rounded-2xl bg-pack-accent/15 px-4 py-3 text-sm text-pack-accent backdrop-blur-md">
         <span>{sync.localNotice}</span>
         <button
           type="button"

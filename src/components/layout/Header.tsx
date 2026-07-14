@@ -7,7 +7,7 @@ interface HeaderProps {
   showBack?: boolean
   backTo?: string
   right?: ReactNode
-  /** When true (default), omits safe-top — AppLayout banners own the notch inset. */
+  /** When true (default), omits safe-top — AppLayout / DesktopNav own the notch inset. */
   inShell?: boolean
 }
 

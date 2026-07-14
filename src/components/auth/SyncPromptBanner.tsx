@@ -18,8 +18,8 @@ export function SyncPromptBanner() {
 
   return (
     <>
-      <div className="w-full max-w-lg md:max-w-5xl">
-        <div className="pack-surface flex min-w-0 items-start gap-3 rounded-2xl p-4">
+      <div className="app-notice">
+        <div className="app-notice-panel pack-surface flex min-w-0 items-start gap-3 rounded-2xl p-4">
           <Cloud className="text-pack-accent mt-0.5 h-5 w-5 shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="text-pack-text text-sm font-medium">

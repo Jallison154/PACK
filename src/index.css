@@ -240,18 +240,27 @@ body::after {
   background-color: var(--bg-primary);
 }
 
-.app-top-banners {
+/* App notices — desktop sticky top (centered); mobile floating above bottom nav */
+.app-notices {
   flex-shrink: 0;
-  position: sticky;
-  top: 0;
   z-index: 40;
-  padding-top: var(--safe-top);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
   padding-left: max(var(--content-padding), var(--safe-left));
   padding-right: max(var(--content-padding), var(--safe-right));
 }
 
-.app-top-banners > * + * {
-  margin-top: 0.75rem;
+.app-notices:not(:has(> *)) {
+  display: none;
+}
+
+.app-notice {
+  width: 100%;
+  max-width: 32rem;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .app-content {
@@ -265,13 +274,45 @@ body::after {
 @media (max-width: 767px) {
   .app-content {
     min-height: 100dvh;
+    padding-top: var(--safe-top);
     padding-bottom: calc(
       var(--mobile-nav-base-height) + env(safe-area-inset-bottom, 0px) + 16px
     );
   }
+
+  .app-notices {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: calc(var(--mobile-nav-base-height) + env(safe-area-inset-bottom, 0px) + 12px);
+    z-index: 1010;
+    pointer-events: none;
+  }
+
+  .app-shell[data-bottom-nav='hidden'] .app-notices {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  }
+
+  .app-notices > * {
+    pointer-events: auto;
+  }
+
+  .app-notice-panel {
+    box-shadow:
+      0 8px 28px rgba(0, 0, 0, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
 }
 
 @media (min-width: 768px) {
+  .app-notices {
+    position: sticky;
+    top: 0;
+    padding-top: 0.75rem;
+    padding-bottom: 0.25rem;
+  }
+
   .app-content {
     padding-bottom: 2.5rem;
   }
@@ -362,7 +403,7 @@ textarea::placeholder {
   padding-top: calc(var(--safe-top) + var(--page-top-spacing));
 }
 
-/* Inside AppLayout — safe-top is owned by .app-top-banners */
+/* Inside AppLayout — safe-top is owned by .app-content (mobile) / DesktopNav (desktop) */
 .page-top-shell {
   padding-top: var(--page-top-spacing);
 }

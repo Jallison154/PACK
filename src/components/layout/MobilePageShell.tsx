@@ -7,7 +7,7 @@ export interface MobilePageShellProps {
   top?: boolean
   /** Horizontal page padding (default on). */
   padded?: boolean
-  /** Inside AppLayout — safe-top is handled by .app-top-banners. */
+  /** Inside AppLayout — safe-top is handled by .app-content / DesktopNav. */
   inShell?: boolean
   /** Use as the primary scroll container for the page. */
   scroll?: boolean
