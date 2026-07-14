@@ -65,6 +65,7 @@ export interface AdminOverview {
   newUsersThisWeek: number
   usersWithSyncErrors: number
   pendingSyncOperations: number
+  totalStorageBytes: number
   recentErrors: Array<{
     id: string
     severity: string

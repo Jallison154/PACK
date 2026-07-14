@@ -141,7 +141,9 @@ Deno.serve(async (req) => {
         const [{ count: totalUsers }, { data: stats }, { data: errors }, { data: flags }] =
           await Promise.all([
             adminClient.from('profiles').select('*', { count: 'exact', head: true }),
-            adminClient.from('user_pack_stats').select('account_status, pending_sync_count, last_sync_error'),
+            adminClient
+              .from('user_pack_stats')
+              .select('account_status, pending_sync_count, last_sync_error, storage_bytes'),
             adminClient
               .from('app_error_logs')
               .select('id, severity, error_message, created_at, resolved')
@@ -154,6 +156,10 @@ Deno.serve(async (req) => {
         const suspended = (stats ?? []).filter((s) => s.account_status === 'suspended').length
         const syncErrors = (stats ?? []).filter((s) => !!s.last_sync_error).length
         const pending = (stats ?? []).reduce((sum, s) => sum + (s.pending_sync_count ?? 0), 0)
+        const totalStorageBytes = (stats ?? []).reduce(
+          (sum, s) => sum + (Number(s.storage_bytes) || 0),
+          0,
+        )
 
         const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
         const { count: newThisWeek } = await adminClient
@@ -168,6 +174,7 @@ Deno.serve(async (req) => {
           newUsersThisWeek: newThisWeek ?? 0,
           usersWithSyncErrors: syncErrors,
           pendingSyncOperations: pending,
+          totalStorageBytes,
           recentErrors: errors ?? [],
           featureFlags: flags ?? [],
           appVersion: Deno.env.get('PACK_APP_VERSION') ?? '1.0.0',

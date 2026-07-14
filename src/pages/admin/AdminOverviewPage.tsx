@@ -1,15 +1,27 @@
 import { useEffect, useState } from 'react'
-import { fetchAdminOverview, fetchFeatureFlagsLocal } from '../../services/admin/api'
+import {
+  fetchAdminDirectoryLocal,
+  fetchAdminOverview,
+  fetchAdminUsers,
+  fetchFeatureFlagsLocal,
+} from '../../services/admin/api'
 import type { AdminOverview } from '../../admin/types'
 import { AdminCard, AdminStat, StatusBadge } from '../../components/admin/AdminPrimitives'
 import { mapboxConfigured } from '../../services/mapbox/config'
 import { isCloudSyncAvailable, validateCloudEnv } from '../../lib/env'
 import { getMapRuntimeDiagnostics } from '../../services/mapbox/mapRuntimeDiagnostics'
+import { formatBytes } from '../../utils/settings'
+import { useAuth } from '../../context/AuthContext'
+import { useUserDatabase } from '../../context/UserDatabaseContext'
+import { readDevicePackStats } from '../../services/sync/reportStats'
 
 export function AdminOverviewPage() {
   const [overview, setOverview] = useState<AdminOverview | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [totalStorageBytes, setTotalStorageBytes] = useState(0)
+  const { user } = useAuth()
+  const { ready: dbReady } = useUserDatabase()
   const env = validateCloudEnv()
   const map = getMapRuntimeDiagnostics()
 
@@ -17,16 +29,38 @@ export function AdminOverviewPage() {
     let cancelled = false
     ;(async () => {
       setLoading(true)
-      const result = await fetchAdminOverview()
+
+      const [result, remote] = await Promise.all([fetchAdminOverview(), fetchAdminUsers()])
       if (cancelled) return
       if (result.error) setError(result.error)
       else setOverview(result.data)
+
+      const users = remote.data?.users ?? (await fetchAdminDirectoryLocal())
+      let sum = users.reduce((acc, u) => acc + (Number(u.storage_bytes) || 0), 0)
+
+      // Prefer live device size for the signed-in staff member
+      if (dbReady && user?.id) {
+        const device = await readDevicePackStats().catch(() => null)
+        if (device) {
+          const others = users
+            .filter((u) => u.user_id !== user.id)
+            .reduce((acc, u) => acc + (Number(u.storage_bytes) || 0), 0)
+          sum = others + device.storageBytes
+        }
+      }
+
+      // If directory has no sizes yet, fall back to overview aggregate
+      if (!sum && result.data?.totalStorageBytes) {
+        sum = result.data.totalStorageBytes
+      }
+
+      setTotalStorageBytes(sum)
       setLoading(false)
     })()
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [dbReady, user?.id])
 
   useEffect(() => {
     void fetchFeatureFlagsLocal()
@@ -48,7 +82,7 @@ export function AdminOverviewPage() {
         </AdminCard>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <AdminStat label="Total users" value={overview?.totalUsers ?? (loading ? '…' : 0)} />
         <AdminStat label="Active users" value={overview?.activeUsers ?? (loading ? '…' : 0)} />
         <AdminStat
@@ -59,6 +93,11 @@ export function AdminOverviewPage() {
           label="Sync errors"
           value={overview?.usersWithSyncErrors ?? (loading ? '…' : 0)}
           hint={`${overview?.pendingSyncOperations ?? 0} pending ops`}
+        />
+        <AdminStat
+          label="Total device DB"
+          value={loading ? '…' : formatBytes(totalStorageBytes)}
+          hint="Sum of reported device database sizes"
         />
       </div>
 
@@ -122,7 +161,7 @@ export function AdminOverviewPage() {
 
       <p className="text-pack-text-muted text-xs leading-relaxed">
         Admin Overview shows counts and service health only. Private Pack Member content is never
-        loaded here.
+        loaded here. Total device DB is the sum of each user’s reported local database size.
       </p>
     </div>
   )
