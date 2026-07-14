@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { useSyncExternalStore } from 'react'
 import packLogoSrc from '../../assets/pack-logo-transparent.png'
 import {
   SettingsDetailCard,
@@ -26,6 +27,10 @@ import { openPackFeedbackEmail } from '../../utils/feedback'
 import { createAutomaticBackup } from '../../services/export'
 import type { SettingsSectionId } from '../../settings/sections'
 import { AccountSettings } from './AccountSettings'
+import {
+  getMapRuntimeDiagnostics,
+  subscribeMapRuntimeDiagnostics,
+} from '../../services/mapbox/mapRuntimeDiagnostics'
 
 const APP_VERSION = '1.0.0'
 
@@ -404,10 +409,38 @@ function AppearanceSettings() {
 
 function AdvancedSettings() {
   const [debugMode, setDebugMode] = useBoolSetting(SETTINGS_KEYS.debugMode, false)
+  const mapDiagnostics = useSyncExternalStore(
+    subscribeMapRuntimeDiagnostics,
+    getMapRuntimeDiagnostics,
+    getMapRuntimeDiagnostics,
+  )
 
   return (
     <SettingsDetailCard>
       <InfoRow label="Database version" value={DB_VERSION} />
+      <InfoRow label="App build version" value={mapDiagnostics.appBuildVersion} />
+      <InfoRow label="Build ID" value={mapDiagnostics.buildId} />
+
+      <div className="border-pack-border border-t px-4 py-3">
+        <p className="text-pack-text text-sm font-medium">Map Diagnostics</p>
+        <p className="text-pack-text-muted mt-1 text-xs leading-relaxed">
+          Runtime map status. Token values are never shown in full.
+        </p>
+      </div>
+      <InfoRow label="Map provider requested" value={mapDiagnostics.mapProviderRequested} />
+      <InfoRow label="Mapbox GL JS installed" value={mapDiagnostics.mapboxGlJsInstalled ? 'Yes' : 'No'} />
+      <InfoRow label="Mapbox token configured" value={mapDiagnostics.mapboxTokenConfigured ? 'Yes' : 'No'} />
+      <InfoRow label="Token prefix valid" value={mapDiagnostics.tokenPrefixValid ? 'Yes' : 'No'} />
+      <InfoRow label="Token length" value={mapDiagnostics.tokenLength} />
+      <InfoRow label="Active map component" value={mapDiagnostics.activeMapComponentName} />
+      <InfoRow label="Map style URL" value={mapDiagnostics.mapStyleUrl} />
+      <InfoRow label="Map initialized" value={mapDiagnostics.mapInitialized ? 'Yes' : 'No'} />
+      <InfoRow label="Map load event fired" value={mapDiagnostics.mapLoadEventFired ? 'Yes' : 'No'} />
+      <InfoRow label="Last Mapbox HTTP status" value={mapDiagnostics.lastHttpStatusCategory} />
+      <InfoRow label="Last error category" value={mapDiagnostics.lastErrorCategory} />
+      <InfoRow label="Last Mapbox error" value={mapDiagnostics.lastMapboxError ?? 'None'} />
+      <InfoRow label="Last failed resource" value={mapDiagnostics.lastFailedResource ?? 'None'} />
+
       <ActionRow
         label="Rebuild search index"
         description="Refresh Pack search if results look off"

@@ -632,6 +632,7 @@ export function AccountSettings() {
         onToggle={() => setDebugOpen((value) => !value)}
       >
         <InfoRow label="App build version" value={diagnostics.appBuildVersion} />
+        <InfoRow label="Build ID" value={diagnostics.buildId} />
         <InfoRow label="Map provider" value={diagnostics.mapProvider} />
         <InfoRow label="Mapbox configured" value={diagnostics.mapboxConfigured ? 'Yes' : 'No'} />
         <InfoRow label="Supabase configured" value={diagnostics.supabaseConfigured ? 'Yes' : 'No'} />

@@ -7,7 +7,7 @@ import { Button } from '../components/ui/Button'
 import { EmptyState } from '../components/ui/EmptyState'
 import { useGeolocation } from '../hooks/useGeolocation'
 import { usePackDataRefresh } from '../hooks/usePackDataRefresh'
-import { isMapboxAvailable } from '../lib/env'
+import { mapboxConfigured } from '../services/mapbox/config'
 import { getAllPlaces, getPlacesWithCoordinates } from '../db/repositories/places'
 import { formatLocation } from '../utils/format'
 import type { PlaceWithStats } from '../types'
@@ -19,7 +19,7 @@ export function PlacesPage() {
   const [mapPlaces, setMapPlaces] = useState<PlaceWithStats[]>([])
   const [selected, setSelected] = useState<PlaceWithStats | null>(null)
   const { position, loading: geoLoading, requestLocation } = useGeolocation()
-  const mapConfigured = isMapboxAvailable()
+  const mapConfigured = mapboxConfigured
 
   const reload = useCallback(async () => {
     const [all, mapped] = await Promise.all([getAllPlaces(), getPlacesWithCoordinates()])

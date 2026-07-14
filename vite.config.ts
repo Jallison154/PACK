@@ -5,14 +5,17 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 const appVersion = process.env.npm_package_version ?? '0.0.0'
 const buildTime = new Date().toISOString()
-/** Bumped for Mapbox migration — invalidates old Leaflet PWA asset caches. */
-const cacheVersion = `pack-${appVersion}-mapbox`
+const buildId = process.env.VITE_BUILD_ID?.trim() || buildTime
+/** Bumped when Mapbox became the sole map provider — invalidates stale Leaflet SW caches. */
+const cacheVersion = `pack-${appVersion}-mapbox-v3`
 
 export default defineConfig({
   assetsInclude: ['**/*.wasm'],
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),
     __BUILD_TIME__: JSON.stringify(buildTime),
+    __BUILD_ID__: JSON.stringify(buildId),
+    __CACHE_VERSION__: JSON.stringify(cacheVersion),
   },
   plugins: [
     react(),
@@ -53,7 +56,7 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         cleanupOutdatedCaches: true,
         clientsClaim: true,
-        skipWaiting: true,
+        skipWaiting: false,
         navigateFallback: '/index.html',
         globPatterns: ['**/*.{js,css,ico,png,svg,woff2,wasm,webmanifest}'],
         runtimeCaching: [
@@ -66,7 +69,7 @@ export default defineConfig({
           },
           {
             urlPattern: ({ request, url }) =>
-              request.mode === 'navigate' || url.pathname === '/',
+              request.mode === 'navigate' || url.pathname === '/' || url.pathname.endsWith('/index.html'),
             handler: 'NetworkFirst',
             options: {
               cacheName: `${cacheVersion}-html`,

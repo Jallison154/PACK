@@ -237,18 +237,32 @@ build_application() {
   log "Building Pack..."
   cd "$APP_DIR"
 
-  if [[ -f "$APP_DIR/.env.local" ]]; then
-    log "Loading build environment from .env.local..."
-    set -a
-    # shellcheck source=/dev/null
-    source "$APP_DIR/.env.local"
-    set +a
+  if [[ ! -f "$APP_DIR/.env.local" ]]; then
+    error "Missing $APP_DIR/.env.local — create it before building (see .env.example)."
   fi
+
+  log "Loading build environment from .env.local..."
+  set -a
+  # shellcheck source=/dev/null
+  source "$APP_DIR/.env.local"
+  set +a
 
   validate_vite_env
 
+  # Embed a unique build id for PWA/diagnostics verification.
+  export VITE_BUILD_ID="${VITE_BUILD_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
+  log "VITE_BUILD_ID=${VITE_BUILD_ID}"
+
   npm run build
   [[ -d "$APP_DIR/dist" ]] || error "Build failed: dist/ directory was not created."
+
+  if ! grep -R --quiet "mapbox://styles/mapbox/dark-v11" "$APP_DIR/dist" 2>/dev/null; then
+    error "Build verification failed: Mapbox dark-v11 style was not found in dist/."
+  fi
+  if grep -R --quiet -i "tile.openstreetmap.org\|react-leaflet\|MapContainer" "$APP_DIR/dist" 2>/dev/null; then
+    error "Build verification failed: Leaflet/OpenStreetMap remnants found in dist/."
+  fi
+  log "Mapbox build verification passed."
 }
 
 validate_vite_env() {
@@ -264,6 +278,26 @@ validate_vite_env() {
     log "Vite embeds env vars at build time — rebuild after changing .env.local."
     log ""
   fi
+
+  if [[ ! -f "$APP_DIR/.env.local" ]]; then
+    error "Missing $APP_DIR/.env.local — Mapbox cannot be configured."
+  fi
+
+  local token="${VITE_MAPBOX_ACCESS_TOKEN:-}"
+  token="${token#"${token%%[![:space:]]*}"}"
+  token="${token%"${token##*[![:space:]]}"}"
+
+  if [[ -z "$token" ]]; then
+    error "VITE_MAPBOX_ACCESS_TOKEN is missing from .env.local. Refusing to build without Mapbox."
+  fi
+  if [[ "$token" != pk.* ]]; then
+    error "VITE_MAPBOX_ACCESS_TOKEN must be a public token starting with pk. Refusing to build."
+  fi
+  if ((${#token} <= 20)); then
+    error "VITE_MAPBOX_ACCESS_TOKEN looks too short. Refusing to build."
+  fi
+
+  log "Mapbox token present (pk.*, length ${#token})."
 }
 
 ensure_uploads_symlink() {
