@@ -72,17 +72,81 @@ export async function fetchAdminOverview() {
   return callAdminApi<AdminOverview>('overview')
 }
 
+function mergeLiveCounts(
+  users: AdminDirectoryUser[],
+  live: AdminDirectoryUser[],
+): AdminDirectoryUser[] {
+  if (!live.length) return users
+  const byId = new Map(live.map((u) => [u.user_id, u]))
+  return users.map((u) => {
+    const row = byId.get(u.user_id)
+    if (!row) return u
+    return {
+      ...u,
+      people_count: row.people_count,
+      places_count: row.places_count,
+      interactions_count: row.interactions_count,
+      // Prefer live row for sync meta when present
+      pending_sync_count: row.pending_sync_count ?? u.pending_sync_count,
+      last_sync_at: row.last_sync_at ?? u.last_sync_at,
+      last_sync_error: row.last_sync_error ?? u.last_sync_error,
+      storage_bytes: row.storage_bytes ?? u.storage_bytes,
+    }
+  })
+}
+
 export async function fetchAdminUsers() {
-  return callAdminApi<{ users: AdminDirectoryUser[] }>('listUsers')
+  const remote = await callAdminApi<{ users: AdminDirectoryUser[] }>('listUsers')
+  const live = await fetchAdminDirectoryLocal()
+
+  if (remote.data?.users?.length) {
+    return {
+      data: { users: mergeLiveCounts(remote.data.users, live) },
+      error: remote.error,
+    }
+  }
+
+  if (live.length) {
+    return { data: { users: live }, error: remote.error }
+  }
+
+  return { data: remote.data, error: remote.error }
 }
 
 export async function fetchAdminUser(userId: string) {
-  return callAdminApi<{
+  const remote = await callAdminApi<{
     user: AdminDirectoryUser
     auth: Record<string, unknown>
     supportNotes: Array<{ id: string; note: string; author_role: string; created_at: string }>
     auditHistory: AdminAuditEntry[]
   }>('getUser', { userId })
+
+  const live = await fetchAdminDirectoryLocal()
+  const liveUser = live.find((u) => u.user_id === userId)
+
+  if (remote.data?.user && liveUser) {
+    return {
+      data: {
+        ...remote.data,
+        user: mergeLiveCounts([remote.data.user], [liveUser])[0],
+      },
+      error: remote.error,
+    }
+  }
+
+  if (!remote.data?.user && liveUser) {
+    return {
+      data: {
+        user: liveUser,
+        auth: {},
+        supportNotes: [],
+        auditHistory: [],
+      },
+      error: remote.error,
+    }
+  }
+
+  return remote
 }
 
 export async function adminSendPasswordReset(email: string, userId?: string, reason?: string) {
