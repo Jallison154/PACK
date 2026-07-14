@@ -26,6 +26,7 @@ In **Supabase → SQL Editor**, run these files **in order**:
 12. `supabase/migrations/012_admin_live_counts.sql` (live Pack Member / Place counts in admin)
 13. `supabase/migrations/013_fix_deleted_at_and_stats.sql` (adds missing `deleted_at` + refreshes admin counts)
 14. `supabase/migrations/014_admin_storage_bytes.sql` (estimates cloud storage per user for Admin)
+15. `supabase/migrations/015_report_device_storage.sql` (device DB size from client → Admin, matches Settings)
 
 If Pack Sync upserts fail with HTTP **400** / **PGRST204** (“Could not find the '…' column”), run migration **008** in the SQL Editor, then Sync Now.
 

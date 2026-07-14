@@ -40,6 +40,7 @@ import {
   type SyncMode,
   type SyncStatus,
 } from '../services/sync/types'
+import { reportDevicePackStats } from '../services/sync/reportStats'
 import { useAuth } from './AuthContext'
 import { countPackMembers } from '../db/repositories/people'
 
@@ -155,10 +156,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       setLastSyncAt(getLastSyncTime())
       setSyncStatus('idle')
       setLocalNotice(null)
+      await reportDevicePackStats()
     } catch (error) {
       recordSyncError(error, 'sync')
       setSyncStatus(navigator.onLine ? 'error' : 'offline')
       setLocalNotice('Saved locally. Pack Sync will retry.')
+      await reportDevicePackStats({
+        lastSyncError: error instanceof Error ? error.message.slice(0, 500) : 'sync failed',
+      })
     } finally {
       syncInFlight.current = false
       await refreshDiagnostics()
