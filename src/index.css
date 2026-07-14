@@ -432,6 +432,18 @@ textarea::placeholder {
   padding-bottom: 0.75rem;
 }
 
+/* Home feed top bar — clears the iPhone status bar and stays solid when pinned */
+.home-feed-nav {
+  background-color: var(--bg-primary);
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 .sticky-below-notch {
   position: sticky;
   top: var(--safe-top);

@@ -24,6 +24,7 @@ function prefersReducedMotion(): boolean {
 export function HomeMobile({ data, nearby, onCreated, onOpenPerson }: HomeMobileProps) {
   const { greetingName } = useProfile()
   const feedRef = useRef<HTMLElement>(null)
+  const headerRef = useRef<HTMLElement>(null)
   const feedTopRef = useRef(0)
   const snappingRef = useRef(false)
   const lastScrollYRef = useRef(0)
@@ -31,16 +32,25 @@ export function HomeMobile({ data, nearby, onCreated, onOpenPerson }: HomeMobile
   const settleTimerRef = useRef<number | null>(null)
 
   const [feedTop, setFeedTop] = useState(0)
+  const [headerHeight, setHeaderHeight] = useState(0)
+  const [feedPinned, setFeedPinned] = useState(false)
   const [heroInteractive, setHeroInteractive] = useState(true)
   const [feedInteractive, setFeedInteractive] = useState(false)
 
   const measureFeedTop = useCallback(() => {
     const el = feedRef.current
     if (!el) return 0
+    // When pinned, header is fixed — measure from the feed section box (spacer included)
     const top = Math.round(el.getBoundingClientRect().top + window.scrollY)
     feedTopRef.current = top
     setFeedTop(top)
     return top
+  }, [])
+
+  const measureHeader = useCallback(() => {
+    const el = headerRef.current
+    if (!el) return
+    setHeaderHeight(el.offsetHeight)
   }, [])
 
   const scrollToY = useCallback((top: number) => {
@@ -79,7 +89,6 @@ export function HomeMobile({ data, nearby, onCreated, onOpenPerson }: HomeMobile
     if (y <= 2) return
 
     // Between hero and feed: commit to a step
-    // Modest upward progress (or upward flick) locks onto the search bar
     const commitFeed = lastDeltaYRef.current > 2 || y >= top * 0.28
     if (commitFeed) snapToFeed()
     else snapToHero()
@@ -95,10 +104,22 @@ export function HomeMobile({ data, nearby, onCreated, onOpenPerson }: HomeMobile
 
   useEffect(() => {
     measureFeedTop()
-    const onResize = () => measureFeedTop()
+    measureHeader()
+    const onResize = () => {
+      measureFeedTop()
+      measureHeader()
+    }
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
-  }, [measureFeedTop])
+  }, [measureFeedTop, measureHeader])
+
+  useEffect(() => {
+    const el = headerRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => measureHeader())
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [measureHeader])
 
   useEffect(() => {
     const onScroll = () => {
@@ -131,12 +152,13 @@ export function HomeMobile({ data, nearby, onCreated, onOpenPerson }: HomeMobile
 
   const heroOpacity = useTransform(scrollY, [fadeStart, fadeEnd], [1, 0])
   const feedOpacity = useTransform(scrollY, [fadeStart, fadeEnd], [0, 1])
-  const feedY = useTransform(scrollY, [fadeStart, fadeEnd], [20, 0])
 
   useMotionValueEvent(scrollY, 'change', (y) => {
-    const mid = fadeEnd * 0.5
+    const top = Math.max(feedTopRef.current, 1)
+    const mid = top * 0.5
     setHeroInteractive(y < mid)
     setFeedInteractive(y > mid)
+    setFeedPinned(y >= top - 1)
   })
 
   return (
@@ -169,11 +191,18 @@ export function HomeMobile({ data, nearby, onCreated, onOpenPerson }: HomeMobile
           className="home-feed-section relative z-0"
           style={{
             opacity: feedOpacity,
-            y: feedY,
             pointerEvents: feedInteractive ? 'auto' : 'none',
           }}
         >
-          <header className="pack-nav page-nav-top-shell sticky top-[var(--safe-top)] z-20 border-b">
+          {/* Spacer keeps layout when the bar is fixed under the status bar */}
+          {feedPinned && <div aria-hidden style={{ height: headerHeight || undefined }} />}
+
+          <header
+            ref={headerRef}
+            className={`home-feed-nav pack-nav page-nav-top z-30 border-b ${
+              feedPinned ? 'fixed inset-x-0 top-0' : 'relative'
+            }`}
+          >
             <div className="page-px mx-auto flex max-w-sm items-center gap-3">
               <button
                 type="button"
