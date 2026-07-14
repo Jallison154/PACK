@@ -35,6 +35,38 @@ type Filter =
   | 'admin_roles'
   | 'recent'
 
+function adminUserName(u: {
+  display_name: string | null
+  first_name: string | null
+  last_name: string | null
+}) {
+  const first = (u.first_name ?? '').trim()
+  const last = (u.last_name ?? '').trim()
+  if (first || last) return { first: first || '—', last: last || '—' }
+  const display = (u.display_name ?? '').trim()
+  if (display) {
+    const parts = display.split(/\s+/)
+    if (parts.length >= 2) {
+      return { first: parts[0], last: parts.slice(1).join(' ') }
+    }
+    return { first: display, last: '—' }
+  }
+  return { first: '—', last: '—' }
+}
+
+function adminUserFullName(u: {
+  display_name: string | null
+  first_name: string | null
+  last_name: string | null
+  email: string | null
+}) {
+  const { first, last } = adminUserName(u)
+  if (first !== '—' || last !== '—') {
+    return [first !== '—' ? first : null, last !== '—' ? last : null].filter(Boolean).join(' ')
+  }
+  return u.display_name || u.email || '—'
+}
+
 function formatDate(value: string | null | undefined) {
   return value ? new Date(value).toLocaleString() : '—'
 }
@@ -158,7 +190,8 @@ export function AdminUsersPage() {
       ) : (
         <AdminTable
           headers={[
-            'Name',
+            'First',
+            'Last',
             'Email',
             'Role',
             'Status',
@@ -169,17 +202,16 @@ export function AdminUsersPage() {
             'Created',
           ]}
         >
-          {filtered.map((u) => (
+          {filtered.map((u) => {
+            const name = adminUserName(u)
+            return (
             <tr
               key={u.user_id}
               className="hover:bg-white/5 cursor-pointer"
               onClick={() => setSelectedId(u.user_id)}
             >
-              <td className="text-pack-text px-4 py-3">
-                {u.display_name ||
-                  [u.first_name, u.last_name].filter(Boolean).join(' ') ||
-                  '—'}
-              </td>
+              <td className="text-pack-text px-4 py-3">{name.first}</td>
+              <td className="text-pack-text px-4 py-3">{name.last}</td>
               <td className="text-pack-text-secondary px-4 py-3">{u.email ?? '—'}</td>
               <td className="px-4 py-3 capitalize">{u.role}</td>
               <td className="px-4 py-3">
@@ -199,7 +231,8 @@ export function AdminUsersPage() {
                 {formatDate(u.account_created_at)}
               </td>
             </tr>
-          ))}
+            )
+          })}
         </AdminTable>
       )}
 
@@ -264,7 +297,7 @@ function UserDetailPanel({
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-pack-text text-lg font-semibold">
-            {user.display_name || user.email || user.user_id}
+            {adminUserFullName(user)}
           </h2>
           <p className="text-pack-text-muted mt-1 font-mono text-xs">{user.user_id}</p>
         </div>
@@ -272,6 +305,9 @@ function UserDetailPanel({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Info label="First name" value={adminUserName(user).first} />
+        <Info label="Last name" value={adminUserName(user).last} />
+        <Info label="Display name" value={user.display_name ?? '—'} />
         <Info label="Email" value={user.email ?? '—'} />
         <Info label="Role" value={user.role} />
         <Info label="Status" value={user.account_status} />

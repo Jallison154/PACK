@@ -91,7 +91,10 @@ export function AdminSupportPage() {
               }`}
             >
               <span className="text-pack-text">
-                {u.display_name || u.email || u.user_id}
+                {[u.first_name, u.last_name].filter(Boolean).join(' ') ||
+                  u.display_name ||
+                  u.email ||
+                  u.user_id}
               </span>
               <StatusBadge status={u.account_status} />
             </button>
@@ -103,7 +106,9 @@ export function AdminSupportPage() {
         <AdminCard className="space-y-4 p-4">
           <div>
             <h2 className="text-pack-text font-semibold">
-              {selected.display_name || selected.email}
+              {[selected.first_name, selected.last_name].filter(Boolean).join(' ') ||
+                selected.display_name ||
+                selected.email}
             </h2>
             <p className="text-pack-text-muted font-mono text-xs">{selected.user_id}</p>
           </div>
