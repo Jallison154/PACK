@@ -1,28 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
-import {
-  Brain,
-  Zap,
-  MapPin,
-  Bell,
-  Database,
-  Shield,
-  Palette,
-  Wrench,
-  Info,
-  UserCircle,
-} from 'lucide-react'
+import { Database, Shield, Wrench, Info, UserCircle } from 'lucide-react'
 
-export type SettingsSectionId =
-  | 'account'
-  | 'memory'
-  | 'quick-capture'
-  | 'location'
-  | 'notifications'
-  | 'data'
-  | 'privacy'
-  | 'appearance'
-  | 'advanced'
-  | 'about'
+export type SettingsSectionId = 'account' | 'data' | 'privacy' | 'advanced' | 'about'
 
 export interface SettingsSectionMeta {
   id: SettingsSectionId
@@ -32,66 +11,37 @@ export interface SettingsSectionMeta {
   secondary?: boolean
 }
 
+/** Active Settings sections — only ship what works today. */
 export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
   {
     id: 'account',
     title: 'Account',
-    subtitle: 'Your Pack Profile, sign-in, and sync',
+    subtitle: 'Profile, sign-in, and Pack Sync',
     icon: UserCircle,
-  },
-  {
-    id: 'memory',
-    title: 'Memory',
-    subtitle: 'How Pack remembers people for you',
-    icon: Brain,
-  },
-  {
-    id: 'quick-capture',
-    title: 'Quick Capture',
-    subtitle: 'Defaults for adding someone fast',
-    icon: Zap,
-  },
-  {
-    id: 'location',
-    title: 'Location',
-    subtitle: 'Places, nearby suggestions, and last seen',
-    icon: MapPin,
-  },
-  {
-    id: 'notifications',
-    title: 'Notifications',
-    subtitle: 'Reconnect reminders and Pack summaries',
-    icon: Bell,
   },
   {
     id: 'data',
     title: 'Data & Backup',
-    subtitle: 'Import, export, and local database',
+    subtitle: 'Export, import, and local storage',
     icon: Database,
   },
   {
     id: 'privacy',
     title: 'Privacy & Security',
-    subtitle: 'Lock, permissions, and local data',
+    subtitle: 'Passcode lock and permissions',
     icon: Shield,
-  },
-  {
-    id: 'appearance',
-    title: 'Appearance',
-    subtitle: 'Theme and Pack visual style',
-    icon: Palette,
   },
   {
     id: 'advanced',
     title: 'Advanced',
-    subtitle: 'Developer tools and maintenance',
+    subtitle: 'Diagnostics and build info',
     icon: Wrench,
     secondary: true,
   },
   {
     id: 'about',
     title: 'About Pack',
-    subtitle: 'Version, Okami Designs, feedback, support',
+    subtitle: 'Version, legal, feedback, and support',
     icon: Info,
   },
 ]

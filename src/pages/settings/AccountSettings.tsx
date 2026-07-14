@@ -601,13 +601,6 @@ export function AccountSettings() {
           description="Download a JSON backup before deleting"
           action={<SettingsButton onClick={() => void handleExportJSON()}>Export</SettingsButton>}
         />
-        <ActionRow
-          label="Clear local data"
-          description="Erase your Pack from this device"
-          destructive
-          comingSoon
-          action={<SettingsButton variant="danger" disabled>Clear</SettingsButton>}
-        />
         {isAuthenticated && (
           <ActionRow
             label="Delete account"

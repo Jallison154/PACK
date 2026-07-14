@@ -67,7 +67,7 @@ export function SettingsShell() {
             <aside className={isMobile ? 'space-y-2' : 'md:sticky md:top-24'}>
               {!isMobile && (
                 <p className="text-pack-text-muted mb-4 px-1 text-sm leading-relaxed">
-                  Manage how Pack remembers, captures, and protects your people.
+                  Account, backup, privacy, and diagnostics for your Pack.
                 </p>
               )}
               <SettingsMain embedded={!isMobile} activeSection={sectionId} />

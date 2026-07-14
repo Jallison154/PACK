@@ -10,9 +10,10 @@ import { useProfile } from '../../context/ProfileContext'
 interface HomeMobileProps {
   data: HomeScrollData
   onCreated: () => void
+  onOpenPerson: (personId: string) => void
 }
 
-export function HomeMobile({ data, onCreated }: HomeMobileProps) {
+export function HomeMobile({ data, onCreated, onOpenPerson }: HomeMobileProps) {
   const { greetingName } = useProfile()
   const [viewportHeight, setViewportHeight] = useState(
     () => (typeof window !== 'undefined' ? window.innerHeight : 600),
@@ -59,7 +60,7 @@ export function HomeMobile({ data, onCreated }: HomeMobileProps) {
               {getGreeting(greetingName)}
             </h1>
             <div className="w-full max-w-sm">
-              <QuickCapture onCreated={onCreated} size="hero" />
+              <QuickCapture onCreated={onCreated} onOpenPerson={onOpenPerson} size="hero" />
             </div>
           </div>
 
@@ -81,12 +82,12 @@ export function HomeMobile({ data, onCreated }: HomeMobileProps) {
             <div className="page-px mx-auto flex max-w-sm items-center gap-3">
               <PackLogo href="/" size="sm" align="center" className="shrink-0 scale-90" />
               <div className="min-w-0 flex-1">
-                <QuickCapture onCreated={onCreated} size="default" />
+                <QuickCapture onCreated={onCreated} onOpenPerson={onOpenPerson} size="default" />
               </div>
             </div>
           </header>
 
-          <HomeScrollContent data={data} />
+          <HomeScrollContent data={data} onOpenPerson={onOpenPerson} />
         </motion.section>
       </div>
     </div>

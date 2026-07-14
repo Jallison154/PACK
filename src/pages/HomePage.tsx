@@ -4,6 +4,7 @@ import { useIsMobile, DESKTOP_BREAKPOINT } from '../components/ui/WorkspaceToggl
 import { HomeMobile } from '../components/home/HomeMobile'
 import { HomeDesktop } from '../components/home/HomeDesktop'
 import { type HomeScrollData } from '../components/home/HomeScrollContent'
+import { PersonDetailSheet } from '../components/person/PersonDetailSheet'
 import {
   getRecentlyAdded,
   getRecentInteractions,
@@ -27,6 +28,7 @@ const emptyScrollData: HomeScrollData = {
 export function HomePage() {
   const isMobile = useIsMobile(DESKTOP_BREAKPOINT)
   const [scrollData, setScrollData] = useState<HomeScrollData>(emptyScrollData)
+  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     const [interactions, recent, followUps, places, mapPlaces, corePack, recentMembers, stats] =
@@ -66,9 +68,36 @@ export function HomePage() {
 
   usePackDataRefresh(load)
 
+  const openPerson = useCallback((personId: string) => {
+    setSelectedPersonId(personId)
+  }, [])
+
+  const sheet = (
+    <PersonDetailSheet
+      personId={selectedPersonId}
+      open={Boolean(selectedPersonId)}
+      onClose={() => setSelectedPersonId(null)}
+      onChanged={() => void load()}
+      onDeleted={() => {
+        setSelectedPersonId(null)
+        void load()
+      }}
+    />
+  )
+
   if (isMobile) {
-    return <HomeMobile data={scrollData} onCreated={load} />
+    return (
+      <>
+        <HomeMobile data={scrollData} onCreated={load} onOpenPerson={openPerson} />
+        {sheet}
+      </>
+    )
   }
 
-  return <HomeDesktop data={scrollData} onCreated={load} />
+  return (
+    <>
+      <HomeDesktop data={scrollData} onCreated={load} onOpenPerson={openPerson} />
+      {sheet}
+    </>
+  )
 }

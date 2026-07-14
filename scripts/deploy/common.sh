@@ -272,11 +272,14 @@ validate_vite_env() {
   [[ -n "${VITE_SUPABASE_ANON_KEY:-}" ]] || missing+=("VITE_SUPABASE_ANON_KEY")
 
   if ((${#missing[@]} > 0)); then
-    log ""
-    log "Warning: Missing Vite environment variables for cloud sync: ${missing[*]}"
-    log "Pack will build in local-only mode until these are set in $APP_DIR/.env.local"
-    log "Vite embeds env vars at build time — rebuild after changing .env.local."
-    log ""
+    error "$(cat <<EOF
+Missing Vite environment variables for Pack Sync: ${missing[*]}
+
+Set them in $APP_DIR/.env.local (see .env.example), then re-run update.
+Vite embeds env vars at build time — a Mapbox-only .env.local will ship a
+local-only build with cloud accounts and sync disabled.
+EOF
+)"
   fi
 
   if [[ ! -f "$APP_DIR/.env.local" ]]; then

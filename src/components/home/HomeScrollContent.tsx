@@ -25,13 +25,14 @@ export interface HomeScrollData {
 
 interface HomeScrollContentProps {
   data: HomeScrollData
+  onOpenPerson: (personId: string) => void
 }
 
 function EmptyLine({ children }: { children: string }) {
   return <p className="text-pack-text-muted/60 px-1 text-sm">{children}</p>
 }
 
-export function HomeScrollContent({ data }: HomeScrollContentProps) {
+export function HomeScrollContent({ data, onOpenPerson }: HomeScrollContentProps) {
   const navigate = useNavigate()
   const { todayTrail, followUps, recentPlaces, corePack, insights } = data
 
@@ -39,7 +40,7 @@ export function HomeScrollContent({ data }: HomeScrollContentProps) {
     <div className="page-px mx-auto w-full max-w-sm space-y-16 pt-4">
       <HomeRevealSection title="Today's Trail">
         {todayTrail.length > 0 ? (
-          <MemoryFeed items={todayTrail} flat />
+          <MemoryFeed items={todayTrail} flat onOpenPerson={onOpenPerson} />
         ) : (
           <EmptyLine>No new trails yet.</EmptyLine>
         )}
@@ -52,7 +53,7 @@ export function HomeScrollContent({ data }: HomeScrollContentProps) {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => navigate(`/person/${item.personId}`)}
+                onClick={() => onOpenPerson(item.personId)}
                 className="hover:bg-pack-card-hover/50 w-full rounded-xl px-1 py-2.5 text-left transition-colors"
               >
                 <p className="text-pack-text text-[15px] leading-snug">
@@ -99,7 +100,12 @@ export function HomeScrollContent({ data }: HomeScrollContentProps) {
           <>
             <div className="space-y-1">
               {corePack.map((person, i) => (
-                <MemoryPersonCard key={person.id} person={person} index={i} />
+                <MemoryPersonCard
+                  key={person.id}
+                  person={person}
+                  index={i}
+                  onOpenPerson={onOpenPerson}
+                />
               ))}
             </div>
             <button

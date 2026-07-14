@@ -8,9 +8,10 @@ import type { PersonWithTags } from '../../types'
 interface HomePersonRowProps {
   person: PersonWithTags
   compact?: boolean
+  onOpenPerson?: (personId: string) => void
 }
 
-export function HomePersonRow({ person, compact = false }: HomePersonRowProps) {
+export function HomePersonRow({ person, compact = false, onOpenPerson }: HomePersonRowProps) {
   const navigate = useNavigate()
   const relationship = getRelationshipLabel(person.relationshipType)
   const where =
@@ -21,10 +22,15 @@ export function HomePersonRow({ person, compact = false }: HomePersonRowProps) {
     null
   const lastSeen = person.lastSeenDate || person.dateMet || person.createdAt.slice(0, 10)
 
+  const open = () => {
+    if (onOpenPerson) onOpenPerson(person.id)
+    else navigate(`/person/${person.id}`)
+  }
+
   return (
     <button
       type="button"
-      onClick={() => navigate(`/person/${person.id}`)}
+      onClick={open}
       className="hover:bg-pack-card-hover/50 flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition-colors"
     >
       <Avatar

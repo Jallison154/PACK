@@ -1,11 +1,10 @@
-import { Home, MapPin, Settings, Users, Search } from 'lucide-react'
+import { Home, MapPin, Settings, Users } from 'lucide-react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { DESKTOP_BREAKPOINT, useIsDesktop } from '../ui/WorkspaceToggle'
 
 const navItems = [
   { to: '/', icon: Home, label: 'Home' },
-  { to: '/search', icon: Search, label: 'Search' },
   { to: '/pack', icon: Users, label: 'My Pack' },
   { to: '/places', icon: MapPin, label: 'Places' },
   { to: '/settings', icon: Settings, label: 'Settings' },

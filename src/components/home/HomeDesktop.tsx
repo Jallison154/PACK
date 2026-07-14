@@ -21,6 +21,7 @@ import type { ReactNode } from 'react'
 interface HomeDesktopProps {
   data: HomeScrollData
   onCreated: () => void
+  onOpenPerson: (personId: string) => void
 }
 
 function EmptyLine({ children }: { children: string }) {
@@ -35,8 +36,13 @@ function SectionCard({ children, className = '' }: { children: ReactNode; classN
   )
 }
 
-function TrailItem({ item }: { item: MemoryItem }) {
-  const navigate = useNavigate()
+function TrailItem({
+  item,
+  onOpenPerson,
+}: {
+  item: MemoryItem
+  onOpenPerson: (personId: string) => void
+}) {
   const timeLabel = /^\d{4}-\d{2}-\d{2}$/.test(item.date)
     ? formatDate(item.date)
     : (() => {
@@ -50,7 +56,7 @@ function TrailItem({ item }: { item: MemoryItem }) {
   return (
     <button
       type="button"
-      onClick={() => navigate(`/person/${item.personId}`)}
+      onClick={() => onOpenPerson(item.personId)}
       className="hover:bg-pack-card-hover/50 grid w-full grid-cols-[64px_1fr] gap-3 rounded-xl px-2 py-2.5 text-left transition-colors"
     >
       <span className="text-pack-text-muted pt-0.5 text-[11px] tabular-nums">{timeLabel}</span>
@@ -82,7 +88,7 @@ function coreLabel(person: PersonWithTags): string {
   return person.company || getRelationshipLabel(person.relationshipType) || 'Core'
 }
 
-export function HomeDesktop({ data, onCreated }: HomeDesktopProps) {
+export function HomeDesktop({ data, onCreated, onOpenPerson }: HomeDesktopProps) {
   const navigate = useNavigate()
   const { greetingName } = useProfile()
   const { isAuthenticated } = useAuth()
@@ -112,6 +118,7 @@ export function HomeDesktop({ data, onCreated }: HomeDesktopProps) {
         <div className="min-w-0">
           <QuickCapture
             onCreated={onCreated}
+            onOpenPerson={onOpenPerson}
             size="hero"
             placeholder="Search your Pack or add someone…"
           />
@@ -148,7 +155,11 @@ export function HomeDesktop({ data, onCreated }: HomeDesktopProps) {
               {recentPackMembers.length > 0 ? (
                 <div className="-mx-1">
                   {recentPackMembers.map((person) => (
-                    <HomePersonRow key={person.id} person={person} />
+                    <HomePersonRow
+                      key={person.id}
+                      person={person}
+                      onOpenPerson={onOpenPerson}
+                    />
                   ))}
                 </div>
               ) : (
@@ -167,7 +178,7 @@ export function HomeDesktop({ data, onCreated }: HomeDesktopProps) {
                   />
                   <div className="space-y-0.5">
                     {todayTrail.map((item) => (
-                      <TrailItem key={item.id} item={item} />
+                      <TrailItem key={item.id} item={item} onOpenPerson={onOpenPerson} />
                     ))}
                   </div>
                 </div>
@@ -185,7 +196,7 @@ export function HomeDesktop({ data, onCreated }: HomeDesktopProps) {
                     <button
                       key={item.id}
                       type="button"
-                      onClick={() => navigate(`/person/${item.personId}`)}
+                      onClick={() => onOpenPerson(item.personId)}
                       className="hover:bg-pack-card-hover/50 flex w-full items-start justify-between gap-3 rounded-xl px-2 py-2.5 text-left transition-colors"
                     >
                       <div className="min-w-0">
@@ -239,7 +250,7 @@ export function HomeDesktop({ data, onCreated }: HomeDesktopProps) {
                     <button
                       key={person.id}
                       type="button"
-                      onClick={() => navigate(`/person/${person.id}`)}
+                      onClick={() => onOpenPerson(person.id)}
                       className="hover:bg-pack-card-hover/50 flex flex-col items-center gap-2 rounded-xl px-2 py-3 text-center transition-colors"
                     >
                       <Avatar name={person.name} color={person.profileColor} size="lg" />

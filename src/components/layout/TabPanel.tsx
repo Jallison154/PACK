@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-export const MAIN_TAB_PATHS = ['/', '/search', '/pack', '/places', '/settings'] as const
+export const MAIN_TAB_PATHS = ['/', '/pack', '/places', '/settings'] as const
 export type MainTabPath = (typeof MAIN_TAB_PATHS)[number]
 
 export function isMainTabPath(path: string): path is MainTabPath {

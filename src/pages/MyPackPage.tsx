@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { MobilePageShell } from '../components/layout/MobilePageShell'
 import { Search, Users, SlidersHorizontal, X, UserPlus } from 'lucide-react'
 import { PackMemberRow } from '../components/pack/PackMemberRow'
@@ -63,8 +63,12 @@ function FilterChip({
 
 export function MyPackPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const isDesktop = useIsDesktop(DESKTOP_BREAKPOINT)
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(() => {
+    const initial = (location.state as { q?: string } | null)?.q
+    return initial?.trim() ?? ''
+  })
   const [view, setView] = useState<PackMemberView>('all')
   const [workspace, setWorkspace] = useState<Workspace | 'all'>('all')
   const [sort, setSort] = useState<PackMemberSort>('name')

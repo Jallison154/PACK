@@ -24,12 +24,12 @@ export function getSupabaseAnonKey(): string | undefined {
 export function validateCloudEnv(): CloudEnvValidation {
   const supabaseUrl = getSupabaseUrl()
   const supabaseAnonKey = getSupabaseAnonKey()
-  const appUrl = import.meta.env.VITE_APP_URL
+  // App URL is optional for the sync gate — getAppUrl() falls back to window.location.origin.
+  const appUrl = import.meta.env.VITE_APP_URL || (typeof window !== 'undefined' ? window.location.origin : undefined)
   const missing: string[] = []
 
   if (!supabaseUrl) missing.push('VITE_SUPABASE_URL')
   if (!supabaseAnonKey) missing.push('VITE_SUPABASE_ANON_KEY')
-  if (!appUrl) missing.push('VITE_APP_URL')
 
   return {
     configured: missing.length === 0,

@@ -28,7 +28,7 @@ function AuthenticatedApp() {
               <Routes>
                 <Route element={<AppLayout />}>
                   <Route path="/" element={<TabShell />} />
-                  <Route path="/search" element={<TabShell />} />
+                  <Route path="/search" element={<Navigate to="/pack" replace />} />
                   <Route path="/pack" element={<TabShell />} />
                   <Route path="/favorites" element={<Navigate to="/pack" replace />} />
                   <Route path="/places" element={<TabShell />} />

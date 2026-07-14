@@ -26,12 +26,14 @@ function dismissMatchesSoon(setFocused: (v: boolean) => void) {
 
 interface QuickCaptureProps {
   onCreated?: () => void
+  onOpenPerson?: (personId: string) => void
   size?: 'hero' | 'default'
   placeholder?: string
 }
 
 export function QuickCapture({
   onCreated,
+  onOpenPerson,
   size = 'default',
   placeholder,
 }: QuickCaptureProps) {
@@ -49,6 +51,11 @@ export function QuickCapture({
 
   const debouncedName = useDebouncedValue(name, 180)
   const trimmedName = name.trim()
+
+  const openPerson = (personId: string) => {
+    if (onOpenPerson) onOpenPerson(personId)
+    else navigate(`/person/${personId}`)
+  }
 
   const parsedMemory = useMemo(
     () => parseMemoryNotes(memory, companies, places),
@@ -121,7 +128,7 @@ export function QuickCapture({
           `${strong.person.name} may already be in your Pack. View their profile instead of creating a duplicate?`,
         )
         if (viewExisting) {
-          navigate(`/person/${strong.person.id}`)
+          openPerson(strong.person.id)
           return
         }
       }
@@ -140,7 +147,7 @@ export function QuickCapture({
       setLastUsedWorkspace(lastUsedWorkspace)
       reset()
       onCreated?.()
-      navigate(`/person/${person.id}`)
+      openPerson(person.id)
     } finally {
       setSaving(false)
     }
@@ -246,7 +253,7 @@ export function QuickCapture({
                 type="button"
                 onClick={() => {
                   reset()
-                  navigate(`/person/${person.id}`)
+                  openPerson(person.id)
                 }}
                 className="hover:bg-pack-card-hover/50 flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors"
               >
@@ -263,10 +270,10 @@ export function QuickCapture({
             ))}
             <button
               type="button"
-              onClick={() => navigate('/search', { state: { q: trimmedName } })}
+              onClick={() => navigate('/pack', { state: { q: trimmedName } })}
               className="text-pack-text-muted hover:text-pack-text-secondary w-full px-3 py-2.5 text-center text-sm transition-colors"
             >
-              Search for "{trimmedName}"
+              Search My Pack for "{trimmedName}"
             </button>
           </div>
         </div>

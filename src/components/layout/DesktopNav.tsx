@@ -1,4 +1,4 @@
-import { Home, MapPin, Settings, Users, Search } from 'lucide-react'
+import { Home, MapPin, Settings, Users } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { DESKTOP_BREAKPOINT, useIsDesktop } from '../ui/WorkspaceToggle'
 import { PackLogo } from '../brand/PackLogo'
@@ -6,7 +6,6 @@ import { AccountIndicator } from '../auth/AccountIndicator'
 
 const items = [
   { to: '/', icon: Home, label: 'Home' },
-  { to: '/search', icon: Search, label: 'Search' },
   { to: '/pack', icon: Users, label: 'My Pack' },
   { to: '/places', icon: MapPin, label: 'Places' },
   { to: '/settings', icon: Settings, label: 'Settings' },

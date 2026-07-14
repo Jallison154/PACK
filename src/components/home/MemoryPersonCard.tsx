@@ -6,6 +6,7 @@ import type { PersonWithTags } from '../../types'
 interface MemoryPersonCardProps {
   person: PersonWithTags
   index?: number
+  onOpenPerson?: (personId: string) => void
 }
 
 function personContext(person: PersonWithTags): string | undefined {
@@ -20,9 +21,14 @@ function personContext(person: PersonWithTags): string | undefined {
   )
 }
 
-export function MemoryPersonCard({ person, index = 0 }: MemoryPersonCardProps) {
+export function MemoryPersonCard({ person, index = 0, onOpenPerson }: MemoryPersonCardProps) {
   const navigate = useNavigate()
   const context = personContext(person)
+
+  const open = () => {
+    if (onOpenPerson) onOpenPerson(person.id)
+    else navigate(`/person/${person.id}`)
+  }
 
   return (
     <motion.button
@@ -31,7 +37,7 @@ export function MemoryPersonCard({ person, index = 0 }: MemoryPersonCardProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.02 }}
       whileTap={{ scale: 0.99 }}
-      onClick={() => navigate(`/person/${person.id}`)}
+      onClick={open}
       className="hover:bg-pack-card-hover/50 flex w-full items-center gap-3 rounded-xl px-1 py-3 text-left transition-colors"
     >
       <Avatar name={person.name} color={person.profileColor} size="md" />

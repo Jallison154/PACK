@@ -4,19 +4,25 @@ import { groupMemoryFeed, type MemoryItem } from '../../utils/memoryFeed'
 interface MemoryFeedProps {
   items: MemoryItem[]
   flat?: boolean
+  onOpenPerson?: (personId: string) => void
 }
 
-export function MemoryFeed({ items, flat }: MemoryFeedProps) {
+export function MemoryFeed({ items, flat, onOpenPerson }: MemoryFeedProps) {
   const navigate = useNavigate()
   const groups = flat ? [{ label: '', items }] : groupMemoryFeed(items)
 
   if (groups.length === 0) return null
 
+  const openPerson = (personId: string) => {
+    if (onOpenPerson) onOpenPerson(personId)
+    else navigate(`/person/${personId}`)
+  }
+
   const renderItem = (item: MemoryItem) => (
     <button
       key={item.id}
       type="button"
-      onClick={() => navigate(`/person/${item.personId}`)}
+      onClick={() => openPerson(item.personId)}
       className="hover:bg-pack-card-hover/50 w-full rounded-xl px-1 py-2.5 text-left transition-colors"
     >
       <p className="text-pack-text text-[15px] leading-snug">

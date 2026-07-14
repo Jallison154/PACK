@@ -92,7 +92,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const [syncMode, setSyncModeState] = useState<SyncMode>(() =>
     isCloudSyncEnabled() ? 'cloud' : 'local',
   )
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>('starting')
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(() =>
+    isCloudSyncAvailable() ? 'starting' : 'disabled',
+  )
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(() => getLastSyncTime())
   const [diagnostics, setDiagnostics] = useState<SyncDiagnostics>(EMPTY_DIAGNOSTICS)
   const [isOnline, setIsOnline] = useState(
@@ -212,7 +214,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
     try {
       const currentUser = await restoreCurrentUser()
-      if (!currentUser?.id) return
+      if (!currentUser?.id) {
+        setSyncStatus('error')
+        recordSyncError(new Error('No session during startup sync'), 'startup sync')
+        return
+      }
       if (currentUser.id !== user.id) {
         throw new Error('Authenticated user changed during startup sync.')
       }
@@ -293,8 +299,16 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   }, [isAuthenticated, user?.id])
 
   useEffect(() => {
+    if (!isCloudSyncAvailable()) {
+      unsubscribeFromRealtimeChanges()
+      setSyncStatus('disabled')
+      return
+    }
     if (!isAuthenticated || !user || syncMode !== 'cloud') {
       unsubscribeFromRealtimeChanges()
+      if (isAuthenticated && syncMode === 'local') {
+        setSyncStatus('disabled')
+      }
       return
     }
     void runStartupSync()
