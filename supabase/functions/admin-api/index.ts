@@ -266,6 +266,102 @@ Deno.serve(async (req) => {
         })
       }
 
+      case 'updateUserProfile': {
+        if (!can(role, 'support')) return json({ error: 'Forbidden' }, 403)
+        const targetId = body.userId as string
+        if (!targetId) return json({ error: 'userId required' }, 400)
+
+        const firstName = body.firstName != null ? String(body.firstName).trim() : undefined
+        const lastName = body.lastName != null ? String(body.lastName).trim() : undefined
+        const displayName =
+          body.displayName != null ? String(body.displayName).trim() : undefined
+
+        const { data: before } = await adminClient
+          .from('profiles')
+          .select('first_name, last_name, display_name, email')
+          .eq('id', targetId)
+          .maybeSingle()
+
+        const profilePatch: Record<string, unknown> = {
+          updated_at: new Date().toISOString(),
+        }
+        if (firstName !== undefined) profilePatch.first_name = firstName || null
+        if (lastName !== undefined) profilePatch.last_name = lastName || null
+        if (displayName !== undefined) {
+          profilePatch.display_name =
+            displayName ||
+            [firstName ?? before?.first_name, lastName ?? before?.last_name]
+              .filter(Boolean)
+              .join(' ') ||
+            null
+        }
+
+        const { error: profileError } = await adminClient
+          .from('profiles')
+          .update(profilePatch)
+          .eq('id', targetId)
+        if (profileError) return json({ error: profileError.message }, 400)
+
+        const meta: Record<string, unknown> = {}
+        if (firstName !== undefined) meta.first_name = firstName || null
+        if (lastName !== undefined) meta.last_name = lastName || null
+        if (displayName !== undefined || firstName !== undefined || lastName !== undefined) {
+          meta.display_name =
+            (profilePatch.display_name as string | null) ?? before?.display_name ?? null
+        }
+        if (Object.keys(meta).length > 0) {
+          await adminClient.auth.admin.updateUserById(targetId, { user_metadata: meta })
+        }
+
+        await audit('user_profile_updated', targetId, body.reason, before, profilePatch)
+        return json({ ok: true })
+      }
+
+      case 'updateUserEmail': {
+        if (!can(role, 'admin')) return json({ error: 'Forbidden' }, 403)
+        const targetId = body.userId as string
+        const email = String(body.email ?? '').trim().toLowerCase()
+        if (!targetId || !email.includes('@')) {
+          return json({ error: 'userId and valid email required' }, 400)
+        }
+
+        const { data: beforeAuth } = await adminClient.auth.admin.getUserById(targetId)
+        const { error } = await adminClient.auth.admin.updateUserById(targetId, {
+          email,
+          email_confirm: body.emailConfirmed !== false,
+        })
+        if (error) return json({ error: error.message }, 400)
+
+        await adminClient
+          .from('profiles')
+          .update({ email, updated_at: new Date().toISOString() })
+          .eq('id', targetId)
+
+        await audit(
+          'user_email_updated',
+          targetId,
+          body.reason,
+          { email: beforeAuth.user?.email },
+          { email },
+        )
+        return json({ ok: true })
+      }
+
+      case 'setUserPassword': {
+        if (!can(role, 'admin')) return json({ error: 'Forbidden' }, 403)
+        const targetId = body.userId as string
+        const password = String(body.password ?? '')
+        if (!targetId) return json({ error: 'userId required' }, 400)
+        if (password.length < 8) {
+          return json({ error: 'Password must be at least 8 characters.' }, 400)
+        }
+
+        const { error } = await adminClient.auth.admin.updateUserById(targetId, { password })
+        if (error) return json({ error: error.message }, 400)
+        await audit('user_password_set', targetId, body.reason)
+        return json({ ok: true })
+      }
+
       case 'sendPasswordReset': {
         if (!can(role, 'support')) return json({ error: 'Forbidden' }, 403)
         const email = body.email as string

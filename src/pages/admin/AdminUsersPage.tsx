@@ -9,8 +9,11 @@ import {
   adminRefreshStats,
   adminResendVerification,
   adminSendPasswordReset,
+  adminSetUserPassword,
   adminSignOutAll,
   adminSuspendUser,
+  adminUpdateUserEmail,
+  adminUpdateUserProfile,
   fetchAdminDirectoryLocal,
   fetchAdminUser,
   fetchAdminUsers,
@@ -467,13 +470,29 @@ function UserDetailPanel({
   const [reason, setReason] = useState('')
   const [role, setRole] = useState<AdminRole>(user.role)
   const [note, setNote] = useState('')
+  const [firstName, setFirstName] = useState(user.first_name ?? '')
+  const [lastName, setLastName] = useState(user.last_name ?? '')
+  const [displayName, setDisplayName] = useState(user.display_name ?? '')
+  const [email, setEmail] = useState(user.email ?? '')
+  const [tempPassword, setTempPassword] = useState('')
 
   const reloadDetail = async () => {
     const result = await fetchAdminUser(user.user_id)
     setDetail(result.data)
+    if (result.data?.user) {
+      setFirstName(result.data.user.first_name ?? '')
+      setLastName(result.data.user.last_name ?? '')
+      setDisplayName(result.data.user.display_name ?? '')
+      setEmail(result.data.user.email ?? '')
+    }
   }
 
   useEffect(() => {
+    setFirstName(user.first_name ?? '')
+    setLastName(user.last_name ?? '')
+    setDisplayName(user.display_name ?? '')
+    setEmail(user.email ?? '')
+    setTempPassword('')
     void reloadDetail()
   }, [user.user_id])
 
@@ -483,7 +502,71 @@ function UserDetailPanel({
     const result = await fn()
     setBusy(false)
     if (result.error) onMessage(result.error)
-    else onMessage(`${label} completed.`)
+    else {
+      onMessage(`${label} completed.`)
+      await reloadDetail()
+    }
+  }
+
+  const saveProfile = async () => {
+    setBusy(true)
+    const result = await adminUpdateUserProfile({
+      userId: user.user_id,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      displayName: displayName.trim(),
+      reason: reason.trim() || 'Profile updated from Admin Users',
+    })
+    setBusy(false)
+    if (result.error) {
+      onMessage(result.error)
+      return
+    }
+    onMessage('Profile updated.')
+    await reloadDetail()
+  }
+
+  const saveEmail = async () => {
+    if (!email.trim().includes('@')) {
+      onMessage('Enter a valid email.')
+      return
+    }
+    if (!window.confirm(`Change email to ${email.trim()}?`)) return
+    setBusy(true)
+    const result = await adminUpdateUserEmail({
+      userId: user.user_id,
+      email: email.trim(),
+      emailConfirmed: true,
+      reason: reason.trim() || 'Email updated from Admin Users',
+    })
+    setBusy(false)
+    if (result.error) {
+      onMessage(result.error)
+      return
+    }
+    onMessage('Email updated.')
+    await reloadDetail()
+  }
+
+  const savePassword = async () => {
+    if (tempPassword.length < 8) {
+      onMessage('Password must be at least 8 characters.')
+      return
+    }
+    if (!window.confirm('Set a new temporary password for this user?')) return
+    setBusy(true)
+    const result = await adminSetUserPassword({
+      userId: user.user_id,
+      password: tempPassword,
+      reason: reason.trim() || 'Password set from Admin Users',
+    })
+    setBusy(false)
+    if (result.error) {
+      onMessage(result.error)
+      return
+    }
+    setTempPassword('')
+    onMessage('Temporary password set.')
   }
 
   const saveNote = async () => {
@@ -505,18 +588,91 @@ function UserDetailPanel({
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-pack-text text-lg font-semibold">
-            {adminUserFullName(user)}
+            {adminUserFullName({
+              ...user,
+              first_name: firstName || user.first_name,
+              last_name: lastName || user.last_name,
+              display_name: displayName || user.display_name,
+            })}
           </h2>
           <p className="text-pack-text-muted mt-1 font-mono text-xs">{user.user_id}</p>
         </div>
         <AdminButton onClick={onClose}>Close</AdminButton>
       </div>
 
+      <div className="space-y-3">
+        <h3 className="text-pack-text text-sm font-medium">Account data</h3>
+        <p className="text-pack-text-muted text-xs">
+          Edit account profile fields for support. Pack Member names, notes, and private place
+          history stay private and are not editable here.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block">
+            <span className="text-pack-text-muted text-xs uppercase tracking-wide">First name</span>
+            <input
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="block">
+            <span className="text-pack-text-muted text-xs uppercase tracking-wide">Last name</span>
+            <input
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="block sm:col-span-2">
+            <span className="text-pack-text-muted text-xs uppercase tracking-wide">
+              Display name
+            </span>
+            <input
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+            />
+          </label>
+        </div>
+        <AdminButton disabled={busy} onClick={() => void saveProfile()}>
+          Save profile
+        </AdminButton>
+
+        {canManageUsers && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block sm:col-span-2">
+              <span className="text-pack-text-muted text-xs uppercase tracking-wide">Email</span>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+              />
+            </label>
+            <AdminButton disabled={busy} onClick={() => void saveEmail()}>
+              Save email
+            </AdminButton>
+            <label className="block sm:col-span-2">
+              <span className="text-pack-text-muted text-xs uppercase tracking-wide">
+                Set temporary password
+              </span>
+              <input
+                type="text"
+                value={tempPassword}
+                onChange={(e) => setTempPassword(e.target.value)}
+                className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+                placeholder="At least 8 characters"
+                autoComplete="new-password"
+              />
+            </label>
+            <AdminButton disabled={busy || tempPassword.length < 8} onClick={() => void savePassword()}>
+              Set password
+            </AdminButton>
+          </div>
+        )}
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Info label="First name" value={adminUserName(user).first} />
-        <Info label="Last name" value={adminUserName(user).last} />
-        <Info label="Display name" value={user.display_name ?? '—'} />
-        <Info label="Email" value={user.email ?? '—'} />
         <Info label="Role" value={user.role} />
         <Info label="Status" value={user.account_status} />
         <Info label="Created" value={formatDate(user.account_created_at)} />
@@ -525,10 +681,7 @@ function UserDetailPanel({
         <Info label="Pending sync" value={String(user.pending_sync_count)} />
         <Info label="Pack Members" value={String(user.people_count)} />
         <Info label="Places" value={String(user.places_count)} />
-        <Info
-          label="Device DB size"
-          value={formatBytes(user.storage_bytes)}
-        />
+        <Info label="Device DB size" value={formatBytes(user.storage_bytes)} />
         <Info label="Email verified" value={user.email_verified ? 'Yes' : 'Unknown / No'} />
         <Info label="Last sync error" value={user.last_sync_error ?? 'None'} />
       </div>

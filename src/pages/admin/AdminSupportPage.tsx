@@ -5,6 +5,7 @@ import {
   adminResendVerification,
   adminSendPasswordReset,
   adminSignOutAll,
+  adminUpdateUserProfile,
   fetchAdminDirectoryLocal,
   fetchAdminUser,
   fetchAdminUsers,
@@ -28,6 +29,9 @@ export function AdminSupportPage() {
   const [selected, setSelected] = useState<AdminDirectoryUser | null>(null)
   const [supportNotes, setSupportNotes] = useState<SupportNote[]>([])
   const [note, setNote] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [displayName, setDisplayName] = useState('')
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const map = getMapRuntimeDiagnostics()
@@ -64,11 +68,38 @@ export function AdminSupportPage() {
 
   const loadDetail = async (user: AdminDirectoryUser) => {
     setSelected(user)
+    setFirstName(user.first_name ?? '')
+    setLastName(user.last_name ?? '')
+    setDisplayName(user.display_name ?? '')
     setBusy(true)
     const detail = await fetchAdminUser(user.user_id)
     setSupportNotes(detail.data?.supportNotes ?? [])
-    if (detail.data?.user) setSelected(detail.data.user)
+    if (detail.data?.user) {
+      setSelected(detail.data.user)
+      setFirstName(detail.data.user.first_name ?? '')
+      setLastName(detail.data.user.last_name ?? '')
+      setDisplayName(detail.data.user.display_name ?? '')
+    }
     setBusy(false)
+  }
+
+  const saveProfile = async () => {
+    if (!selected) return
+    setBusy(true)
+    const result = await adminUpdateUserProfile({
+      userId: selected.user_id,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      displayName: displayName.trim(),
+      reason: 'Profile updated from Admin Support',
+    })
+    setBusy(false)
+    if (result.error) {
+      setMessage(result.error)
+      return
+    }
+    setMessage('Profile updated.')
+    await loadDetail(selected)
   }
 
   const saveNote = async () => {
@@ -89,7 +120,7 @@ export function AdminSupportPage() {
     <div className="space-y-4">
       <AdminCard className="space-y-3 p-4">
         <p className="text-pack-text-muted text-sm">
-          Metadata-only support tools. Private Pack Member content is never loaded.
+          Metadata-only support tools. Private Pack Member content is never loaded or edited here.
         </p>
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
@@ -135,21 +166,60 @@ export function AdminSupportPage() {
         <AdminCard className="space-y-4 p-4">
           <div>
             <h2 className="text-pack-text font-semibold">
-              {[selected.first_name, selected.last_name].filter(Boolean).join(' ') ||
-                selected.display_name ||
+              {[firstName, lastName].filter(Boolean).join(' ') ||
+                displayName ||
                 selected.email}
             </h2>
             <p className="text-pack-text-muted font-mono text-xs">{selected.user_id}</p>
           </div>
 
+          <div className="space-y-3">
+            <h3 className="text-pack-text text-sm font-medium">Adjust account data</h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-pack-text-muted text-xs uppercase tracking-wide">
+                  First name
+                </span>
+                <input
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block">
+                <span className="text-pack-text-muted text-xs uppercase tracking-wide">
+                  Last name
+                </span>
+                <input
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="text-pack-text-muted text-xs uppercase tracking-wide">
+                  Display name
+                </span>
+                <input
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+                />
+              </label>
+            </div>
+            <AdminButton disabled={busy} onClick={() => void saveProfile()}>
+              Save profile
+            </AdminButton>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2">
             <Meta label="Auth / account" value={selected.account_status} />
             <Meta label="Role" value={selected.role} />
+            <Meta label="Email" value={selected.email ?? '—'} />
             <Meta label="Last sync" value={selected.last_sync_at ?? '—'} />
             <Meta label="Last error" value={selected.last_sync_error ?? 'None'} />
             <Meta label="Pending ops" value={String(selected.pending_sync_count)} />
             <Meta label="Build / app" value={map.appBuildVersion} />
-            <Meta label="Browser" value={navigator.userAgent.slice(0, 80)} />
             <Meta
               label="Data counts"
               value={`${selected.people_count} members · ${selected.places_count} places`}

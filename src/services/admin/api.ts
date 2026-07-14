@@ -203,6 +203,33 @@ export async function adminDeleteUser(userId: string, reason?: string) {
   return callAdminApi<{ ok: boolean }>('deleteUser', { userId, reason, confirm: true })
 }
 
+export async function adminUpdateUserProfile(input: {
+  userId: string
+  firstName?: string
+  lastName?: string
+  displayName?: string
+  reason?: string
+}) {
+  return callAdminApi<{ ok: boolean }>('updateUserProfile', input)
+}
+
+export async function adminUpdateUserEmail(input: {
+  userId: string
+  email: string
+  emailConfirmed?: boolean
+  reason?: string
+}) {
+  return callAdminApi<{ ok: boolean }>('updateUserEmail', input)
+}
+
+export async function adminSetUserPassword(input: {
+  userId: string
+  password: string
+  reason?: string
+}) {
+  return callAdminApi<{ ok: boolean }>('setUserPassword', input)
+}
+
 export async function adminCreateUser(input: {
   email: string
   password: string
