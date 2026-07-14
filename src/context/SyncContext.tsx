@@ -239,10 +239,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       subscribeToRealtimeChanges(currentUser.id)
       setSyncStatus('idle')
       setLocalNotice(null)
+      await reportDevicePackStats()
     } catch (error) {
       recordSyncError(error, 'startup sync')
       setSyncStatus(navigator.onLine ? 'error' : 'offline')
       setLocalNotice('Saved locally. Pack Sync will retry.')
+      await reportDevicePackStats({
+        lastSyncError: error instanceof Error ? error.message.slice(0, 500) : 'startup sync failed',
+      })
     } finally {
       startupInFlight.current = false
       await refreshDiagnostics()

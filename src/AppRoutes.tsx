@@ -24,13 +24,13 @@ import { AdminPortal } from './pages/admin/AdminPortal'
 function AuthenticatedApp() {
   return (
     <AdminProvider>
-      <MaintenanceGate>
-        <Routes>
-          <Route path="/admin/*" element={<AdminPortal />} />
-          <Route
-            path="*"
-            element={
-              <UserDatabaseProvider>
+      <UserDatabaseProvider>
+        <MaintenanceGate>
+          <Routes>
+            <Route path="/admin/*" element={<AdminPortal />} />
+            <Route
+              path="*"
+              element={
                 <ProfileProvider>
                   <SyncProvider>
                     <WorkspaceProvider>
@@ -61,11 +61,11 @@ function AuthenticatedApp() {
                     </WorkspaceProvider>
                   </SyncProvider>
                 </ProfileProvider>
-              </UserDatabaseProvider>
-            }
-          />
-        </Routes>
-      </MaintenanceGate>
+              }
+            />
+          </Routes>
+        </MaintenanceGate>
+      </UserDatabaseProvider>
     </AdminProvider>
   )
 }

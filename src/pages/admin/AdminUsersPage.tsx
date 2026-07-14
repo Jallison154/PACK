@@ -15,6 +15,10 @@ import {
 } from '../../services/admin/api'
 import type { AdminDirectoryUser, AdminRole } from '../../admin/types'
 import { useAdmin } from '../../context/AdminContext'
+import { useAuth } from '../../context/AuthContext'
+import { useUserDatabase } from '../../context/UserDatabaseContext'
+import { reportDevicePackStats } from '../../services/sync/reportStats'
+import { formatBytes } from '../../utils/settings'
 import {
   AdminButton,
   AdminCard,
@@ -31,19 +35,14 @@ type Filter =
   | 'admin_roles'
   | 'recent'
 
-function formatBytes(n: number) {
-  if (!n) return '0 B'
-  if (n < 1024) return `${n} B`
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`
-}
-
 function formatDate(value: string | null | undefined) {
   return value ? new Date(value).toLocaleString() : '—'
 }
 
 export function AdminUsersPage() {
   const { canManageUsers, canAssignRoles, canDeleteUsers, isAdmin } = useAdmin()
+  const { user } = useAuth()
+  const { ready: dbReady } = useUserDatabase()
   const [users, setUsers] = useState<AdminDirectoryUser[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -56,15 +55,30 @@ export function AdminUsersPage() {
     setLoading(true)
     setError(null)
     const remote = await fetchAdminUsers()
-    if (remote.data?.users) {
-      setUsers(remote.data.users)
-    } else {
-      const local = await fetchAdminDirectoryLocal()
-      setUsers(local)
-      if (remote.error) setError(remote.error)
+    let next = remote.data?.users ?? (await fetchAdminDirectoryLocal())
+    if (!remote.data?.users && remote.error) setError(remote.error)
+
+    // Your own row: use the same live device DB as Settings so numbers match immediately.
+    if (dbReady && user?.id) {
+      const device = await reportDevicePackStats()
+      if (device) {
+        next = next.map((u) =>
+          u.user_id === user.id
+            ? {
+                ...u,
+                storage_bytes: device.storageBytes,
+                people_count: device.peopleCount,
+                places_count: device.placesCount,
+                pending_sync_count: device.pendingCount,
+              }
+            : u,
+        )
+      }
     }
+
+    setUsers(next)
     setLoading(false)
-  }, [])
+  }, [dbReady, user?.id])
 
   useEffect(() => {
     void load()
@@ -204,8 +218,9 @@ export function AdminUsersPage() {
       )}
 
       <p className="text-pack-text-muted text-xs">
-        Counts are from cloud sync. Device DB size matches Settings → Database size after the user
-        syncs. Pack Member names, notes, phones, and private location history are not shown.
+        Your own row uses live device values (same Database size as Settings). Other users show
+        last-reported device size and cloud member/place counts. Private Pack content is never
+        shown.
       </p>
     </div>
   )

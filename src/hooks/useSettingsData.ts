@@ -40,6 +40,10 @@ export function useStorageSize(load = true) {
     if (!load) return
     db.exportDatabase().then((data) => {
       setStorageUsed(data ? formatBytes(data.byteLength) : '—')
+      // Keep Admin Device DB in sync with Settings whenever size is measured
+      void import('../services/sync/reportStats').then(({ reportDevicePackStats }) =>
+        reportDevicePackStats(),
+      )
     })
   }, [load])
 
