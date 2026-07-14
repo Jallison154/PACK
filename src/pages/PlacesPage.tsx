@@ -1,5 +1,5 @@
 import { MobilePageShell } from '../components/layout/MobilePageShell'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MapPin, Plus, Navigation } from 'lucide-react'
 import { PackMap } from '../components/places/PackMap'
@@ -14,10 +14,10 @@ import type { PlaceWithStats } from '../types'
 
 export function PlacesPage() {
   const navigate = useNavigate()
-  const [view, setView] = useState<'map' | 'list'>('map')
   const [places, setPlaces] = useState<PlaceWithStats[]>([])
   const [mapPlaces, setMapPlaces] = useState<PlaceWithStats[]>([])
   const [selected, setSelected] = useState<PlaceWithStats | null>(null)
+  const listItemRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const { position, loading: geoLoading, requestLocation } = useGeolocation()
   const mapConfigured = mapboxConfigured
 
@@ -34,38 +34,52 @@ export function PlacesPage() {
 
   usePackDataRefresh(reload)
 
+  useEffect(() => {
+    if (!selected) return
+    listItemRefs.current[selected.id]?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest',
+    })
+  }, [selected])
+
+  const selectPlace = (place: PlaceWithStats) => {
+    setSelected(place)
+  }
+
   const empty = places.length === 0
 
   return (
     <MobilePageShell top={false} padded={false}>
-      <div className="page-top-shell page-px page-header-gap mx-auto max-w-lg">
+      <div className="page-top-shell page-px page-header-gap mx-auto w-full max-w-lg md:max-w-5xl xl:max-w-[1500px]">
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-pack-text text-2xl font-semibold tracking-tight">Places</h1>
+          <div>
+            <h1 className="text-pack-text text-2xl font-semibold tracking-tight">Places</h1>
+            <p className="text-pack-text-muted mt-0.5 text-sm">
+              {empty
+                ? 'Map the places connected to your Pack.'
+                : `${places.length} ${places.length === 1 ? 'place' : 'places'}`}
+            </p>
+          </div>
           <div className="flex items-center gap-2">
-            <div className="text-pack-text-muted flex gap-3 text-sm">
-              <button
-                type="button"
-                onClick={() => setView('map')}
-                className={view === 'map' ? 'text-pack-text' : 'hover:text-pack-text-secondary'}
-              >
-                Map
-              </button>
-              <button
-                type="button"
-                onClick={() => setView('list')}
-                className={view === 'list' ? 'text-pack-text' : 'hover:text-pack-text-secondary'}
-              >
-                List
-              </button>
-            </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={requestLocation}
+              loading={geoLoading}
+              className="hidden sm:inline-flex"
+            >
+              <Navigation className="h-4 w-4" />
+              Locate
+            </Button>
             <Button size="sm" onClick={() => navigate('/places/add')}>
               <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Add</span>
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="page-px mx-auto max-w-lg pb-8">
+      <div className="page-px mx-auto w-full max-w-lg pb-8 md:max-w-5xl xl:max-w-[1500px]">
         {empty ? (
           <EmptyState
             message="You haven't mapped your Pack yet."
@@ -76,88 +90,146 @@ export function PlacesPage() {
                 <Button className="w-full" onClick={() => navigate('/places/add')}>
                   Add Place
                 </Button>
-                <Button variant="secondary" className="w-full" onClick={requestLocation} loading={geoLoading}>
+                <Button
+                  variant="secondary"
+                  className="w-full"
+                  onClick={requestLocation}
+                  loading={geoLoading}
+                >
                   <Navigation className="h-4 w-4" /> Use My Current Location
                 </Button>
               </div>
             }
           />
-        ) : view === 'map' ? (
-          <div className="space-y-4">
-            {!mapConfigured && (
-              <p className="text-pack-text-muted rounded-xl border border-[#2a2a2a] bg-[#171717] px-4 py-3 text-sm">
-                Mapbox is not configured. You can still add and manage places manually.
-              </p>
-            )}
-            <div className="pack-surface overflow-hidden">
-              <PackMap
-                places={mapPlaces}
-                height="min(50vh, 400px)"
-                currentLocation={position}
-                selectedPlace={selected?.id ?? null}
-                onPlaceSelect={(place) => {
-                  const full = places.find((item) => item.id === place.id)
-                  setSelected(full ?? (place as PlaceWithStats))
-                }}
-                onOpenPlace={(placeId) => navigate(`/places/${placeId}`)}
-                emptyMessage={
-                  mapPlaces.length === 0
-                    ? 'Your saved places need coordinates to appear as pins. Add GPS when creating a place or search by address.'
-                    : undefined
-                }
-              />
-            </div>
-
-            {!position && (
-              <Button variant="secondary" className="w-full" onClick={requestLocation} loading={geoLoading}>
-                <Navigation className="h-4 w-4" /> Use My Current Location
-              </Button>
-            )}
-
-            {selected ? (
-              <div className="px-1">
-                <h3 className="text-pack-text text-lg font-medium">{selected.name}</h3>
-                {selected.address && (
-                  <p className="text-pack-text-muted mt-0.5 text-sm">{selected.address}</p>
-                )}
-                {formatLocation(selected.city, selected.state) && (
-                  <p className="text-pack-text-muted text-sm">
-                    {formatLocation(selected.city, selected.state)}
-                  </p>
-                )}
-                <p className="text-pack-text-muted mt-2 text-xs">
-                  {selected.metCount} met · {selected.lastSeenCount} last seen ·{' '}
-                  {selected.interactionCount} trail entries
+        ) : (
+          <div className="space-y-5 lg:grid lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,400px)] lg:items-start lg:gap-6 lg:space-y-0">
+            <div className="space-y-3">
+              {!mapConfigured && (
+                <p className="text-pack-text-muted rounded-xl border border-[#2a2a2a] bg-[#171717] px-4 py-3 text-sm">
+                  Mapbox is not configured. You can still add and manage places manually.
                 </p>
-                <Button className="mt-4 w-full" onClick={() => navigate(`/places/${selected.id}`)}>
-                  Open Place
+              )}
+
+              <div className="border-pack-border h-[min(52vh,420px)] overflow-hidden rounded-2xl border bg-[#171717] lg:h-[min(70vh,640px)]">
+                <PackMap
+                  places={mapPlaces}
+                  height="100%"
+                  currentLocation={position}
+                  selectedPlace={selected?.id ?? null}
+                  fitBounds={mapPlaces.length > 1 && !position}
+                  onPlaceSelect={(place) => {
+                    const full = places.find((item) => item.id === place.id)
+                    selectPlace(full ?? (place as PlaceWithStats))
+                  }}
+                  onOpenPlace={(placeId) => navigate(`/places/${placeId}`)}
+                  emptyMessage={
+                    mapPlaces.length === 0
+                      ? 'Your saved places need coordinates to appear as pins. Add GPS when creating a place or search by address.'
+                      : undefined
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-3 px-1 sm:hidden">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={requestLocation}
+                  loading={geoLoading}
+                >
+                  <Navigation className="h-4 w-4" /> Use My Current Location
                 </Button>
               </div>
-            ) : mapPlaces.length > 0 ? (
-              <p className="text-pack-text-muted text-center text-sm">Tap a pin to explore</p>
-            ) : null}
-          </div>
-        ) : (
-          <div className="space-y-1">
-            {places.map((place) => (
-              <button
-                key={place.id}
-                type="button"
-                onClick={() => navigate(`/places/${place.id}`)}
-                className="hover:bg-pack-card-hover/50 flex w-full items-center gap-3 rounded-xl px-1 py-3 text-left transition-colors"
-              >
-                <MapPin className="text-pack-text-muted h-4 w-4 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-pack-text truncate font-medium">{place.name}</p>
-                  {formatLocation(place.city, place.state) && (
-                    <p className="text-pack-text-muted truncate text-sm">
-                      {formatLocation(place.city, place.state)}
+
+              {selected && (
+                <div className="border-pack-border rounded-2xl border bg-[#171717] px-4 py-3 lg:hidden">
+                  <h3 className="text-pack-text text-base font-medium">{selected.name}</h3>
+                  {(selected.address || formatLocation(selected.city, selected.state)) && (
+                    <p className="text-pack-text-muted mt-0.5 text-sm">
+                      {[selected.address, formatLocation(selected.city, selected.state)]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </p>
                   )}
+                  <p className="text-pack-text-muted mt-1.5 text-xs">
+                    {selected.metCount} met · {selected.lastSeenCount} last seen ·{' '}
+                    {selected.interactionCount} trail entries
+                  </p>
+                  <Button
+                    className="mt-3 w-full"
+                    size="sm"
+                    onClick={() => navigate(`/places/${selected.id}`)}
+                  >
+                    Open Place
+                  </Button>
                 </div>
-                <span className="text-pack-text-muted text-xs">{place.metCount + place.lastSeenCount}</span>
-              </button>
-            ))}
+              )}
+            </div>
+
+            <div className="border-pack-border overflow-hidden rounded-2xl border bg-[#171717] lg:sticky lg:top-24 lg:max-h-[min(70vh,640px)] lg:flex lg:flex-col">
+              <div className="border-pack-border flex items-center justify-between border-b px-4 py-3">
+                <div>
+                  <h2 className="text-pack-text text-sm font-medium">All Places</h2>
+                  <p className="text-pack-text-muted text-xs">
+                    Tap a place to highlight it on the map
+                  </p>
+                </div>
+              </div>
+
+              <div className="divide-pack-border/40 divide-y overflow-y-auto lg:flex-1">
+                {places.map((place) => {
+                  const isSelected = selected?.id === place.id
+                  return (
+                    <button
+                      key={place.id}
+                      type="button"
+                      ref={(el) => {
+                        listItemRefs.current[place.id] = el
+                      }}
+                      onClick={() => selectPlace(place)}
+                      onDoubleClick={() => navigate(`/places/${place.id}`)}
+                      className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors ${
+                        isSelected
+                          ? 'bg-pack-accent/10'
+                          : 'hover:bg-pack-card-hover/50'
+                      }`}
+                    >
+                      <MapPin
+                        className={`h-4 w-4 shrink-0 ${
+                          isSelected ? 'text-pack-accent' : 'text-pack-text-muted'
+                        }`}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-pack-text truncate font-medium">{place.name}</p>
+                        {formatLocation(place.city, place.state) ? (
+                          <p className="text-pack-text-muted truncate text-sm">
+                            {formatLocation(place.city, place.state)}
+                          </p>
+                        ) : place.address ? (
+                          <p className="text-pack-text-muted truncate text-sm">{place.address}</p>
+                        ) : null}
+                        <p className="text-pack-text-muted/80 mt-0.5 text-[11px]">
+                          {place.metCount} met · {place.lastSeenCount} last seen
+                        </p>
+                      </div>
+                      {isSelected && (
+                        <button
+                          type="button"
+                          className="text-pack-accent shrink-0 text-xs font-medium"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            navigate(`/places/${place.id}`)
+                          }}
+                        >
+                          Open
+                        </button>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         )}
       </div>
