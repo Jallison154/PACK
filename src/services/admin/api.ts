@@ -166,6 +166,13 @@ export async function fetchFeatureFlagsLocal(): Promise<FeatureFlag[]> {
 export async function fetchAdminDirectoryLocal(): Promise<AdminDirectoryUser[]> {
   const supabase = getSupabase()
   if (!supabase) return []
+
+  // Live counts (security definer) — preferred over stale user_pack_stats view
+  const { data: rpcData, error: rpcError } = await supabase.rpc('get_admin_user_directory')
+  if (!rpcError && rpcData) {
+    return rpcData as AdminDirectoryUser[]
+  }
+
   const { data, error } = await supabase
     .from('admin_user_directory')
     .select('*')

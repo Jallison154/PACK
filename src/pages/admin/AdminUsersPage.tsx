@@ -4,6 +4,7 @@ import {
   adminDeleteUser,
   adminExportUserMeta,
   adminReactivateUser,
+  adminRefreshStats,
   adminResendVerification,
   adminSendPasswordReset,
   adminSignOutAll,
@@ -42,7 +43,7 @@ function formatDate(value: string | null | undefined) {
 }
 
 export function AdminUsersPage() {
-  const { canManageUsers, canAssignRoles, canDeleteUsers } = useAdmin()
+  const { canManageUsers, canAssignRoles, canDeleteUsers, isAdmin } = useAdmin()
   const [users, setUsers] = useState<AdminDirectoryUser[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -123,6 +124,19 @@ export function AdminUsersPage() {
           <option value="recent">Recently created</option>
         </select>
         <AdminButton onClick={() => void load()}>Refresh</AdminButton>
+        {isAdmin && (
+          <AdminButton
+            onClick={() =>
+              void (async () => {
+                const result = await adminRefreshStats()
+                setMessage(result.error ?? 'Cached stats refreshed.')
+                await load()
+              })()
+            }
+          >
+            Recount from cloud
+          </AdminButton>
+        )}
       </div>
 
       {loading ? (

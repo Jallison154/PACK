@@ -30,6 +30,47 @@ function can(role: Role, min: Role) {
   return ROLE_RANK[role] >= ROLE_RANK[min]
 }
 
+/** Count cloud people/places with service role (bypasses RLS). Never returns private fields. */
+async function enrichDirectoryWithLiveCounts(
+  adminClient: ReturnType<typeof createClient>,
+  rows: Array<Record<string, unknown>>,
+): Promise<Array<Record<string, unknown>>> {
+  if (!rows.length) return rows
+
+  const [{ data: peopleRows }, { data: placeRows }, { data: interactionRows }] = await Promise.all([
+    adminClient.from('people').select('user_id').is('deleted_at', null),
+    adminClient.from('places').select('user_id').is('deleted_at', null),
+    adminClient.from('interactions').select('user_id'),
+  ])
+
+  const peopleCount = new Map<string, number>()
+  const placesCount = new Map<string, number>()
+  const interactionsCount = new Map<string, number>()
+
+  for (const row of peopleRows ?? []) {
+    const id = String(row.user_id)
+    peopleCount.set(id, (peopleCount.get(id) ?? 0) + 1)
+  }
+  for (const row of placeRows ?? []) {
+    const id = String(row.user_id)
+    placesCount.set(id, (placesCount.get(id) ?? 0) + 1)
+  }
+  for (const row of interactionRows ?? []) {
+    const id = String(row.user_id)
+    interactionsCount.set(id, (interactionsCount.get(id) ?? 0) + 1)
+  }
+
+  return rows.map((row) => {
+    const id = String(row.user_id)
+    return {
+      ...row,
+      people_count: peopleCount.get(id) ?? 0,
+      places_count: placesCount.get(id) ?? 0,
+      interactions_count: interactionsCount.get(id) ?? 0,
+    }
+  })
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -134,17 +175,27 @@ Deno.serve(async (req) => {
       }
 
       case 'listUsers': {
-        const { data, error } = await adminClient.from('admin_user_directory').select('*').order('account_created_at', {
-          ascending: false,
-        })
-        if (error) return json({ error: error.message }, 400)
+        // Prefer live counts via security-definer RPC; fall back to view + live count enrich.
+        let rows: Array<Record<string, unknown>> | null = null
+        const { data: rpcRows, error: rpcError } = await adminClient.rpc('get_admin_user_directory')
+        if (!rpcError && rpcRows) {
+          rows = rpcRows as Array<Record<string, unknown>>
+        } else {
+          const { data, error } = await adminClient
+            .from('admin_user_directory')
+            .select('*')
+            .order('account_created_at', { ascending: false })
+          if (error) return json({ error: error.message }, 400)
+          rows = (data ?? []) as Array<Record<string, unknown>>
+          rows = await enrichDirectoryWithLiveCounts(adminClient, rows)
+        }
 
         // Enrich with auth metadata (no private Pack content)
         const { data: authList } = await adminClient.auth.admin.listUsers({ perPage: 1000 })
         const byId = new Map((authList?.users ?? []).map((u) => [u.id, u]))
 
-        const users = (data ?? []).map((row) => {
-          const authUser = byId.get(row.user_id)
+        const users = (rows ?? []).map((row) => {
+          const authUser = byId.get(String(row.user_id))
           return {
             ...row,
             email_verified: !!authUser?.email_confirmed_at,
@@ -159,11 +210,25 @@ Deno.serve(async (req) => {
         const targetId = body.userId as string
         if (!targetId) return json({ error: 'userId required' }, 400)
 
-        const { data: directory } = await adminClient
-          .from('admin_user_directory')
-          .select('*')
-          .eq('user_id', targetId)
-          .maybeSingle()
+        let directory: Record<string, unknown> | null = null
+        const { data: rpcRows } = await adminClient.rpc('get_admin_user_directory')
+        if (Array.isArray(rpcRows)) {
+          directory = (rpcRows as Array<Record<string, unknown>>).find(
+            (r) => String(r.user_id) === targetId,
+          ) ?? null
+        }
+        if (!directory) {
+          const { data } = await adminClient
+            .from('admin_user_directory')
+            .select('*')
+            .eq('user_id', targetId)
+            .maybeSingle()
+          const enriched = await enrichDirectoryWithLiveCounts(
+            adminClient,
+            data ? [data as Record<string, unknown>] : [],
+          )
+          directory = enriched[0] ?? null
+        }
 
         const { data: authData } = await adminClient.auth.admin.getUserById(targetId)
         const { data: notes } = await adminClient
@@ -445,11 +510,15 @@ Deno.serve(async (req) => {
         if (targetId) {
           await adminClient.rpc('refresh_user_pack_stats', { target_user: targetId })
         } else {
-          const { data: profiles } = await adminClient.from('profiles').select('id')
-          for (const p of profiles ?? []) {
-            await adminClient.rpc('refresh_user_pack_stats', { target_user: p.id })
+          const { error: allErr } = await adminClient.rpc('refresh_all_user_pack_stats')
+          if (allErr) {
+            const { data: profiles } = await adminClient.from('profiles').select('id')
+            for (const p of profiles ?? []) {
+              await adminClient.rpc('refresh_user_pack_stats', { target_user: p.id })
+            }
           }
         }
+        await audit('refresh_pack_stats', targetId ?? null, body.reason)
         return json({ ok: true })
       }
 
