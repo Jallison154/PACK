@@ -112,7 +112,10 @@ security definer
 set search_path = public
 as $$
 begin
-  if auth.role() <> 'service_role' and not public.has_admin_access() then
+  -- Allow SQL Editor / migrations (no JWT), service role, or admin.
+  if auth.uid() is not null
+     and auth.role() <> 'service_role'
+     and not public.has_admin_access() then
     raise exception 'forbidden' using errcode = '42501';
   end if;
 
