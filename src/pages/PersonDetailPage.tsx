@@ -1,5 +1,5 @@
 import { MobilePageShell } from '../components/layout/MobilePageShell'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Star,
@@ -10,10 +10,17 @@ import {
   Trash2,
   Plus,
   ArrowLeft,
+  Briefcase,
+  Users,
+  Calendar,
+  Building2,
+  Home,
+  Tag,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Button } from '../components/ui/Button'
 import { Avatar } from '../components/ui/Avatar'
+import { TagChip } from '../components/ui/TagChip'
 import { Timeline } from '../components/ui/Timeline'
 import { AddInteractionSheet } from '../components/person/AddInteractionSheet'
 import { PackMapPreview } from '../components/places/PackMap'
@@ -28,7 +35,71 @@ import {
 } from '../db/repositories/interactions'
 import { getPlaceById } from '../db/repositories/places'
 import { formatWhereMetDisplay } from '../utils/encounterLocation'
-import type { PersonWithTags, Place } from '../types'
+import { formatDate, formatLocation } from '../utils/format'
+import {
+  WORKSPACES,
+  getRelationshipLabel,
+  type PersonWithTags,
+  type Place,
+} from '../types'
+
+function DetailRow({
+  label,
+  value,
+  icon,
+  href,
+}: {
+  label: string
+  value: string
+  icon?: ReactNode
+  href?: string
+}) {
+  const content = (
+    <>
+      {icon && <span className="text-pack-text-muted mt-0.5 shrink-0">{icon}</span>}
+      <span className="min-w-0 flex-1">
+        <span className="text-pack-text-muted block text-[11px] tracking-wide uppercase">
+          {label}
+        </span>
+        <span className="text-pack-text mt-0.5 block text-sm leading-relaxed break-words">
+          {value}
+        </span>
+      </span>
+    </>
+  )
+
+  if (href) {
+    return (
+      <a
+        href={href}
+        className="hover:bg-pack-card-hover/40 flex items-start gap-3 rounded-xl px-1 py-2.5 transition-colors"
+      >
+        {content}
+      </a>
+    )
+  }
+
+  return <div className="flex items-start gap-3 px-1 py-2.5">{content}</div>
+}
+
+function Section({
+  title,
+  children,
+}: {
+  title: string
+  children: ReactNode
+}) {
+  return (
+    <section className="mb-10">
+      <h2 className="text-pack-text-muted/80 mb-2 px-1 text-[13px] font-medium tracking-wide">
+        {title}
+      </h2>
+      <div className="border-pack-border divide-pack-border/50 divide-y rounded-2xl border bg-[#171717] px-3">
+        {children}
+      </div>
+    </section>
+  )
+}
 
 export function PersonDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -36,6 +107,7 @@ export function PersonDetailPage() {
   const [person, setPerson] = useState<PersonWithTags | null>(null)
   const [interactions, setInteractions] = useState<InteractionWithPlaceName[]>([])
   const [lastSeenPlace, setLastSeenPlace] = useState<Place | null>(null)
+  const [whereMetPlace, setWhereMetPlace] = useState<Place | null>(null)
   const [showAddInteraction, setShowAddInteraction] = useState(false)
 
   const load = async () => {
@@ -46,21 +118,28 @@ export function PersonDetailPage() {
     ])
     setPerson(p)
     setInteractions(ints)
+
     if (p?.lastSeenPlaceId) {
-      getPlaceById(p.lastSeenPlaceId).then(setLastSeenPlace)
+      void getPlaceById(p.lastSeenPlaceId).then(setLastSeenPlace)
     } else {
       setLastSeenPlace(null)
+    }
+
+    if (p?.whereMetPlaceId) {
+      void getPlaceById(p.whereMetPlaceId).then(setWhereMetPlace)
+    } else {
+      setWhereMetPlace(null)
     }
   }
 
   useEffect(() => {
-    load()
+    void load()
   }, [id])
 
   const handleFavorite = async () => {
     if (!id) return
     await toggleFavorite(id)
-    load()
+    void load()
   }
 
   const handleDelete = async () => {
@@ -90,15 +169,133 @@ export function PersonDetailPage() {
   }
 
   const whereMetDisplay = formatWhereMetDisplay(person, person.whereMetPlaceName)
-  const lastSeen = person.lastSeenPlaceName || person.lastSeenAt
-  const contextLine = [
-    whereMetDisplay && `Where met: ${whereMetDisplay}`,
-    lastSeen && `Last seen ${lastSeen}`,
-  ]
-    .filter(Boolean)
-    .join(' · ')
-  const metAtLabel = whereMetDisplay ? `Where met: ${whereMetDisplay}` : undefined
+  const lastSeenPlaceLabel = person.lastSeenPlaceName || person.lastSeenAt
+  const locationLine = formatLocation(person.city, person.state)
+  const relationship = getRelationshipLabel(person.relationshipType)
+  const workspaceLabel = WORKSPACES.find((w) => w.value === person.workspace)?.label
   const hasApproximateWhereMet = person.whereMetIsApproximate && !person.whereMetPlaceId
+  const mapPlace = lastSeenPlace ?? whereMetPlace
+
+  const aboutRows: Array<{ label: string; value: string; icon?: ReactNode; href?: string }> = []
+  if (relationship) {
+    aboutRows.push({
+      label: 'Connection',
+      value: relationship,
+      icon: <Users className="h-4 w-4" />,
+    })
+  }
+  if (workspaceLabel) {
+    aboutRows.push({
+      label: 'Workspace',
+      value: workspaceLabel,
+      icon: <Briefcase className="h-4 w-4" />,
+    })
+  }
+  if (person.company) {
+    aboutRows.push({
+      label: 'Company',
+      value: person.company,
+      icon: <Building2 className="h-4 w-4" />,
+    })
+  }
+  if (person.jobTitle) {
+    aboutRows.push({
+      label: 'Job title',
+      value: person.jobTitle,
+      icon: <Briefcase className="h-4 w-4" />,
+    })
+  }
+  if (person.householdName) {
+    aboutRows.push({
+      label: 'Household',
+      value: person.householdName,
+      icon: <Home className="h-4 w-4" />,
+    })
+  }
+  if (whereMetDisplay) {
+    aboutRows.push({
+      label: 'Where met',
+      value: whereMetDisplay,
+      icon: <MapPin className="h-4 w-4" />,
+    })
+  }
+  if (person.event) {
+    aboutRows.push({
+      label: 'Event',
+      value: person.event,
+      icon: <Calendar className="h-4 w-4" />,
+    })
+  }
+  if (person.dateMet) {
+    aboutRows.push({
+      label: 'Date met',
+      value: formatDate(person.dateMet),
+      icon: <Calendar className="h-4 w-4" />,
+    })
+  }
+  if (locationLine) {
+    aboutRows.push({
+      label: 'City / State',
+      value: locationLine,
+      icon: <MapPin className="h-4 w-4" />,
+    })
+  }
+  if (person.homeAddress) {
+    aboutRows.push({
+      label: 'Home address',
+      value: person.homeAddress,
+      icon: <Home className="h-4 w-4" />,
+    })
+  }
+  if (person.workLocation) {
+    aboutRows.push({
+      label: 'Work location',
+      value: person.workLocation,
+      icon: <Building2 className="h-4 w-4" />,
+    })
+  }
+
+  const lastSeenRows: Array<{ label: string; value: string; icon?: ReactNode }> = []
+  if (lastSeenPlaceLabel) {
+    lastSeenRows.push({
+      label: 'Last seen at',
+      value: lastSeenPlaceLabel,
+      icon: <MapPin className="h-4 w-4" />,
+    })
+  }
+  if (person.lastSeenDate) {
+    lastSeenRows.push({
+      label: 'Last seen date',
+      value: formatDate(person.lastSeenDate),
+      icon: <Calendar className="h-4 w-4" />,
+    })
+  }
+  if (person.lastInteractionNotes) {
+    lastSeenRows.push({
+      label: 'Latest trail notes',
+      value: person.lastInteractionNotes,
+    })
+  }
+
+  const contactRows: Array<{ label: string; value: string; icon: ReactNode; href: string }> = []
+  if (person.phone) {
+    contactRows.push({
+      label: 'Phone',
+      value: person.phone,
+      icon: <Phone className="h-4 w-4" />,
+      href: `tel:${person.phone}`,
+    })
+  }
+  if (person.email) {
+    contactRows.push({
+      label: 'Email',
+      value: person.email,
+      icon: <Mail className="h-4 w-4" />,
+      href: `mailto:${person.email}`,
+    })
+  }
+
+  const subtitle = [person.jobTitle, person.company].filter(Boolean).join(' · ')
 
   return (
     <MobilePageShell inShell={false} top={false} padded={false}>
@@ -113,7 +310,7 @@ export function PersonDetailPage() {
         </button>
         <button
           type="button"
-          onClick={handleFavorite}
+          onClick={() => void handleFavorite()}
           className="flex h-10 w-10 items-center justify-center"
           aria-label={person.isFavorite ? 'Remove from Core Pack' : 'Add to Core Pack'}
         >
@@ -126,18 +323,18 @@ export function PersonDetailPage() {
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="page-px mx-auto max-w-lg pt-4"
+        className="page-px mx-auto max-w-lg pt-4 pb-10"
       >
         <div className="mb-8 text-center">
           <Avatar name={person.name} color={person.profileColor} size="lg" />
           <h1 className="text-pack-text mt-5 text-3xl font-semibold tracking-tight">
             {person.name}
           </h1>
-          {person.company && (
-            <p className="text-pack-text-secondary mt-1.5 text-base">{person.company}</p>
+          {subtitle && (
+            <p className="text-pack-text-secondary mt-1.5 text-base">{subtitle}</p>
           )}
-          {contextLine && (
-            <p className="text-pack-text-muted mt-2 text-sm leading-relaxed">{contextLine}</p>
+          {relationship && (
+            <p className="text-pack-text-muted mt-1 text-sm">{relationship}</p>
           )}
           {hasApproximateWhereMet && (
             <Button
@@ -155,48 +352,75 @@ export function PersonDetailPage() {
           <Plus className="h-4 w-4" /> Add a memory
         </Button>
 
-        <div className="mb-10">
-          <Timeline interactions={interactions} meetingLabel={metAtLabel} />
-        </div>
+        {aboutRows.length > 0 && (
+          <Section title="About">
+            {aboutRows.map((row) => (
+              <DetailRow key={row.label} {...row} />
+            ))}
+          </Section>
+        )}
+
+        {contactRows.length > 0 && (
+          <Section title="Contact">
+            {contactRows.map((row) => (
+              <DetailRow key={row.label} {...row} />
+            ))}
+          </Section>
+        )}
+
+        {lastSeenRows.length > 0 && (
+          <Section title="Last seen">
+            {lastSeenRows.map((row) => (
+              <DetailRow key={row.label} {...row} />
+            ))}
+          </Section>
+        )}
+
+        {person.tags.length > 0 && (
+          <section className="mb-10">
+            <h2 className="text-pack-text-muted/80 mb-3 flex items-center gap-2 px-1 text-[13px] font-medium tracking-wide">
+              <Tag className="h-3.5 w-3.5" />
+              Tags
+            </h2>
+            <div className="flex flex-wrap gap-2 px-1">
+              {person.tags.map((tag) => (
+                <TagChip key={tag} label={tag} />
+              ))}
+            </div>
+          </section>
+        )}
 
         {person.notes && (
-          <p className="text-pack-text-secondary mb-10 text-sm leading-relaxed whitespace-pre-wrap">
-            {person.notes}
-          </p>
+          <section className="mb-10">
+            <h2 className="text-pack-text-muted/80 mb-2 px-1 text-[13px] font-medium tracking-wide">
+              Notes
+            </h2>
+            <div className="border-pack-border rounded-2xl border bg-[#171717] px-4 py-3">
+              <p className="text-pack-text-secondary text-sm leading-relaxed whitespace-pre-wrap">
+                {person.notes}
+              </p>
+            </div>
+          </section>
         )}
 
-        {lastSeenPlace && (
-          <div className="mb-10">
-            <PackMapPreview place={lastSeenPlace} />
-          </div>
+        {mapPlace && (
+          <section className="mb-10">
+            <h2 className="text-pack-text-muted/80 mb-3 px-1 text-[13px] font-medium tracking-wide">
+              {lastSeenPlace ? 'Last seen place' : 'Where met'}
+            </h2>
+            <PackMapPreview place={mapPlace} height="180px" />
+          </section>
         )}
 
-        {(person.phone || person.email || person.homeAddress || person.workLocation) && (
-          <div className="text-pack-text-secondary mb-10 space-y-2.5 text-sm">
-            {person.phone && (
-              <a href={`tel:${person.phone}`} className="text-pack-text flex items-center gap-3">
-                <Phone className="text-pack-text-muted h-4 w-4" /> {person.phone}
-              </a>
-            )}
-            {person.email && (
-              <a href={`mailto:${person.email}`} className="text-pack-text flex items-center gap-3">
-                <Mail className="text-pack-text-muted h-4 w-4" /> {person.email}
-              </a>
-            )}
-            {person.homeAddress && (
-              <p className="text-pack-text flex items-start gap-3">
-                <MapPin className="text-pack-text-muted mt-0.5 h-4 w-4 shrink-0" />
-                {person.homeAddress}
-              </p>
-            )}
-            {person.workLocation && (
-              <p className="flex items-start gap-3">
-                <MapPin className="text-pack-text-muted mt-0.5 h-4 w-4 shrink-0" />
-                {person.workLocation}
-              </p>
-            )}
-          </div>
-        )}
+        <section className="mb-10">
+          <h2 className="text-pack-text-muted/80 mb-3 px-1 text-[13px] font-medium tracking-wide">
+            Trail
+          </h2>
+          <Timeline
+            interactions={interactions}
+            meetingLabel={whereMetDisplay ? `Where met: ${whereMetDisplay}` : undefined}
+          />
+        </section>
 
         <div className="flex items-center justify-between gap-4 pt-2">
           <button
@@ -208,7 +432,7 @@ export function PersonDetailPage() {
           </button>
           <button
             type="button"
-            onClick={handleDelete}
+            onClick={() => void handleDelete()}
             className="text-pack-text-muted hover:text-pack-danger flex items-center gap-2 text-sm transition-colors"
           >
             <Trash2 className="h-3.5 w-3.5" /> Remove
@@ -221,7 +445,7 @@ export function PersonDetailPage() {
         personName={person.name}
         open={showAddInteraction}
         onClose={() => setShowAddInteraction(false)}
-        onSaved={() => load()}
+        onSaved={() => void load()}
       />
     </MobilePageShell>
   )
