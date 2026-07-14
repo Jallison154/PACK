@@ -12,11 +12,19 @@ Protected staff portal at `/admin` for support, admin, and owner roles.
 
 ## Promote an owner
 
-After applying migrations `009_admin_portal.sql` and `010_admin_portal_rls_fix.sql`:
+After applying migrations `009_admin_portal.sql` and `010_admin_portal_rls_fix.sql`, run:
+
+- `011_admin_owner_bootstrap.sql` — promotes `jallison154@gmail.com` to `owner`
+
+That account must already exist in Supabase Auth (sign up / sign in once first).
+
+For a different user later:
 
 ```sql
 insert into public.user_roles (user_id, role)
-values ('YOUR-USER-UUID', 'owner')
+select id, 'owner'
+from auth.users
+where lower(email) = lower('someone@example.com')
 on conflict (user_id) do update
 set role = 'owner', updated_at = now();
 ```

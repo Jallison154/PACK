@@ -20,6 +20,9 @@ In **Supabase → SQL Editor**, run these files **in order**:
 6. `supabase/migrations/006_where_met_gps.sql`
 7. `supabase/migrations/007_mapbox_places.sql`
 8. `supabase/migrations/008_pending_mapbox_gps.sql` (same as 006+007 combined — safe if already applied)
+9. `supabase/migrations/009_admin_portal.sql`
+10. `supabase/migrations/010_admin_portal_rls_fix.sql`
+11. `supabase/migrations/011_admin_owner_bootstrap.sql` (promotes `jallison154@gmail.com` to owner)
 
 If Pack Sync upserts fail with HTTP **400** / **PGRST204** (“Could not find the '…' column”), run migration **008** in the SQL Editor, then Sync Now.
 
@@ -92,7 +95,7 @@ If `VITE_SUPABASE_*` is not set, Pack works exactly as before — local IndexedD
 
 ## 9. Admin Portal
 
-See [ADMIN.md](./ADMIN.md) for roles, migrations (`009`, `010`), and the `admin-api` Edge Function.
+See [ADMIN.md](./ADMIN.md) for roles, migrations (`009`–`011`), and the `admin-api` Edge Function.
 
 Privileged Auth Admin operations (list all users, suspend, delete, revoke sessions) require:
 
