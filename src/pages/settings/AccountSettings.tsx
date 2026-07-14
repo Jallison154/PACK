@@ -61,7 +61,7 @@ export function AccountSettings() {
     diagnostics,
     syncNow,
     enableCloudSync,
-    useLocalOnly,
+    switchToLocalOnly,
     refreshDiagnostics,
     testConnection,
     downloadCloudData,
@@ -274,7 +274,7 @@ export function AccountSettings() {
     const result = await signOutAllDevices()
     if (result.error) setError(result.error)
     else setMessage('Signed out on all devices.')
-    useLocalOnly()
+    switchToLocalOnly()
   }
 
   const handleTestConnection = async () => {
@@ -515,7 +515,7 @@ export function AccountSettings() {
           enabled={syncMode === 'cloud'}
           onChange={(enabled) => {
             if (enabled) void handleEnableSync()
-            else useLocalOnly()
+            else switchToLocalOnly()
           }}
           disabled={!isAuthenticated || !cloudAvailable}
         />
@@ -554,7 +554,7 @@ export function AccountSettings() {
                     >
                       Later
                     </SettingsButton>
-                    <SettingsButton onClick={useLocalOnly}>Keep Local Only</SettingsButton>
+                    <SettingsButton onClick={switchToLocalOnly}>Keep Local Only</SettingsButton>
                   </div>
                 </div>
               )}
@@ -577,7 +577,7 @@ export function AccountSettings() {
               <SettingsButton
                 onClick={() => {
                   void signOut()
-                  useLocalOnly()
+                  switchToLocalOnly()
                 }}
               >
                 Sign out

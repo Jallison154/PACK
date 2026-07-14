@@ -51,7 +51,7 @@ interface SyncContextValue {
   isOnline: boolean
   localNotice: string | null
   enableCloudSync: () => void
-  useLocalOnly: () => void
+  switchToLocalOnly: () => void
   syncNow: () => Promise<void>
   downloadCloudData: () => Promise<void>
   uploadLocalData: () => Promise<number>
@@ -347,7 +347,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     setSyncModeState('cloud')
   }, [])
 
-  const useLocalOnly = useCallback(() => {
+  const switchToLocalOnly = useCallback(() => {
     setSyncMode('local')
     setSyncModeState('local')
     setSyncStatus('disabled')
@@ -374,7 +374,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       isOnline,
       localNotice,
       enableCloudSync,
-      useLocalOnly,
+      switchToLocalOnly,
       syncNow,
       downloadCloudData,
       uploadLocalData,
@@ -390,7 +390,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       isOnline,
       localNotice,
       enableCloudSync,
-      useLocalOnly,
+      switchToLocalOnly,
       syncNow,
       downloadCloudData,
       uploadLocalData,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MapPin, Star, Navigation, Search, Plus, X, Globe, RefreshCw } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Input, Select, Textarea } from '../ui/Input'
@@ -53,10 +53,13 @@ export function PlacePicker({ value, onChange, onClose, proximity }: PlacePicker
   const [saving, setSaving] = useState(false)
   const { position, error, loading, requestLocation } = useGeolocation()
   const lastNearbyKeyRef = useRef<string | null>(null)
+  const nearbyCountRef = useRef(0)
 
-  const activeProximity =
-    proximity ??
-    (position ? { latitude: position.latitude, longitude: position.longitude } : null)
+  const activeProximity = useMemo(() => {
+    if (proximity) return proximity
+    if (position) return { latitude: position.latitude, longitude: position.longitude }
+    return null
+  }, [proximity, position])
 
   const [newPlace, setNewPlace] = useState({
     name: '',
@@ -75,7 +78,7 @@ export function PlacePicker({ value, onChange, onClose, proximity }: PlacePicker
     }
 
     const key = `${latitude.toFixed(4)},${longitude.toFixed(4)}`
-    if (!force && lastNearbyKeyRef.current === key && nearbyPois.length > 0) return
+    if (!force && lastNearbyKeyRef.current === key && nearbyCountRef.current > 0) return
 
     setLoadingNearby(true)
     setNearbyError(null)
@@ -83,14 +86,16 @@ export function PlacePicker({ value, onChange, onClose, proximity }: PlacePicker
       if (force) clearNearbyCache()
       const results = await fetchNearbyMapboxPois(latitude, longitude, 20)
       setNearbyPois(results)
+      nearbyCountRef.current = results.length
       lastNearbyKeyRef.current = key
     } catch {
       setNearbyError('Could not load nearby places right now.')
       setNearbyPois([])
+      nearbyCountRef.current = 0
     } finally {
       setLoadingNearby(false)
     }
-  }, [nearbyPois.length])
+  }, [])
 
   useEffect(() => {
     if (!proximity && !position) {

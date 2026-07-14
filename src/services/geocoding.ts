@@ -18,9 +18,6 @@ export interface GeocodeResult {
   brand: string | null
 }
 
-/** @deprecated Use mapboxId */
-export type GeocodeResultLegacy = GeocodeResult & { osmId?: string }
-
 export function geocodeResultFromMapbox(result: MapboxPlaceResult): GeocodeResult {
   return {
     mapboxId: result.mapboxId,
@@ -132,6 +129,3 @@ export async function reverseGeocode(
   if (!feature) return null
   return mapGeocodeFeature(feature)
 }
-
-/** @deprecated Use searchPlacesMapbox */
-export const searchPlacesNominatim = searchPlacesMapbox

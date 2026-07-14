@@ -117,13 +117,14 @@ npm -v
 
 ## Environment variables
 
-Pack works without cloud sync (local-only mode). To enable **Pack Sync** with Supabase, set Vite variables in `/opt/pack/.env.local` **before** building:
+Pack works without cloud sync (local-only mode). To enable **Pack Sync** with Supabase and **Mapbox maps**, set Vite variables in `/opt/pack/.env.local` **before** building:
 
-| Variable | Required for sync | Notes |
-|----------|-------------------|-------|
-| `VITE_APP_URL` | Yes | Public app URL (auth redirects), e.g. `https://pack.okamidesigns.com` |
-| `VITE_SUPABASE_URL` | Yes | Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | Yes | Supabase anon/public key — never use service role in the client |
+| Variable | Required | Notes |
+|----------|----------|-------|
+| `VITE_APP_URL` | For sync | Public app URL (auth redirects), e.g. `https://pack.okamidesigns.com` |
+| `VITE_SUPABASE_URL` | For sync | Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | For sync | Supabase anon/public key — never use service role in the client |
+| `VITE_MAPBOX_ACCESS_TOKEN` | For maps | Public Mapbox token (`pk.*`) — required by `install.sh` / `update.sh` |
 
 `install.sh` and `update.sh` load `.env.local` if present and **never overwrite** it. Server deploy paths live in `/opt/pack/.env` (also preserved).
 
@@ -132,6 +133,8 @@ Pack works without cloud sync (local-only mode). To enable **Pack Sync** with Su
 ```bash
 /opt/pack/update.sh
 ```
+
+`update.sh` refuses to build if `VITE_MAPBOX_ACCESS_TOKEN` is missing or not a public `pk.*` token. Do not put the Mapbox token only in `/opt/pack/.env` — it must be in `.env.local`.
 
 Do not put `NODE_ENV` in `/opt/pack/.env` — Vite warns and ignores it. `npm run build` already produces a production bundle.
 

@@ -15,7 +15,7 @@ export function AccountIndicator() {
   const navigate = useNavigate()
   const { user, isAuthenticated, signOut, cloudAvailable } = useAuth()
   const { profile, headerLabel, fullName } = useProfile()
-  const { syncMode, syncStatus, lastSyncAt, diagnostics, useLocalOnly } = useSync()
+  const { syncMode, syncStatus, lastSyncAt, diagnostics, switchToLocalOnly } = useSync()
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -163,7 +163,7 @@ export function AccountIndicator() {
                 type="button"
                 onClick={() => {
                   void signOut()
-                  useLocalOnly()
+                  switchToLocalOnly()
                   setOpen(false)
                 }}
                 className="hover:bg-pack-card-hover/60 w-full rounded-xl px-3 py-2 text-left text-sm"

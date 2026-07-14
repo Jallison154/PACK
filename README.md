@@ -20,13 +20,16 @@ A mobile-first Progressive Web App for remembering the people you meet. Built fo
 - Tailwind CSS 4
 - React Router 7
 - Framer Motion
+- Mapbox GL JS (places map + search)
 - SQLite (sql.js on web, Capacitor SQLite on native)
 - Capacitor 8 for iOS/Android
+- Supabase (optional cloud sync)
 
 ## Getting Started
 
 ```bash
 npm install
+cp .env.example .env.local   # set VITE_MAPBOX_ACCESS_TOKEN (and Supabase if using sync)
 npm run dev
 ```
 

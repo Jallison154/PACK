@@ -143,7 +143,7 @@ export function PlaceForm({ form, onChange, showSearch = true }: PlaceFormProps)
     }
   }
 
-  const useCurrentLocation = async () => {
+  const applyCurrentLocation = async () => {
     if (!position) {
       requestLocation()
       return
@@ -207,7 +207,7 @@ export function PlaceForm({ form, onChange, showSearch = true }: PlaceFormProps)
         </div>
       )}
 
-      <Button variant="secondary" className="w-full" onClick={() => void useCurrentLocation()} loading={geoLoading}>
+      <Button variant="secondary" className="w-full" onClick={() => void applyCurrentLocation()} loading={geoLoading}>
         <Navigation className="h-4 w-4" />
         {position ? 'Use My Current Location' : 'Enable Current Location'}
       </Button>

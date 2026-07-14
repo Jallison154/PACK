@@ -449,7 +449,13 @@ verify_deployment() {
   if [[ ! -f "${WEB_ROOT}/index.html" ]]; then
     error "Pack was not deployed to ${WEB_ROOT}/index.html. Re-run install.sh or update.sh."
   fi
-  log "Verified Pack web root at ${WEB_ROOT}"
+  if ! grep -R --quiet "mapbox://styles/mapbox/dark-v11" "$WEB_ROOT" 2>/dev/null; then
+    error "Deployed bundle is missing Mapbox dark-v11. Rebuild with a valid VITE_MAPBOX_ACCESS_TOKEN in .env.local."
+  fi
+  if grep -R --quiet -i "tile.openstreetmap.org\|react-leaflet\|MapContainer" "$WEB_ROOT" 2>/dev/null; then
+    error "Deployed bundle still contains Leaflet/OpenStreetMap remnants."
+  fi
+  log "Verified Pack web root at ${WEB_ROOT} (Mapbox build)"
 }
 
 reload_nginx() {
