@@ -117,29 +117,35 @@ export async function fetchAdminUser(userId: string) {
   const remote = await callAdminApi<{
     user: AdminDirectoryUser
     auth: Record<string, unknown>
-    supportNotes: Array<{ id: string; note: string; author_role: string; created_at: string }>
+    supportNotes: SupportNote[]
     auditHistory: AdminAuditEntry[]
   }>('getUser', { userId })
 
   const live = await fetchAdminDirectoryLocal()
   const liveUser = live.find((u) => u.user_id === userId)
+  const localNotes = await fetchSupportNotesLocal(userId)
 
-  if (remote.data?.user && liveUser) {
+  if (remote.data?.user) {
+    const user = liveUser
+      ? mergeLiveCounts([remote.data.user], [liveUser])[0]
+      : remote.data.user
     return {
       data: {
         ...remote.data,
-        user: mergeLiveCounts([remote.data.user], [liveUser])[0],
+        user,
+        supportNotes:
+          remote.data.supportNotes?.length > 0 ? remote.data.supportNotes : localNotes,
       },
       error: remote.error,
     }
   }
 
-  if (!remote.data?.user && liveUser) {
+  if (liveUser) {
     return {
       data: {
         user: liveUser,
         auth: {},
-        supportNotes: [],
+        supportNotes: localNotes,
         auditHistory: [],
       },
       error: remote.error,
@@ -147,6 +153,26 @@ export async function fetchAdminUser(userId: string) {
   }
 
   return remote
+}
+
+export type SupportNote = {
+  id: string
+  note: string
+  author_role: string
+  created_at: string
+}
+
+export async function fetchSupportNotesLocal(userId: string): Promise<SupportNote[]> {
+  const supabase = getSupabase()
+  if (!supabase) return []
+  const { data, error } = await supabase
+    .from('support_notes')
+    .select('id, note, author_role, created_at')
+    .eq('target_user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(50)
+  if (error) return []
+  return (data ?? []) as SupportNote[]
 }
 
 export async function adminSendPasswordReset(email: string, userId?: string, reason?: string) {
@@ -177,8 +203,43 @@ export async function adminDeleteUser(userId: string, reason?: string) {
   return callAdminApi<{ ok: boolean }>('deleteUser', { userId, reason, confirm: true })
 }
 
+export async function adminCreateUser(input: {
+  email: string
+  password: string
+  firstName?: string
+  lastName?: string
+  displayName?: string
+  role?: AdminRole
+  emailConfirmed?: boolean
+  reason?: string
+}) {
+  return callAdminApi<{ ok: boolean; userId: string; email: string; role: AdminRole }>(
+    'createUser',
+    { ...input },
+  )
+}
+
 export async function adminAddSupportNote(userId: string, note: string) {
-  return callAdminApi<{ ok: boolean }>('addSupportNote', { userId, note })
+  const remote = await callAdminApi<{ ok: boolean }>('addSupportNote', { userId, note })
+  if (!remote.error) return remote
+
+  // RLS fallback when Edge Function is unavailable
+  const supabase = getSupabase()
+  if (!supabase) return remote
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return remote
+
+  const roleResult = await fetchMyAdminRole()
+  const { error } = await supabase.from('support_notes').insert({
+    target_user_id: userId,
+    author_user_id: user.id,
+    author_role: roleResult.role,
+    note,
+  })
+  if (error) return { data: null, error: error.message }
+  return { data: { ok: true }, error: null }
 }
 
 export async function adminSetFeatureFlag(key: string, enabled: boolean, reason?: string) {

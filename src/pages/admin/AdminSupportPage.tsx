@@ -8,6 +8,7 @@ import {
   fetchAdminDirectoryLocal,
   fetchAdminUser,
   fetchAdminUsers,
+  type SupportNote,
 } from '../../services/admin/api'
 import type { AdminDirectoryUser } from '../../admin/types'
 import { getMapRuntimeDiagnostics } from '../../services/mapbox/mapRuntimeDiagnostics'
@@ -17,10 +18,15 @@ import {
   StatusBadge,
 } from '../../components/admin/AdminPrimitives'
 
+function formatDate(value: string | null | undefined) {
+  return value ? new Date(value).toLocaleString() : '—'
+}
+
 export function AdminSupportPage() {
   const [query, setQuery] = useState('')
   const [matches, setMatches] = useState<AdminDirectoryUser[]>([])
   const [selected, setSelected] = useState<AdminDirectoryUser | null>(null)
+  const [supportNotes, setSupportNotes] = useState<SupportNote[]>([])
   const [note, setNote] = useState('')
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -35,11 +41,16 @@ export function AdminSupportPage() {
       (u) =>
         (u.email ?? '').toLowerCase().includes(q) ||
         (u.display_name ?? '').toLowerCase().includes(q) ||
+        `${u.first_name ?? ''} ${u.last_name ?? ''}`.toLowerCase().includes(q) ||
         u.user_id.toLowerCase().includes(q),
     )
     setMatches(found.slice(0, 20))
-    setSelected(found[0] ?? null)
-    if (!found.length) setMessage('No users matched.')
+    if (found[0]) await loadDetail(found[0])
+    else {
+      setSelected(null)
+      setSupportNotes([])
+      setMessage('No users matched.')
+    }
   }
 
   const run = async (label: string, fn: () => Promise<{ error: string | null }>) => {
@@ -53,7 +64,25 @@ export function AdminSupportPage() {
 
   const loadDetail = async (user: AdminDirectoryUser) => {
     setSelected(user)
-    await fetchAdminUser(user.user_id)
+    setBusy(true)
+    const detail = await fetchAdminUser(user.user_id)
+    setSupportNotes(detail.data?.supportNotes ?? [])
+    if (detail.data?.user) setSelected(detail.data.user)
+    setBusy(false)
+  }
+
+  const saveNote = async () => {
+    if (!selected || !note.trim()) return
+    setBusy(true)
+    const result = await adminAddSupportNote(selected.user_id, note.trim())
+    setBusy(false)
+    if (result.error) {
+      setMessage(result.error)
+      return
+    }
+    setNote('')
+    setMessage('Support note added.')
+    await loadDetail(selected)
   }
 
   return (
@@ -184,6 +213,11 @@ export function AdminSupportPage() {
                     people: selected.people_count,
                     places: selected.places_count,
                   },
+                  notes: supportNotes.map((n) => ({
+                    at: n.created_at,
+                    role: n.author_role,
+                    note: n.note,
+                  })),
                   app: map.appBuildVersion,
                   generatedAt: new Date().toISOString(),
                 }
@@ -196,8 +230,23 @@ export function AdminSupportPage() {
           </div>
 
           <div className="space-y-2">
+            <h3 className="text-pack-text text-sm font-medium">Support notes</h3>
+            {supportNotes.length === 0 ? (
+              <p className="text-pack-text-muted text-xs">No support notes yet.</p>
+            ) : (
+              <div className="max-h-64 space-y-2 overflow-y-auto">
+                {supportNotes.map((n) => (
+                  <div key={n.id} className="border-pack-border rounded-xl border px-3 py-2 text-sm">
+                    <p className="text-pack-text">{n.note}</p>
+                    <p className="text-pack-text-muted mt-1 text-xs">
+                      {n.author_role} · {formatDate(n.created_at)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
             <label className="text-pack-text-muted text-xs uppercase tracking-wide">
-              Internal support note
+              Add internal note
             </label>
             <textarea
               value={note}
@@ -206,16 +255,7 @@ export function AdminSupportPage() {
               className="border-pack-border bg-[#121212] text-pack-text w-full rounded-xl border px-3 py-2 text-sm"
               placeholder="Internal only — never shown to the user"
             />
-            <AdminButton
-              disabled={busy || !note.trim()}
-              onClick={() =>
-                void run('Add support note', async () => {
-                  const result = await adminAddSupportNote(selected.user_id, note.trim())
-                  if (!result.error) setNote('')
-                  return result
-                })
-              }
-            >
+            <AdminButton disabled={busy || !note.trim()} onClick={() => void saveNote()}>
               Add note
             </AdminButton>
           </div>

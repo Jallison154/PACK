@@ -386,6 +386,87 @@ Deno.serve(async (req) => {
         return json({ ok: true })
       }
 
+      case 'createUser': {
+        if (!can(role, 'admin')) return json({ error: 'Forbidden' }, 403)
+
+        const email = String(body.email ?? '').trim().toLowerCase()
+        const password = String(body.password ?? '')
+        const firstName = String(body.firstName ?? '').trim()
+        const lastName = String(body.lastName ?? '').trim()
+        const displayName =
+          String(body.displayName ?? '').trim() ||
+          [firstName, lastName].filter(Boolean).join(' ') ||
+          null
+        const emailConfirmed = body.emailConfirmed !== false
+        let assignRole = (body.role as Role | undefined) ?? 'user'
+
+        if (!email || !email.includes('@')) {
+          return json({ error: 'A valid email is required.' }, 400)
+        }
+        if (password.length < 8) {
+          return json({ error: 'Password must be at least 8 characters.' }, 400)
+        }
+        if (!['user', 'support', 'admin', 'owner'].includes(assignRole)) {
+          return json({ error: 'Invalid role.' }, 400)
+        }
+        // Only owners may assign staff/admin/owner roles at create time
+        if (assignRole !== 'user' && role !== 'owner') {
+          return json({ error: 'Only an owner can assign staff roles.' }, 403)
+        }
+
+        const { data: created, error: createError } = await adminClient.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: emailConfirmed,
+          user_metadata: {
+            display_name: displayName,
+            first_name: firstName || null,
+            last_name: lastName || null,
+          },
+        })
+        if (createError) return json({ error: createError.message }, 400)
+        const newUserId = created.user?.id
+        if (!newUserId) return json({ error: 'User was not created.' }, 500)
+
+        // Ensure profile fields (trigger may already insert a basic row)
+        await adminClient.from('profiles').upsert({
+          id: newUserId,
+          email,
+          display_name: displayName,
+          first_name: firstName || null,
+          last_name: lastName || null,
+          updated_at: new Date().toISOString(),
+        })
+
+        await adminClient.from('user_roles').upsert({
+          user_id: newUserId,
+          role: assignRole,
+          assigned_by: user.id,
+          updated_at: new Date().toISOString(),
+        })
+
+        await adminClient.from('user_pack_stats').upsert({
+          user_id: newUserId,
+          account_status: 'active',
+          updated_at: new Date().toISOString(),
+        })
+
+        await audit(
+          'user_account_created',
+          newUserId,
+          body.reason,
+          null,
+          { email, role: assignRole, email_confirmed: emailConfirmed },
+        )
+
+        return json({
+          ok: true,
+          userId: newUserId,
+          email,
+          role: assignRole,
+        })
+      }
+
       case 'addSupportNote': {
         if (!can(role, 'support')) return json({ error: 'Forbidden' }, 403)
         const targetId = body.userId as string

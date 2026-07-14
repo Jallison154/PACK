@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  adminAddSupportNote,
   adminChangeRole,
+  adminCreateUser,
   adminDeleteUser,
   adminExportUserMeta,
   adminReactivateUser,
@@ -82,6 +84,7 @@ export function AdminUsersPage() {
   const [filter, setFilter] = useState<Filter>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [showCreate, setShowCreate] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -169,6 +172,17 @@ export function AdminUsersPage() {
           <option value="admin_roles">Admin roles</option>
           <option value="recent">Recently created</option>
         </select>
+        {canManageUsers && (
+          <AdminButton
+            variant="primary"
+            onClick={() => {
+              setShowCreate((v) => !v)
+              setSelectedId(null)
+            }}
+          >
+            {showCreate ? 'Close form' : 'Add user'}
+          </AdminButton>
+        )}
         <AdminButton onClick={() => void load()}>Refresh</AdminButton>
         {isAdmin && (
           <AdminButton
@@ -184,6 +198,18 @@ export function AdminUsersPage() {
           </AdminButton>
         )}
       </div>
+
+      {showCreate && canManageUsers && (
+        <CreateUserPanel
+          canAssignRoles={canAssignRoles}
+          onCancel={() => setShowCreate(false)}
+          onCreated={(msg) => {
+            setMessage(msg)
+            setShowCreate(false)
+            void load()
+          }}
+        />
+      )}
 
       {loading ? (
         <p className="text-pack-text-muted text-sm">Loading users…</p>
@@ -259,6 +285,168 @@ export function AdminUsersPage() {
   )
 }
 
+function CreateUserPanel({
+  canAssignRoles,
+  onCancel,
+  onCreated,
+}: {
+  canAssignRoles: boolean
+  onCancel: () => void
+  onCreated: (message: string) => void
+}) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [role, setRole] = useState<AdminRole>('user')
+  const [emailConfirmed, setEmailConfirmed] = useState(true)
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const submit = async () => {
+    setError(null)
+    if (!email.trim() || !password) {
+      setError('Email and password are required.')
+      return
+    }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.')
+      return
+    }
+    if (!window.confirm(`Create account for ${email.trim()}?`)) return
+
+    setBusy(true)
+    const result = await adminCreateUser({
+      email: email.trim(),
+      password,
+      firstName: firstName.trim() || undefined,
+      lastName: lastName.trim() || undefined,
+      displayName: displayName.trim() || undefined,
+      role: canAssignRoles ? role : 'user',
+      emailConfirmed,
+      reason: reason.trim() || 'Created from Admin Portal',
+    })
+    setBusy(false)
+
+    if (result.error) {
+      setError(result.error)
+      return
+    }
+
+    onCreated(`Created ${result.data?.email ?? email} (${result.data?.role ?? 'user'}).`)
+  }
+
+  return (
+    <AdminCard className="space-y-4 p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-pack-text text-lg font-semibold">Add user</h2>
+          <p className="text-pack-text-muted mt-1 text-sm">
+            Creates a Pack account through the secure admin API. The service-role key never leaves
+            the server.
+          </p>
+        </div>
+        <AdminButton onClick={onCancel}>Cancel</AdminButton>
+      </div>
+
+      {error && <p className="text-pack-danger text-sm">{error}</p>}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block sm:col-span-2">
+          <span className="text-pack-text-muted text-xs uppercase tracking-wide">Email</span>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+            autoComplete="off"
+          />
+        </label>
+        <label className="block sm:col-span-2">
+          <span className="text-pack-text-muted text-xs uppercase tracking-wide">
+            Temporary password
+          </span>
+          <input
+            type="text"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+            autoComplete="new-password"
+            placeholder="At least 8 characters"
+          />
+        </label>
+        <label className="block">
+          <span className="text-pack-text-muted text-xs uppercase tracking-wide">First name</span>
+          <input
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+          />
+        </label>
+        <label className="block">
+          <span className="text-pack-text-muted text-xs uppercase tracking-wide">Last name</span>
+          <input
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+          />
+        </label>
+        <label className="block sm:col-span-2">
+          <span className="text-pack-text-muted text-xs uppercase tracking-wide">
+            Display name (optional)
+          </span>
+          <input
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+          />
+        </label>
+        {canAssignRoles && (
+          <label className="block">
+            <span className="text-pack-text-muted text-xs uppercase tracking-wide">Role</span>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value as AdminRole)}
+              className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+            >
+              <option value="user">user</option>
+              <option value="support">support</option>
+              <option value="admin">admin</option>
+              <option value="owner">owner</option>
+            </select>
+          </label>
+        )}
+        <label className="flex items-center gap-2 pt-6 text-sm text-pack-text">
+          <input
+            type="checkbox"
+            checked={emailConfirmed}
+            onChange={(e) => setEmailConfirmed(e.target.checked)}
+            className="rounded border-pack-border"
+          />
+          Mark email as verified
+        </label>
+        <label className="block sm:col-span-2">
+          <span className="text-pack-text-muted text-xs uppercase tracking-wide">
+            Reason (audit)
+          </span>
+          <input
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            className="border-pack-border bg-[#121212] text-pack-text mt-1 w-full rounded-xl border px-3 py-2 text-sm"
+            placeholder="Optional"
+          />
+        </label>
+      </div>
+
+      <AdminButton variant="primary" disabled={busy} loading={busy} onClick={() => void submit()}>
+        Create account
+      </AdminButton>
+    </AdminCard>
+  )
+}
+
 function UserDetailPanel({
   user,
   canManageUsers,
@@ -278,9 +466,15 @@ function UserDetailPanel({
   const [busy, setBusy] = useState(false)
   const [reason, setReason] = useState('')
   const [role, setRole] = useState<AdminRole>(user.role)
+  const [note, setNote] = useState('')
+
+  const reloadDetail = async () => {
+    const result = await fetchAdminUser(user.user_id)
+    setDetail(result.data)
+  }
 
   useEffect(() => {
-    void fetchAdminUser(user.user_id).then((r) => setDetail(r.data))
+    void reloadDetail()
   }, [user.user_id])
 
   const run = async (label: string, fn: () => Promise<{ error: string | null }>) => {
@@ -290,6 +484,20 @@ function UserDetailPanel({
     setBusy(false)
     if (result.error) onMessage(result.error)
     else onMessage(`${label} completed.`)
+  }
+
+  const saveNote = async () => {
+    if (!note.trim()) return
+    setBusy(true)
+    const result = await adminAddSupportNote(user.user_id, note.trim())
+    setBusy(false)
+    if (result.error) {
+      onMessage(result.error)
+      return
+    }
+    setNote('')
+    onMessage('Support note added.')
+    await reloadDetail()
   }
 
   return (
@@ -442,11 +650,23 @@ function UserDetailPanel({
         )}
       </div>
 
-      {detail?.supportNotes && detail.supportNotes.length > 0 && (
-        <div>
-          <h3 className="text-pack-text mb-2 text-sm font-medium">Support notes</h3>
+      <div className="space-y-2">
+        <h3 className="text-pack-text text-sm font-medium">Support notes</h3>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          rows={3}
+          className="border-pack-border bg-[#121212] text-pack-text w-full rounded-xl border px-3 py-2 text-sm"
+          placeholder="Internal only — never shown to the user"
+        />
+        <AdminButton disabled={busy || !note.trim()} onClick={() => void saveNote()}>
+          Add note
+        </AdminButton>
+        {(detail?.supportNotes ?? []).length === 0 ? (
+          <p className="text-pack-text-muted text-xs">No support notes yet.</p>
+        ) : (
           <div className="space-y-2">
-            {detail.supportNotes.map((n) => (
+            {detail!.supportNotes.map((n) => (
               <div key={n.id} className="border-pack-border rounded-xl border px-3 py-2 text-sm">
                 <p className="text-pack-text">{n.note}</p>
                 <p className="text-pack-text-muted mt-1 text-xs">
@@ -455,8 +675,8 @@ function UserDetailPanel({
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {detail?.auditHistory && detail.auditHistory.length > 0 && (
         <div>
