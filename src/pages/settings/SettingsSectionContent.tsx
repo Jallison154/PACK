@@ -19,6 +19,7 @@ import {
 import { openPackFeedbackEmail, openPackFeatureRequestEmail } from '../../utils/feedback'
 import type { SettingsSectionId } from '../../settings/sections'
 import { AccountSettings } from './AccountSettings'
+import { PackSyncSettings } from './PackSyncSettings'
 import {
   getMapRuntimeDiagnostics,
   subscribeMapRuntimeDiagnostics,
@@ -60,42 +61,46 @@ function DataSettings() {
   } = useDataActions()
 
   return (
-    <SettingsDetailCard>
-      <ActionRow
-        label="Export CSV"
-        description="Spreadsheet-friendly export"
-        action={<SettingsButton onClick={handleExportCSV}>Export</SettingsButton>}
-      />
-      <ActionRow
-        label="Export JSON"
-        description="Full Pack backup"
-        action={<SettingsButton onClick={handleExportJSON}>Export</SettingsButton>}
-      />
-      <ActionRow
-        label="Import Database"
-        description="Restore from a JSON backup"
-        action={
-          <SettingsButton onClick={handleImport} loading={importing}>
-            Import
-          </SettingsButton>
-        }
-      />
-      <ActionRow
-        label="Export SQLite"
-        description="Raw database file"
-        action={<SettingsButton onClick={handleExportDB}>Export</SettingsButton>}
-      />
-      <ActionRow
-        label="Backup Now"
-        description="Save a backup to this device"
-        action={
-          <SettingsButton onClick={handleBackupNow} loading={backingUp}>
-            Backup
-          </SettingsButton>
-        }
-      />
-      <InfoRow label="Database size" value={storageUsed ?? '—'} />
-    </SettingsDetailCard>
+    <div className="space-y-6">
+      <PackSyncSettings />
+
+      <SettingsDetailCard>
+        <ActionRow
+          label="Export CSV"
+          description="Spreadsheet-friendly export"
+          action={<SettingsButton onClick={handleExportCSV}>Export</SettingsButton>}
+        />
+        <ActionRow
+          label="Export JSON"
+          description="Full Pack backup"
+          action={<SettingsButton onClick={handleExportJSON}>Export</SettingsButton>}
+        />
+        <ActionRow
+          label="Import Database"
+          description="Restore from a JSON backup"
+          action={
+            <SettingsButton onClick={handleImport} loading={importing}>
+              Import
+            </SettingsButton>
+          }
+        />
+        <ActionRow
+          label="Export SQLite"
+          description="Raw database file"
+          action={<SettingsButton onClick={handleExportDB}>Export</SettingsButton>}
+        />
+        <ActionRow
+          label="Backup Now"
+          description="Save a backup to this device"
+          action={
+            <SettingsButton onClick={handleBackupNow} loading={backingUp}>
+              Backup
+            </SettingsButton>
+          }
+        />
+        <InfoRow label="Database size" value={storageUsed ?? '—'} />
+      </SettingsDetailCard>
+    </div>
   )
 }
 

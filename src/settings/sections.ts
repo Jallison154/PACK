@@ -16,13 +16,13 @@ export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
   {
     id: 'account',
     title: 'Account',
-    subtitle: 'Profile, sign-in, and Pack Sync',
+    subtitle: 'Profile, sign-in, and security',
     icon: UserCircle,
   },
   {
     id: 'data',
     title: 'Data & Backup',
-    subtitle: 'Export, import, and local storage',
+    subtitle: 'Pack Sync, export, import, and storage',
     icon: Database,
   },
   {

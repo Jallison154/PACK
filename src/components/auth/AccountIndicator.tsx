@@ -121,7 +121,7 @@ export function AccountIndicator() {
             </button>
             <button
               type="button"
-              onClick={() => closeAndNavigate('/settings/account')}
+              onClick={() => closeAndNavigate('/settings/data')}
               className="hover:bg-pack-card-hover/60 w-full rounded-xl px-3 py-2 text-left text-sm"
             >
               <span className="flex items-center justify-between gap-3">

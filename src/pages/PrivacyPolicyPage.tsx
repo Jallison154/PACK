@@ -123,8 +123,8 @@ const policyContent = (
         infrastructure (Supabase PostgreSQL) so you can use Pack across devices.
       </p>
       <p>
-        You can turn Pack Sync off from Settings → Account. Local changes may still be saved on
-        this device until sync is enabled again.
+        You can turn Pack Sync off from Settings → Data &amp; Backup. Local changes may still be
+        saved on this device until sync is enabled again.
       </p>
     </Section>
 
@@ -165,7 +165,7 @@ const policyContent = (
         <li>Export your Pack data</li>
         <li>Delete your account and associated cloud Pack data from Settings → Account</li>
         <li>Disable location access in your device settings</li>
-        <li>Disable Pack Sync while keeping data on this device</li>
+        <li>Disable Pack Sync while keeping data on this device (Settings → Data &amp; Backup)</li>
       </ul>
     </Section>
 
