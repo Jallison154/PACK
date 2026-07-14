@@ -90,6 +90,18 @@ Deleting an account in **Settings → Account** removes all Pack data from Postg
 
 If `VITE_SUPABASE_*` is not set, Pack works exactly as before — local IndexedDB only, no login required.
 
+## 9. Admin Portal
+
+See [ADMIN.md](./ADMIN.md) for roles, migrations (`009`, `010`), and the `admin-api` Edge Function.
+
+Privileged Auth Admin operations (list all users, suspend, delete, revoke sessions) require:
+
+```bash
+supabase functions deploy admin-api
+```
+
+with `SUPABASE_SERVICE_ROLE_KEY` as a **server secret only** — never a `VITE_*` variable.
+
 ## Security checklist
 
 - [ ] RLS enabled on all tables (included in migration)
@@ -97,3 +109,5 @@ If `VITE_SUPABASE_*` is not set, Pack works exactly as before — local IndexedD
 - [ ] `service_role` key never in client bundle
 - [ ] Email confirmation enabled (production)
 - [ ] Supabase rate limiting / CAPTCHA if needed
+- [ ] Admin Portal owner promoted via SQL after migration
+- [ ] `admin-api` Edge Function deployed

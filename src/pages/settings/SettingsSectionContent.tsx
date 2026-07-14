@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useSyncExternalStore } from 'react'
 import packLogoSrc from '../../assets/pack-logo-transparent.png'
+import { useAdminOptional } from '../../context/AdminContext'
 import {
   SettingsDetailCard,
   ToggleRow,
@@ -159,6 +160,7 @@ function AdvancedSettings() {
 
 function AboutSettings() {
   const navigate = useNavigate()
+  const admin = useAdminOptional()
 
   return (
     <SettingsDetailCard>
@@ -174,6 +176,13 @@ function AboutSettings() {
           <p className="text-pack-text-muted mt-1 text-sm">Okami Designs</p>
         </div>
       </div>
+      {admin?.isStaff && (
+        <ActionRow
+          label="Admin Portal"
+          description="Staff tools — not shown to regular users"
+          action={<LinkButton onClick={() => navigate('/admin')}>Open</LinkButton>}
+        />
+      )}
       <ActionRow
         label="Website"
         action={
